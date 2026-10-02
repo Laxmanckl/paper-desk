@@ -1,0 +1,59 @@
+==================================================================
+  BACKTEST  ·  XAUUSD  ·  Gold / US Dollar
+------------------------------------------------------------------
+  DATA        sim (seed 7)  ·  700 daily bars  ·  sim-0050 -> sim-0749
+  DECISION    offline (deterministic)
+  EXECUTION   paper  ·  risk 1.0%/trade  ·  SL 1.5 ATR  ·  TP 3.0 ATR  ·  max 20 bars
+  COSTS       spread 0.3 (3 pip) per round trip
+------------------------------------------------------------------
+  start equity     $   10,000.00
+  final equity     $   10,313.91   (+3.14%)
+  buy & hold                       (-1.39%)
+  max drawdown             9.15%
+------------------------------------------------------------------
+  trades                      67   (exits: reverse 1, stop 39, target 20, time 7)
+  win rate                 37.3%
+  avg win / loss   $   +173.10 / $-95.56
+  profit factor             1.08
+  total pips            +4,265.7
+  daily decisions  BUY 383, HOLD 46, SELL 271
+------------------------------------------------------------------
+  LAST TRADES
+    BUY    sim-0689  3,248.11 -> 3,180.22  stop      -678.9 pips  $  -106.58
+    BUY    sim-0694  3,198.00 -> 3,122.42  stop      -755.8 pips  $  -105.49
+    BUY    sim-0708  3,222.86 -> 3,352.33  target   +1294.7 pips  $  +208.20
+    BUY    sim-0723  3,396.49 -> 3,317.42  stop      -790.7 pips  $  -106.50
+    BUY    sim-0736  3,338.76 -> 3,269.71  stop      -690.5 pips  $  -105.47
+    BUY    sim-0749  3,380.01 -> 3,312.29  stop      -677.2 pips  $  -104.41
+==================================================================
+  paper only · simulated fills · past results do not predict future ones · not advice
+
+==================================================================
+  BACKTEST  ·  EURUSD  ·  Euro / US Dollar
+------------------------------------------------------------------
+  DATA        sim (seed 7)  ·  700 daily bars  ·  sim-0050 -> sim-0749
+  DECISION    offline (deterministic)
+  EXECUTION   paper  ·  risk 1.0%/trade  ·  SL 1.5 ATR  ·  TP 3.0 ATR  ·  max 20 bars
+  COSTS       spread 0.0001 (1 pip) per round trip
+------------------------------------------------------------------
+  start equity     $   10,000.00
+  final equity     $   10,286.58   (+2.87%)
+  buy & hold                       (+11.06%)
+  max drawdown            16.71%
+------------------------------------------------------------------
+  trades                      69   (exits: end 1, reverse 2, stop 40, target 19, time 7)
+  win rate                 36.2%
+  avg win / loss   $   +171.01 / $-90.65
+  profit factor             1.07
+  total pips              +466.1
+  daily decisions  BUY 348, HOLD 59, SELL 293
+------------------------------------------------------------------
+  LAST TRADES
+    BUY    sim-0691      1.22994 ->     1.25467  target    +247.3 pips  $  +188.07
+    BUY    sim-0700      1.25906 ->     1.28723  target    +281.7 pips  $  +191.87
+    BUY    sim-0707      1.28878 ->     1.31994  target    +311.6 pips  $  +195.74
+    BUY    sim-0717      1.32036 ->     1.35328  target    +329.2 pips  $  +199.66
+    BUY    sim-0723      1.34252 ->     1.35641  time      +138.9 pips  $   +92.56
+    BUY    sim-0744      1.35670 ->     1.35624  end         -4.6 pips  $    -3.91
+==================================================================
+  paper only · simulated fills · past results do not predict future ones · not advice

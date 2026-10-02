@@ -1,0 +1,401 @@
+<title>XAU · EUR Paper Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a trading-desk sheet. Summary strip, equity curve, one panel per instrument, then the ledger. */
+:root {
+  --bg: #f5f6f4; --panel: #ffffff; --ink: #1c2126; --ink-2: #4c5560; --ink-3: #7c8590;
+  --rule: #dde1e3; --grid: #eceff0; --accent: #2f5d7c;
+  --xau: #b07a00; --eur: #2a78d6;
+  --good: #0f8a1f; --bad: #c43535; --warn-bg: #fbe8b4; --warn-ink: #6b4b00;
+  --good-bg: #e2f2e1; --bad-bg: #f8e2e0; --hold-bg: #eceef0;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
+  --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
+  --xau: #d9a227; --eur: #3987e5;
+  --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
+  --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
+  --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
+  --xau: #d9a227; --eur: #3987e5;
+  --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
+  --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 20px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+h1, h2 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; letter-spacing: .01em; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.muted { color: var(--ink-3); }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; }
+.title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.paper { font-family: var(--f-num); font-size: 11px; font-weight: 500; letter-spacing: .06em; padding: 3px 8px; border-radius: 3px;
+  color: var(--warn-ink); background: repeating-linear-gradient(135deg, var(--warn-bg) 0 6px, transparent 6px 9px), var(--warn-bg); border: 1px solid var(--warn-ink); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--good); }
+.dot.stale { background: var(--bad); }
+.banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 10px 14px; font-size: 13px; }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+.stat { padding: 14px 16px; display: grid; gap: 4px; border-left: 1px solid var(--rule); min-width: 0; }
+.stat:first-child { border-left: 0; }
+.stat .v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; }
+.stat .s { font-size: 12px; color: var(--ink-3); }
+.stat.hero .v { font-size: 26px; }
+.pos { color: var(--good); } .neg { color: var(--bad); }
+
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { font-family: var(--f-num); font-size: 10.5px; fill: var(--ink-3); }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--panel); font-family: var(--f-num); font-size: 11.5px;
+  padding: 5px 8px; border-radius: 4px; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; }
+
+.instruments { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+.inst-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sym { display: flex; align-items: center; gap: 8px; }
+.sym .swatch { width: 10px; height: 10px; border-radius: 2px; }
+.sym b { font-family: var(--f-display); font-size: 20px; font-weight: 600; }
+.price { font-family: var(--f-num); font-size: 22px; font-weight: 500; text-align: right; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { font-family: var(--f-num); font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 3px; background: var(--hold-bg); color: var(--ink-2); }
+.chip.buy { background: var(--good-bg); color: var(--good); }
+.chip.sell { background: var(--bad-bg); color: var(--bad); }
+.chip.exec { border: 1px solid currentColor; background: transparent; color: var(--ink); }
+.position { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.position div { display: grid; gap: 2px; min-width: 0; }
+.position .v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.flat { border-top: 1px solid var(--rule); padding-top: 12px; color: var(--ink-3); font-size: 13px; }
+.bar { height: 4px; background: var(--grid); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.bar i { display: block; height: 100%; background: var(--ink-3); }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+td.l, th.l { font-family: var(--f-body); }
+th.r, td.r { text-align: right; }
+.log { display: grid; gap: 0; font-size: 12.5px; max-height: 340px; overflow-y: auto; }
+.log div { display: grid; grid-template-columns: 118px 1fr; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--grid); }
+.log time { font-family: var(--f-num); color: var(--ink-3); font-size: 11.5px; }
+.log span { min-width: 0; overflow-wrap: anywhere; }
+.empty { padding: 28px 8px; text-align: center; color: var(--ink-3); }
+footer { font-size: 12px; color: var(--ink-3); display: grid; gap: 6px; }
+footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+@media (max-width: 520px) {
+  .stat { border-left: 0; border-top: 1px solid var(--rule); }
+  .stat:first-child { border-top: 0; }
+  .log div { grid-template-columns: 1fr; gap: 0; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="title-row"><h1>XAU · EUR Paper Desk</h1><span class="paper">PAPER · FAKE MONEY</span></div>
+      <div class="meta" id="meta"></div>
+    </div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="summary" id="summary" aria-label="Account summary"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>Account equity</h2><span class="label" id="eq-range"></span></div>
+    <div class="chart" id="equity-chart"></div>
+  </section>
+
+  <section class="instruments" id="instruments"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>Closed trades</h2><span class="label" id="trade-count"></span></div>
+    <div class="table-wrap" id="trades"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Activity</h2><span class="label">newest first</span></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <footer>
+    <div class="rules" id="rules"></div>
+    <div>Paper trading only: real prices, simulated fills, no broker and no real orders. Not financial advice.</div>
+  </footer>
+</div>
+
+<script type="application/json" id="desk-data">/*__DATA__*/</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("desk-data").textContent);
+  var A = D.account;
+  var SPEC = D.instruments;
+  var NAMES = { XAUUSD: "Gold", EURUSD: "Euro" };
+  var COLOR = { XAUUSD: "var(--xau)", EURUSD: "var(--eur)" };
+  var SYMS = Object.keys(SPEC);
+  var $ = function (id) { return document.getElementById(id); };
+
+  function money(v, sign) {
+    var s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (v < 0 ? "−$" : (sign && v > 0 ? "+$" : "$")) + s;
+  }
+  function pct(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v * 100).toFixed(2) + "%"; }
+  function px(sym, v) { var d = SPEC[sym] ? SPEC[sym].digits : 2; return Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+  function cls(v) { return v > 0 ? "pos" : v < 0 ? "neg" : ""; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ago(iso) {
+    var m = (Date.now() - new Date(iso).getTime()) / 60000;
+    if (m < 1) return "just now"; if (m < 60) return Math.round(m) + " min ago";
+    if (m < 48 * 60) return Math.round(m / 60) + " h ago"; return Math.round(m / 1440) + " days ago";
+  }
+  function stamp(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  }
+  function exitFill(p, price) { var h = SPEC[p.symbol].spread / 2; return p.side === "BUY" ? price - h : price + h; }
+  function pnlOf(p, price) { return (exitFill(p, price) - p.entry) * (p.side === "BUY" ? 1 : -1) * p.units; }
+  function riskOf(t) { return Math.abs(t.entry - t.stop) * t.units; }
+
+  // ---- derived numbers ----
+  var openPnl = 0;
+  Object.keys(A.positions).forEach(function (s) { var lp = A.last_price[s]; if (lp) openPnl += pnlOf(A.positions[s], lp.price); });
+  var equity = A.cash + openPnl;
+  var ret = equity / A.start_equity - 1;
+  var closed = A.closed || [];
+  var wins = closed.filter(function (t) { return t.pnl > 0; });
+  var peak = A.start_equity, mdd = 0;
+  (A.equity_log || []).forEach(function (pt) { peak = Math.max(peak, pt[1]); mdd = Math.max(mdd, (peak - pt[1]) / peak); });
+  var lastCheck = A.equity_log && A.equity_log.length ? A.equity_log[A.equity_log.length - 1][0] : null;
+
+  // ---- header ----
+  var staleMin = lastCheck ? (Date.now() - new Date(lastCheck).getTime()) / 60000 : Infinity;
+  var meta = [];
+  meta.push('<span><span class="dot' + (staleMin > 180 ? " stale" : "") + '"></span>' +
+    (lastCheck ? "Last check " + ago(lastCheck) : "Waiting for the first check") + "</span>");
+  meta.push("<span>Prices: " + esc(D.source_label) + "</span>");
+  meta.push("<span>Running since " + esc((A.created || "").slice(0, 10)) + "</span>");
+  $("meta").innerHTML = meta.join("");
+  if (D.preview) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Preview with simulated prices. Your own dashboard shows real gold and EUR/USD prices once the bot runs on GitHub.";
+  } else if (lastCheck && staleMin > 180) {
+    $("banner").hidden = false;
+    $("banner").textContent = "No check in the last " + Math.round(staleMin / 60) + " hours. On weekends forex is closed; otherwise open the Actions tab on GitHub to see why the bot stopped.";
+  }
+
+  // ---- summary ----
+  var stats = [
+    ["hero", "Equity", money(equity), "<span class='" + cls(ret) + "'>" + pct(ret) + "</span> from " + money(A.start_equity)],
+    ["", "Open P&L", "<span class='" + cls(openPnl) + "'>" + money(openPnl, true) + "</span>", Object.keys(A.positions).length + " open position" + (Object.keys(A.positions).length === 1 ? "" : "s")],
+    ["", "Realised", "<span class='" + cls(A.cash - A.start_equity) + "'>" + money(A.cash - A.start_equity, true) + "</span>", closed.length + " closed trade" + (closed.length === 1 ? "" : "s")],
+    ["", "Win rate", closed.length ? Math.round(100 * wins.length / closed.length) + "%" : "–", closed.length ? wins.length + " won · " + (closed.length - wins.length) + " lost" : "no closed trades yet"],
+    ["", "Max drawdown", (mdd * 100).toFixed(2) + "%", "worst drop from a peak"]
+  ];
+  $("summary").innerHTML = stats.map(function (s) {
+    return '<div class="stat ' + s[0] + '"><span class="label">' + s[1] + '</span><span class="v">' + s[2] + '</span><span class="s">' + s[3] + "</span></div>";
+  }).join("");
+
+  // ---- charts (hand-drawn SVG, redrawn on resize) ----
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function niceTicks(lo, hi, n) {
+    var span = hi - lo || Math.abs(hi) || 1, step = Math.pow(10, Math.floor(Math.log10(span / n)));
+    var err = span / n / step; step *= err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+    var t = [], v = Math.ceil(lo / step) * step;
+    for (; v <= hi + step * 1e-9; v += step) t.push(+v.toPrecision(12));
+    return t;
+  }
+
+  function lineChart(box, pts, opt) {
+    // pts: [{x: Date|number, y: number, label: string}]
+    box.innerHTML = "";
+    if (pts.length < 2) { box.innerHTML = '<div class="empty">' + opt.empty + "</div>"; return; }
+    var W = Math.max(280, box.clientWidth), H = opt.height, L = opt.left || 62, R = opt.right || 12, T = 10, B = 22;
+    var xs = pts.map(function (p) { return +p.x; }), ys = pts.map(function (p) { return p.y; });
+    var extra = (opt.levels || []).map(function (l) { return l.y; }).concat(opt.baseline != null ? [opt.baseline] : []);
+    var lo = Math.min.apply(null, ys.concat(extra)), hi = Math.max.apply(null, ys.concat(extra));
+    var pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.01 || 1; lo -= pad; hi += pad;
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var sx = function (v) { return L + (W - L - R) * (x1 === x0 ? 0.5 : (v - x0) / (x1 - x0)); };
+    var sy = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, height: H, role: "img", "aria-label": opt.aria }, box);
+    niceTicks(lo, hi, 4).forEach(function (t) {
+      el("line", { x1: L, x2: W - R, y1: sy(t), y2: sy(t), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+      el("text", { x: L - 8, y: sy(t) + 3.5, "text-anchor": "end" }, svg).textContent = opt.yfmt(t);
+    });
+    var xt = [pts[0], pts[Math.floor(pts.length / 2)], pts[pts.length - 1]];
+    xt.forEach(function (p, i) {
+      el("text", { x: sx(+p.x), y: H - 5, "text-anchor": i === 0 ? "start" : i === 2 ? "end" : "middle" }, svg).textContent = opt.xfmt(p.x);
+    });
+    if (opt.baseline != null) {
+      el("line", { x1: L, x2: W - R, y1: sy(opt.baseline), y2: sy(opt.baseline), stroke: "var(--ink-3)", "stroke-dasharray": "3 4", "stroke-width": 1 }, svg);
+    }
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + sx(+p.x).toFixed(1) + " " + sy(p.y).toFixed(1); }).join("");
+    if (opt.area) {
+      var base = sy(opt.baseline != null ? opt.baseline : lo);
+      el("path", { d: d + "L" + sx(x1) + " " + base + "L" + sx(x0) + " " + base + "Z", fill: opt.color, opacity: 0.1 }, svg);
+    }
+    // level lines, labels nudged apart so close levels never overprint
+    var lv = (opt.levels || []).slice().sort(function (a, b) { return sy(a.y) - sy(b.y); });
+    var lastY = -Infinity;
+    lv.forEach(function (l) {
+      el("line", { x1: L, x2: W - R, y1: sy(l.y), y2: sy(l.y), stroke: l.color, "stroke-width": 1.5, "stroke-dasharray": l.dash || "" }, svg);
+      var ly = Math.max(sy(l.y) - 4, lastY + 12); lastY = ly;
+      var bg = el("rect", { y: ly - 9, height: 12, fill: "var(--panel)", opacity: 0.85 }, svg);
+      var tx = el("text", { x: W - R - 2, y: ly, "text-anchor": "end" }, svg);
+      tx.textContent = l.label; tx.style.fill = l.color;
+      var w = tx.getComputedTextLength ? tx.getComputedTextLength() : l.label.length * 6.3;
+      bg.setAttribute("x", W - R - 4 - w); bg.setAttribute("width", w + 4);
+    });
+    el("path", { d: d, fill: "none", stroke: opt.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    var last = pts[pts.length - 1];
+    el("circle", { cx: sx(+last.x), cy: sy(last.y), r: 4, fill: opt.color, stroke: "var(--panel)", "stroke-width": 2 }, svg);
+
+    // hover crosshair + tooltip
+    var cross = el("line", { y1: T, y2: H - B, stroke: "var(--ink-3)", "stroke-width": 1, visibility: "hidden" }, svg);
+    var dot = el("circle", { r: 4, fill: opt.color, stroke: "var(--panel)", "stroke-width": 2, visibility: "hidden" }, svg);
+    var tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+    var hit = el("rect", { x: L, y: 0, width: W - L - R, height: H, fill: "transparent" }, svg);
+    function move(ev) {
+      var r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * W / r.width, best = 0, bd = Infinity;
+      pts.forEach(function (p, i) { var dd = Math.abs(sx(+p.x) - mx); if (dd < bd) { bd = dd; best = i; } });
+      var p = pts[best], cx = sx(+p.x), cy = sy(p.y);
+      cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("visibility", "visible");
+      tip.hidden = false; tip.textContent = p.label;
+      tip.style.left = Math.min(Math.max(cx * r.width / W, 70), r.width - 70) + "px"; tip.style.top = (cy * r.height / H) + "px";
+    }
+    function leave() { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.hidden = true; }
+    hit.addEventListener("pointermove", move); hit.addEventListener("pointerleave", leave);
+  }
+
+  function drawEquity() {
+    var log = A.equity_log || [];
+    var pts = log.map(function (p) { return { x: new Date(p[0]), y: p[1], label: stamp(p[0]) + "  " + money(p[1]) }; });
+    if (log.length) $("eq-range").textContent = stamp(log[0][0]) + " → " + stamp(log[log.length - 1][0]);
+    lineChart($("equity-chart"), pts, {
+      height: 220, color: "var(--accent)", area: true, baseline: A.start_equity, aria: "Account equity over time",
+      empty: "The equity curve appears after the first two checks.",
+      yfmt: function (v) { return "$" + Math.round(v).toLocaleString("en-US"); },
+      xfmt: function (d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
+    });
+  }
+
+  // ---- instrument panels ----
+  function instrumentPanel(sym) {
+    var lp = A.last_price[sym], dec = A.last_decision[sym], pos = A.positions[sym];
+    var closes = A.closes[sym] || [];
+    var prev = closes.length ? closes[closes.length - 1][1] : null;
+    var chg = lp && prev ? lp.price / prev - 1 : null;
+    var card = document.createElement("section"); card.className = "card";
+    var chips = "";
+    if (dec) {
+      var a = dec.action.toLowerCase();
+      chips = '<span class="chip ' + (a === "buy" || a === "sell" ? a : "") + '">' + dec.action + " · p " + Math.round(dec.probability * 100) + "%</span>" +
+        '<span class="chip ' + (dec.gate === "EXECUTE" ? "exec" : "") + '">' + (dec.gate === "EXECUTE" ? "executed" : "skipped") + "</span>" +
+        '<span class="muted" style="font-size:12px">signal from ' + esc(dec.bar) + " close · " + esc(dec.regime) + "</span>";
+    } else { chips = '<span class="muted" style="font-size:12px">no signal yet</span>'; }
+    card.innerHTML =
+      '<div class="inst-head"><div style="display:grid;gap:4px"><div class="sym"><span class="swatch" style="background:' + COLOR[sym] + '"></span><b>' + sym + "</b></div>" +
+      '<span class="muted" style="font-size:12.5px">' + esc(SPEC[sym].name) + "</span></div>" +
+      '<div><div class="price">' + (lp ? px(sym, lp.price) : "–") + "</div>" +
+      '<div class="num ' + (chg != null ? cls(chg) : "") + '" style="text-align:right;font-size:12.5px">' + (chg != null ? pct(chg) + " vs last close" : "") + "</div></div></div>" +
+      '<div class="chips">' + chips + "</div>" +
+      '<div class="chart" data-sym="' + sym + '"></div>' + positionBlock(sym, pos, lp);
+    return card;
+  }
+  function positionBlock(sym, p, lp) {
+    if (!p) return '<div class="flat">No open position. The bot opens one when a new daily signal passes the risk gate.</div>';
+    var pnl = lp ? pnlOf(p, lp.price) : 0, r = riskOf(p);
+    var pips = lp ? (exitFill(p, lp.price) - p.entry) * (p.side === "BUY" ? 1 : -1) / SPEC[sym].pip : 0;
+    var held = (A.closes[sym] || []).filter(function (c) { return c[0] > p.opened_at.slice(0, 10); }).length;
+    var maxHold = (D.config && D.config.max_hold) || 20;
+    return '<div class="position">' +
+      '<div><span class="label">Side</span><span class="v"><span class="chip ' + p.side.toLowerCase() + '">' + p.side + "</span></span></div>" +
+      '<div><span class="label">Entry</span><span class="v">' + px(sym, p.entry) + "</span></div>" +
+      '<div><span class="label">Stop</span><span class="v neg">' + px(sym, p.stop) + "</span></div>" +
+      '<div><span class="label">Target</span><span class="v pos">' + px(sym, p.target) + "</span></div>" +
+      '<div><span class="label">P&amp;L</span><span class="v ' + cls(pnl) + '">' + money(pnl, true) + "</span></div>" +
+      '<div><span class="label">Pips</span><span class="v ' + cls(pnl) + '">' + (pips > 0 ? "+" : "") + pips.toFixed(1) + "</span></div>" +
+      '<div><span class="label">R multiple</span><span class="v ' + cls(pnl) + '">' + (r ? (pnl / r).toFixed(2) : "0.00") + "R</span></div>" +
+      '<div style="grid-column:1/-1"><span class="label">Held ' + held + " of " + maxHold + " trading days · opened " + esc(stamp(p.opened_at)) + '</span><div class="bar"><i style="width:' + Math.min(100, 100 * held / maxHold) + '%"></i></div></div>' +
+      "</div>";
+  }
+  function drawPrices() {
+    document.querySelectorAll(".chart[data-sym]").forEach(function (box) {
+      var sym = box.dataset.sym, p = A.positions[sym];
+      var pts = (A.closes[sym] || []).map(function (c) { return { x: new Date(c[0] + "T00:00:00Z"), y: c[1], label: c[0] + "  " + px(sym, c[1]) }; });
+      var levels = p ? [
+        { y: p.target, color: "var(--good)", label: "target " + px(sym, p.target), dash: "5 3" },
+        { y: p.entry, color: "var(--ink-2)", label: p.side.toLowerCase() + " " + px(sym, p.entry) },
+        { y: p.stop, color: "var(--bad)", label: "stop " + px(sym, p.stop), dash: "5 3" }
+      ] : [];
+      lineChart(box, pts, {
+        height: 170, color: COLOR[sym], levels: levels, left: sym === "EURUSD" ? 58 : 50, aria: sym + " daily closes",
+        empty: "Daily prices appear after the first check.",
+        yfmt: function (v) { return sym === "EURUSD" ? v.toFixed(3) : Math.round(v).toLocaleString("en-US"); },
+        xfmt: function (d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
+      });
+    });
+  }
+
+  var inst = $("instruments");
+  SYMS.forEach(function (s) { inst.appendChild(instrumentPanel(s)); });
+
+  // ---- closed trades ----
+  $("trade-count").textContent = closed.length ? closed.length + " total" : "";
+  if (!closed.length) {
+    $("trades").innerHTML = '<div class="empty">No closed trades yet. Each trade closes at its stop, its target, after ' + ((D.config && D.config.max_hold) || 20) + " trading days, or when the signal flips.</div>";
+  } else {
+    var REASON = { stop: "stop-loss", target: "target", time: "time limit", reverse: "signal flipped", end: "end" };
+    var rows = closed.slice().reverse().map(function (t) {
+      var r = riskOf(t);
+      return "<tr><td class='l'>" + esc((t.closed_at || "").slice(0, 10)) + "</td>" +
+        "<td class='l'><span class='sym'><span class='swatch' style='background:" + COLOR[t.symbol] + "'></span>" + t.symbol + "</span></td>" +
+        "<td><span class='chip " + t.side.toLowerCase() + "'>" + t.side + "</span></td>" +
+        "<td class='r'>" + px(t.symbol, t.entry) + "</td><td class='r'>" + px(t.symbol, t.exit) + "</td>" +
+        "<td class='l'>" + (REASON[t.reason] || esc(t.reason)) + "</td>" +
+        "<td class='r " + cls(t.pnl) + "'>" + (t.pips > 0 ? "+" : "") + t.pips.toFixed(1) + "</td>" +
+        "<td class='r " + cls(t.pnl) + "'>" + (r ? (t.pnl / r).toFixed(2) + "R" : "–") + "</td>" +
+        "<td class='r " + cls(t.pnl) + "'>" + money(t.pnl, true) + "</td></tr>";
+    }).join("");
+    $("trades").innerHTML = "<table><thead><tr><th class='l'>Closed</th><th class='l'>Pair</th><th>Side</th><th class='r'>Entry</th><th class='r'>Exit</th><th class='l'>Why</th><th class='r'>Pips</th><th class='r'>R</th><th class='r'>P&amp;L</th></tr></thead><tbody>" + rows + "</tbody></table>";
+  }
+
+  // ---- activity ----
+  var ev = (A.events || []).slice(-60).reverse();
+  $("log").innerHTML = ev.length ? ev.map(function (e) {
+    return "<div><time>" + esc(stamp(e[0])) + "</time><span>" + esc(e[1]) + "</span></div>";
+  }).join("") : '<div class="empty" style="display:block">Nothing yet. Each check adds a line here.</div>';
+
+  // ---- rules ----
+  var C = D.config || {};
+  $("rules").innerHTML = [
+    "Risk " + ((C.risk_pct || 0.01) * 100).toFixed(1) + "% per trade",
+    "Stop " + (C.sl_atr || 1.5) + " × ATR",
+    "Target " + (C.tp_atr || 3) + " × ATR",
+    "Max hold " + (C.max_hold || 20) + " days",
+    "Spread: gold $" + SPEC.XAUUSD.spread.toFixed(2) + ", EUR/USD " + (SPEC.EURUSD.spread / SPEC.EURUSD.pip).toFixed(0) + " pip",
+    "One decision per trading day"
+  ].map(function (t) { return "<span>" + t + "</span>"; }).join("");
+
+  function draw() { drawEquity(); drawPrices(); }
+  draw();
+  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(draw, 120); });
+  if (D.auto_refresh_min) setTimeout(function () { location.reload(); }, D.auto_refresh_min * 60000);
+})();
+</script>
