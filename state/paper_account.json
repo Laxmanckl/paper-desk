@@ -64,7 +64,7 @@
     },
     "EURUSD": {
       "price": 1.1257,
-      "time": "2026-10-02T21:20:05+00:00",
+      "time": "2026-10-02T21:29:05+00:00",
       "source": "yahoo"
     }
   },
@@ -73,6 +73,10 @@
   "equity_log": [
     [
       "2026-10-02T21:20:47+00:00",
+      9998.69
+    ],
+    [
+      "2026-10-03T01:13:16+00:00",
       9998.69
     ]
   ],
@@ -92,6 +96,14 @@
     [
       "2026-10-02T21:20:47+00:00",
       "EURUSD: OPENED SELL at 1.12565  stop 1.13486  target 1.10724  size 10,861.32 units"
+    ],
+    [
+      "2026-10-03T01:13:16+00:00",
+      "XAUUSD: market closed or quote stale (last Fri 02 Oct 20:59 UTC); positions held, no new trades"
+    ],
+    [
+      "2026-10-03T01:13:16+00:00",
+      "EURUSD: market closed or quote stale (last Fri 02 Oct 21:29 UTC); positions held, no new trades"
     ]
   ],
   "closes": {
