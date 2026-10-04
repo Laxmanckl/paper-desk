@@ -94,6 +94,10 @@
     [
       "2026-10-03T21:21:04+00:00",
       10005.97
+    ],
+    [
+      "2026-10-04T00:42:29+00:00",
+      10005.97
     ]
   ],
   "events": [
@@ -151,6 +155,14 @@
     ],
     [
       "2026-10-03T21:21:04+00:00",
+      "EURUSD: market closed or quote stale (last Fri 02 Oct 21:29 UTC); positions held, no new trades"
+    ],
+    [
+      "2026-10-04T00:42:29+00:00",
+      "XAUUSD: market closed or quote stale (last Fri 02 Oct 20:59 UTC); positions held, no new trades"
+    ],
+    [
+      "2026-10-04T00:42:29+00:00",
       "EURUSD: market closed or quote stale (last Fri 02 Oct 21:29 UTC); positions held, no new trades"
     ]
   ],
