@@ -29,18 +29,18 @@
   },
   "closed": [],
   "last_bar": {
-    "XAUUSD": "2026-10-01",
+    "XAUUSD": "2026-10-02",
     "EURUSD": "2026-10-01"
   },
   "last_decision": {
     "XAUUSD": {
-      "bar": "2026-10-01",
+      "bar": "2026-10-02",
       "action": "SELL",
-      "probability": 0.814,
-      "confidence": 0.765,
+      "probability": 0.847,
+      "confidence": 0.796,
       "gate": "EXECUTE",
       "reason": "",
-      "momentum": -0.53,
+      "momentum": -0.57,
       "regime": "neutral",
       "source": "offline"
     },
@@ -58,13 +58,13 @@
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4162.3,
-      "time": "2026-10-02T20:59:58+00:00",
+      "price": 4184.1,
+      "time": "2026-10-05T00:48:50+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
-      "price": 1.1266,
-      "time": "2026-10-04T21:30:50+00:00",
+      "price": 1.1246,
+      "time": "2026-10-05T00:58:49+00:00",
       "source": "yahoo"
     }
   },
@@ -114,6 +114,10 @@
     [
       "2026-10-04T21:31:50+00:00",
       9996.2
+    ],
+    [
+      "2026-10-05T00:58:55+00:00",
+      10001.72
     ]
   ],
   "events": [
@@ -208,14 +212,14 @@
     [
       "2026-10-04T21:31:50+00:00",
       "XAUUSD: market closed or quote stale (last Fri 02 Oct 20:59 UTC); positions held, no new trades"
+    ],
+    [
+      "2026-10-05T00:58:55+00:00",
+      "XAUUSD: new daily bar 2026-10-02 -> SELL (p 85%, conf 80%) gate EXECUTE \u00b7 already holding this side"
     ]
   ],
   "closes": {
     "XAUUSD": [
-      [
-        "2026-05-26",
-        4502.3
-      ],
       [
         "2026-05-27",
         4448.4
@@ -571,6 +575,10 @@
       [
         "2026-10-01",
         4202.3
+      ],
+      [
+        "2026-10-02",
+        4162.3
       ]
     ],
     "EURUSD": [
