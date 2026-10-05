@@ -54,7 +54,7 @@ python3 tests.py | tail -1
 say "Switching GitHub to server mode"
 sudo systemctl stop "$SERVICE" 2>/dev/null || true
 git pull -q --rebase origin main            # newest account from GitHub mode
-if [ "$(tr -d '[:space:]' < state/runner.txt 2>/dev/null || true)" != "server" ]; then
+if [ "$(cat state/runner.txt 2>/dev/null | tr -d '[:space:]')" != "server" ]; then
   echo server > state/runner.txt
   git add state/runner.txt
   git commit -q -m "Switch to always-on server"
