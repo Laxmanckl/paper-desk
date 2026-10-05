@@ -174,22 +174,31 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   var wins = closed.filter(function (t) { return t.pnl > 0; });
   var peak = A.start_equity, mdd = 0;
   (A.equity_log || []).forEach(function (pt) { peak = Math.max(peak, pt[1]); mdd = Math.max(mdd, (peak - pt[1]) / peak); });
-  var lastCheck = A.equity_log && A.equity_log.length ? A.equity_log[A.equity_log.length - 1][0] : null;
+  var lastCheck = A.last_check || (A.equity_log && A.equity_log.length ? A.equity_log[A.equity_log.length - 1][0] : null);
+  var R = A.runner || {};
+  var isServer = R.kind === "server";
+  var RUNNER_LABEL = { server: "Always-on server", github: "GitHub, hourly", computer: "Own computer" };
+  var staleLimit = isServer ? 45 : 180;      // minutes before the dot turns red
 
   // ---- header ----
   var staleMin = lastCheck ? (Date.now() - new Date(lastCheck).getTime()) / 60000 : Infinity;
   var meta = [];
-  meta.push('<span><span class="dot' + (staleMin > 180 ? " stale" : "") + '"></span>' +
+  meta.push('<span><span class="dot' + (staleMin > staleLimit ? " stale" : "") + '"></span>' +
     (lastCheck ? "Last check " + ago(lastCheck) : "Waiting for the first check") + "</span>");
+  meta.push("<span>Runner: " + esc(RUNNER_LABEL[R.kind] || "GitHub, hourly") +
+    (isServer && R.every_min ? " · checks every " + (R.every_min === 1 ? "minute" : R.every_min + " min") +
+      ", page updates every ~15 min" : "") + "</span>");
   meta.push("<span>Prices: " + esc(D.source_label) + "</span>");
   meta.push("<span>Running since " + esc((A.created || "").slice(0, 10)) + "</span>");
   $("meta").innerHTML = meta.join("");
   if (D.preview) {
     $("banner").hidden = false;
     $("banner").textContent = "Preview with simulated prices. Your own dashboard shows real gold and EUR/USD prices once the bot runs on GitHub.";
-  } else if (lastCheck && staleMin > 180) {
+  } else if (lastCheck && staleMin > staleLimit) {
     $("banner").hidden = false;
-    $("banner").textContent = "No check in the last " + Math.round(staleMin / 60) + " hours. On weekends forex is closed; otherwise open the Actions tab on GitHub to see why the bot stopped.";
+    $("banner").textContent = isServer
+      ? "The server has not checked in for " + (staleMin < 120 ? Math.round(staleMin) + " minutes" : Math.round(staleMin / 60) + " hours") + ". Log in to the server and run: sudo systemctl status paper-desk"
+      : "No check in the last " + Math.round(staleMin / 60) + " hours. On weekends forex is closed; otherwise open the Actions tab on GitHub to see why the bot stopped.";
   }
 
   // ---- summary ----

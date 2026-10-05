@@ -1,21 +1,30 @@
-# Runs the paper-trading bot in GitHub's cloud every hour and publishes the
-# dashboard to GitHub Pages. Real prices (Yahoo Finance), fake money.
+# The paper-trading bot's GitHub side. Real prices (Yahoo Finance), fake money.
 # Nothing here can place a real trade: there is no broker code in this repo.
+#
+# Who trades is set by state/runner.txt:
+#   github  (or no file)  GitHub runs one check every hour and publishes the dashboard.
+#   server                An always-on server trades every minute and pushes the account
+#                         here every 15 min. GitHub then only rebuilds the dashboard, and
+#                         each hour checks the server is alive: if it has gone quiet while
+#                         the market is open, the run fails (red X) and GitHub emails you.
 
 name: paper-trade
 
 on:
   schedule:
-    - cron: "17 * * * *"          # every hour at :17 (UTC). GitHub may run it a few minutes late.
-  workflow_dispatch:               # adds a "Run workflow" button on the Actions tab
+    - cron: "17 * * * *"          # hourly at :17 UTC (GitHub may run it late or skip some)
+  workflow_dispatch:               # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+    paths: ["state/paper_account.json", "state/runner.txt"]   # the server's pushes
 
 permissions:
-  contents: write                  # to save the account file back to the repo
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: paper-trade               # never run two checks at the same time
+  group: paper-trade
   cancel-in-progress: false
 
 jobs:
@@ -32,17 +41,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run one paper-trading check
+      - name: Who is trading?
+        id: mode
+        run: |
+          RUNNER=$(tr -d '[:space:]' < state/runner.txt 2>/dev/null || true)
+          echo "runner=${RUNNER:-github}" >> "$GITHUB_OUTPUT"
+          echo "runner: ${RUNNER:-github}"
+
+      - name: Run one paper-trading check (GitHub mode)
+        if: steps.mode.outputs.runner != 'server' && github.event_name != 'push'
         env:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}   # optional
         run: |
           SOURCE=yahoo
           if [ -n "$TWELVEDATA_API_KEY" ]; then SOURCE=twelvedata; fi
-          python -m jev_bot live --source "$SOURCE" \
-            --account state/paper_account.json \
-            --dashboard docs/index.html
+          python -m jev_bot live --source "$SOURCE" --runner github \
+            --account state/paper_account.json
 
-      - name: Save the account
+      - name: Save the account (GitHub mode)
+        if: steps.mode.outputs.runner != 'server' && github.event_name != 'push'
         run: |
           git config user.name  "paper-trade-bot"
           git config user.email "paper-trade-bot@users.noreply.github.com"
@@ -50,9 +67,16 @@ jobs:
           git diff --cached --quiet || git commit -m "paper check $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 
+      - name: Build the dashboard
+        run: python -m jev_bot dashboard --account state/paper_account.json --out docs/index.html
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      - name: Is the server alive? (server mode)
+        if: steps.mode.outputs.runner == 'server' && github.event_name == 'schedule'
+        run: python -m jev_bot heartbeat --account state/paper_account.json --max-age 45

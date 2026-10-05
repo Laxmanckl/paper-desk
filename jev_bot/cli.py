@@ -132,30 +132,65 @@ def cmd_backtest(a):
 
 def cmd_live(a):
     import time
+    import traceback
     settings = backtest.Settings(risk_pct=a.risk, sl_atr=a.sl_atr, tp_atr=a.tp_atr,
                                  max_hold=a.max_hold)
     symbols = [fx.resolve(x) for x in (a.symbols or list(fx.INSTRUMENTS))]
     acct = live.Account.load(a.account, a.start)
     acct.config = {"risk_pct": a.risk, "sl_atr": a.sl_atr, "tp_atr": a.tp_atr,
                    "max_hold": a.max_hold, "source": a.source}
+    acct.runner = {"kind": a.runner, "every_min": a.watch or None}
     print(render.live_banner(a.source, symbols, a.account, a.watch))
+    last_publish = 0.0
     while True:
-        events = live.check(acct, symbols, a.source, settings, Limits(**_lim(a)), a.engine)
+        started = time.time()
+        try:
+            events = live.check(acct, symbols, a.source, settings, Limits(**_lim(a)), a.engine)
+        except Exception as e:             # never let one bad check stop a 24/5 runner
+            traceback.print_exc()
+            events = [f"BOT: check failed ({type(e).__name__}: {e}); retrying next check"]
         acct.record(events)
         acct.save(a.account)
         if a.dashboard:
             dashboard.write(acct, a.dashboard, a.source)
-            print(f"  dashboard updated: {a.dashboard}")
-        print(render.live_events(events))
-        print(render.account_status(acct))
+        if events or not a.watch:
+            print(render.live_events(events))
         if not a.watch:
+            print(render.account_status(acct))
             break
-        print(f"  next check in {a.watch} min · Ctrl+C to stop (the account is saved)")
+        if a.publish_every and time.time() - last_publish >= a.publish_every * 60:
+            if publish(a.account):
+                last_publish = time.time()
         try:
-            time.sleep(a.watch * 60)
+            time.sleep(max(1.0, a.watch * 60 - (time.time() - started)))
         except KeyboardInterrupt:
             print("\n  stopped. run the same command again to continue.")
             break
+
+
+def publish(account_path: str) -> bool:
+    """Commit the account file and push it, so GitHub rebuilds the dashboard.
+    Used by the always-on server. Failures are reported and retried later."""
+    import subprocess
+    from datetime import datetime, timezone
+
+    def git(*args):
+        return subprocess.run(["git", *args], capture_output=True, text=True, timeout=120)
+
+    git("add", account_path)
+    if git("diff", "--cached", "--quiet").returncode != 0:
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        git("commit", "-q", "-m", f"server check {stamp}")
+    # The server is the only trader in server mode, so if the account file was
+    # also changed on GitHub (a run during the hand-over), keep the server's copy.
+    pull = git("pull", "-q", "--rebase", "-X", "theirs", "--autostash", "origin", "main")
+    if pull.returncode != 0:
+        git("rebase", "--abort")
+    push = git("push", "-q", "origin", "HEAD:main")
+    if push.returncode != 0:
+        print(f"  publish failed, will retry: {(push.stderr or pull.stderr).strip()[:200]}")
+        return False
+    return True
 
 
 def cmd_account(a):
@@ -170,6 +205,23 @@ def cmd_account(a):
         raise SystemExit("  no paper account yet. start one with: python -m jev_bot live")
     acct = live.Account.load(a.account)
     print(render.account_status(acct, history=True))
+
+
+def cmd_heartbeat(a):
+    """Exit with an error if the account has not been checked recently.
+    GitHub runs this hourly in server mode, so a dead server shows as a failed
+    run and GitHub emails the owner."""
+    from datetime import datetime, timezone
+    acct = live.Account.load(a.account)
+    stamp = acct.last_check or (acct.equity_log[-1][0] if acct.equity_log else "")
+    if not stamp:
+        raise SystemExit("  no checks recorded yet")
+    age = (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).total_seconds() / 60
+    runner = (acct.runner or {}).get("kind", "?")
+    if age > a.max_age:
+        raise SystemExit(f"  BOT IS NOT RUNNING: last check {age:.0f} min ago (runner: {runner}). "
+                         f"Log in to the server and run: sudo systemctl status paper-desk")
+    print(f"  ok: last check {age:.0f} min ago (runner: {runner})")
 
 
 def cmd_dashboard(a):
@@ -254,9 +306,18 @@ def build_parser():
     lv.add_argument("--max-hold", type=int, default=20)
     lv.add_argument("--source", default="yahoo", choices=list(feeds.SOURCES))
     lv.add_argument("--engine", choices=["offline", "jev"], default=argparse.SUPPRESS)
+    lv.add_argument("--runner", default="computer", choices=["computer", "github", "server"],
+                    help="shown on the dashboard: where the bot is running")
+    lv.add_argument("--publish-every", type=int, default=0, metavar="MIN",
+                    help="server mode: git commit + push the account every MIN minutes")
     lv.add_argument("--dashboard", default="", metavar="HTML",
                     help="also rewrite this dashboard page after each check, e.g. docs/index.html")
     lv.set_defaults(func=cmd_live)
+
+    hb = sub.add_parser("heartbeat", help="fail if the bot has not checked in recently")
+    hb.add_argument("--account", default="paper_account.json")
+    hb.add_argument("--max-age", type=int, default=45, metavar="MIN")
+    hb.set_defaults(func=cmd_heartbeat)
 
     db = sub.add_parser("dashboard", help="build the dashboard page from the paper account")
     db.add_argument("--account", default="paper_account.json")

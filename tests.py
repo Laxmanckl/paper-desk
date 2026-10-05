@@ -217,6 +217,32 @@ ok("forex bars are dated on the exchange's clock (Fri bar = Fri, not Thu)",
 ok("Monday's forming forex bar is excluded until the day closes",
    live.completed_bars(lb, lq)[-1].date == "2026-10-02")
 
+# --- server mode: checks every minute -------------------------------------
+srv = live.Account(created="2026-10-03T00:00:00+00:00")
+wk = T0 + timedelta(days=200)
+for m in range(60 * 48):                      # a whole weekend, one check a minute
+    srv.record(["EURUSD: market closed or quote stale (last Fri); positions held, no new trades",
+                "XAUUSD: market closed or quote stale (last Fri); positions held, no new trades"],
+               wk + timedelta(minutes=m))
+ok("server: a repeated weekend message is logged once, not every minute", len(srv.events) == 2)
+srv2 = live.Account()
+for m in range(60):
+    srv2.record([], wk + timedelta(minutes=m))
+ok("server: quiet minutes add one equity point per 5 min, not 60",
+   len(srv2.equity_log) == 12 and srv2.last_check.startswith((wk + timedelta(minutes=59)).isoformat()[:16]))
+
+import subprocess, sys
+hb_path = os.path.join(tempfile.mkdtemp(), "hb.json")
+fresh_acct = live.Account(); fresh_acct.record([]); fresh_acct.save(hb_path)
+hb_ok = subprocess.run([sys.executable, "-m", "jev_bot", "heartbeat", "--account", hb_path],
+                       capture_output=True, text=True)
+stale_acct = live.Account(); stale_acct.record([], datetime.now(timezone.utc) - timedelta(hours=2))
+stale_acct.save(hb_path)
+hb_bad = subprocess.run([sys.executable, "-m", "jev_bot", "heartbeat", "--account", hb_path],
+                        capture_output=True, text=True)
+ok("heartbeat passes for a live bot and fails for one silent 2 hours",
+   hb_ok.returncode == 0 and hb_bad.returncode != 0 and "NOT RUNNING" in hb_bad.stderr)
+
 # --- dashboard ---------------------------------------------------------------
 from jev_bot import dashboard
 acct.record(["test event </script>"])

@@ -6,7 +6,8 @@ This copy of jev-bot adds **gold** and **EUR/USD** with **real live prices** and
 ## Run it online with a dashboard (no laptop)
 
 See **SETUP-GITHUB.md**: GitHub runs the bot every hour for free and hosts a
-dashboard you can open on your phone.
+dashboard you can open on your phone. For checks every minute on an always-on
+server, see **SETUP-SERVER.md**.
 
 ## Setup on your own computer
 
@@ -14,7 +15,7 @@ Requires Python 3.10+ and no other packages.
 
 ```bash
 cd jev-bot
-python tests.py                      # 40 checks should pass
+python tests.py                      # 45 checks should pass
 ```
 
 ## 1. Live paper trading (real prices, fake money)

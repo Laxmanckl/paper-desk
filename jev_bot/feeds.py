@@ -70,6 +70,8 @@ def _get_json(url: str, timeout: int = 20) -> dict:
         raise FeedError(f"HTTP {e.code} from {url.split('?')[0]}") from None
     except URLError as e:
         raise FeedError(f"could not reach {url.split('?')[0]}: {e.reason}") from None
+    except (OSError, ValueError) as e:      # timeouts, dropped connections, bad JSON
+        raise FeedError(f"{type(e).__name__} from {url.split('?')[0]}: {e}") from None
 
 
 # --- yahoo -----------------------------------------------------------------

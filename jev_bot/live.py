@@ -62,14 +62,32 @@ class Account:
     closes: dict = field(default_factory=dict)           # symbol -> [[date, close], ...]
     config: dict = field(default_factory=dict)           # rules shown on the dashboard
 
+    last_check: str = ""                                 # heartbeat: time of the latest check
+    runner: dict = field(default_factory=dict)           # who runs the bot: {"kind", "every_min"}
+
     MAX_LOG = 3000
     MAX_EVENTS = 300
+    EQUITY_EVERY_MIN = 5          # at most one equity point per 5 minutes
 
     def record(self, events: list, now: datetime | None = None) -> None:
-        """Append this check's events and an equity point (kept to a bounded size)."""
-        t = (now or _now()).isoformat(timespec="seconds")
-        self.events.extend([t, e] for e in events)
+        """Append this check's events and an equity point (kept to a bounded size).
+
+        Checks can run every minute, so a line identical to the last one logged
+        for the same instrument (e.g. "market closed" all weekend) is not
+        repeated, and equity is sampled at most every few minutes."""
+        now = now or _now()
+        t = now.isoformat(timespec="seconds")
+        self.last_check = t
+        for e in events:
+            sym = e.split(":", 1)[0]
+            prev = next((x[1] for x in reversed(self.events) if x[1].split(":", 1)[0] == sym), None)
+            if e != prev:
+                self.events.append([t, e])
         self.events = self.events[-self.MAX_EVENTS:]
+        if self.equity_log:
+            last_t = datetime.fromisoformat(self.equity_log[-1][0])
+            if not events and (now - last_t).total_seconds() < self.EQUITY_EVERY_MIN * 60:
+                return
         self.equity_log.append([t, self.equity()])
         if len(self.equity_log) > self.MAX_LOG:      # thin the oldest half, keep recent detail
             old, recent = self.equity_log[:-1000], self.equity_log[-1000:]
@@ -170,7 +188,8 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
     """One pass over the instruments. Returns human-readable event lines."""
     s = settings or backtest.Settings()
     lim = limits or risk.Limits()
-    fetch = fetch or (lambda sym: feeds.fetch(sym, source))
+    # one year of daily bars is plenty (50-bar warm-up) and light enough to poll every minute
+    fetch = fetch or (lambda sym: feeds.fetch(sym, source, rng="1y"))
     events: list[str] = []
 
     for sym in symbols:
