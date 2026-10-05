@@ -204,6 +204,19 @@ def _down(sym):
 ok("live: a feed error is reported, not a crash",
    "data error" in live.check(live.Account(), ["XAUUSD"], fetch=_down)[0])
 
+# Yahoo forex: daily bars stamped 23:00 UTC (= midnight London in summer)
+lon = {"chart": {"error": None, "result": [{
+    "meta": {"regularMarketPrice": 1.12, "gmtoffset": 3600,
+             "regularMarketTime": int(datetime(2026, 10, 5, 6, 5, tzinfo=timezone.utc).timestamp())},
+    "timestamp": [int(datetime(2026, 9, d, 23, 0, tzinfo=timezone.utc).timestamp()) for d in (28, 29, 30)]
+                 + [int(datetime(2026, 10, d, 23, 0, tzinfo=timezone.utc).timestamp()) for d in (1, 4)],
+    "indicators": {"quote": [{k: [1.1] * 5 for k in ("open", "high", "low", "close")}]}}]}}
+lb, lq = feeds.parse_yahoo("EURUSD", lon)
+ok("forex bars are dated on the exchange's clock (Fri bar = Fri, not Thu)",
+   [b.date for b in lb] == ["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-05"])
+ok("Monday's forming forex bar is excluded until the day closes",
+   live.completed_bars(lb, lq)[-1].date == "2026-10-02")
+
 # --- dashboard ---------------------------------------------------------------
 from jev_bot import dashboard
 acct.record(["test event </script>"])

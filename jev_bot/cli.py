@@ -41,7 +41,7 @@ def _states(a):
         out = []
         for sym in fx.INSTRUMENTS:
             bars, quote = _fetch_or_exit(sym, a)
-            done = live.completed_bars(bars, quote.time)
+            done = live.completed_bars(bars, quote)
             out.append(fx.state_at(sym, done, len(done) - 1))
         return out
     if a.market == "fx":
@@ -115,7 +115,7 @@ def cmd_backtest(a):
                 bars, src = fx.load_csv(csvs[sym]), csvs[sym]
             elif a.source != "sim":
                 bars, quote = _fetch_or_exit(sym, a)
-                bars = live.completed_bars(bars, quote.time)
+                bars = live.completed_bars(bars, quote)
                 src = f"{a.source} ({feeds.TICKERS[a.source][sym]}, saved to data/)"
             else:
                 bars = fx.simulate(sym, a.bars, a.seed, not a.trendless)

@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -47,6 +47,11 @@ class Quote:
     price: float
     time: datetime          # when the price was quoted (UTC)
     source: str
+    utc_offset_s: int = 0   # the exchange's clock vs UTC; daily bars are dated on it
+
+    def trading_date(self) -> str:
+        """The quote's calendar day on the exchange's clock (matches bar dates)."""
+        return (self.time + timedelta(seconds=self.utc_offset_s)).strftime("%Y-%m-%d")
 
     def age_minutes(self, now: datetime | None = None) -> float:
         now = now or datetime.now(timezone.utc)
@@ -82,26 +87,30 @@ def parse_yahoo(symbol: str, data: dict) -> tuple[list[Bar], Quote]:
         err = (data.get("chart") or {}).get("error") if isinstance(data, dict) else None
         raise FeedError(f"yahoo returned no data for {symbol}: {err}")
     q = res["indicators"]["quote"][0]
+    meta = res.get("meta", {})
+    # Yahoo stamps a daily bar at midnight on the EXCHANGE's clock (forex: London,
+    # e.g. 23:00 UTC in summer). Date it on that clock, not UTC, or every bar
+    # lands one day early.
+    offset = int(meta.get("gmtoffset") or 0)
     digits = INSTRUMENTS[symbol]["digits"]
     bars = []
     for i, ts in enumerate(res.get("timestamp") or []):
         o, h, l, c = (q[k][i] for k in ("open", "high", "low", "close"))
         if None in (o, h, l, c):
             continue                              # holiday / missing row
-        day = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d")
+        day = datetime.fromtimestamp(ts + offset, timezone.utc).strftime("%Y-%m-%d")
         bar = Bar(day, round(o, digits), round(h, digits), round(l, digits), round(c, digits))
         if bars and bars[-1].date == day:         # yahoo sometimes repeats today
             bars[-1] = bar
         else:
             bars.append(bar)
-    meta = res.get("meta", {})
     price = meta.get("regularMarketPrice") or (bars[-1].close if bars else None)
     when = meta.get("regularMarketTime")
     if price is None:
         raise FeedError(f"yahoo returned no price for {symbol}")
     quote = Quote(symbol, round(float(price), digits),
                   datetime.fromtimestamp(when, timezone.utc) if when else datetime.now(timezone.utc),
-                  "yahoo")
+                  "yahoo", offset)
     return bars, quote
 
 

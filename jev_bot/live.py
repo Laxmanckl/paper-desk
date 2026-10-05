@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from . import backtest, feeds, fx, jev, risk
 
@@ -152,10 +152,14 @@ def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: 
     return acct.positions[sym]
 
 
-def completed_bars(bars: list, quote_time: datetime) -> list:
+def completed_bars(bars: list, quote_time, utc_offset_s: int = 0) -> list:
     """Drop today's still-forming bar so decisions use finished days only,
-    exactly as the backtest does."""
-    if bars and bars[-1].date >= quote_time.strftime("%Y-%m-%d"):
+    exactly as the backtest does. Accepts a Quote or a UTC datetime."""
+    if hasattr(quote_time, "trading_date"):
+        today = quote_time.trading_date()
+    else:
+        today = (quote_time + timedelta(seconds=utc_offset_s)).strftime("%Y-%m-%d")
+    if bars and bars[-1].date >= today:
         return bars[:-1]
     return bars
 
@@ -180,7 +184,7 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
         px, d_px = quote.price, fx.INSTRUMENTS[sym]["digits"]
         acct.last_price[sym] = {"price": px, "time": quote.time.isoformat(timespec="seconds"),
                                 "source": quote.source}
-        done = completed_bars(bars, quote.time)
+        done = completed_bars(bars, quote)
         acct.closes[sym] = [[b.date, b.close] for b in done[-90:]]
         if len(done) <= fx.WARMUP:
             events.append(f"{sym}: only {len(done)} completed bars, need {fx.WARMUP + 1}")
