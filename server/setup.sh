@@ -42,7 +42,9 @@ git config --global pull.rebase true
 
 say "Downloading the bot"
 if [ -d "$DIR/.git" ]; then
-  git -C "$DIR" pull -q --rebase --autostash origin main
+  git -C "$DIR" add state/paper_account.json 2>/dev/null || true
+  git -C "$DIR" diff --cached --quiet || git -C "$DIR" commit -q -m "server check before update"
+  git -C "$DIR" pull -q --rebase -X theirs --autostash origin main
 else
   git clone -q "https://github.com/$REPO" "$DIR"
 fi
@@ -53,7 +55,11 @@ python3 tests.py | tail -1
 
 say "Switching GitHub to server mode"
 sudo systemctl stop "$SERVICE" 2>/dev/null || true
-git pull -q --rebase origin main            # newest account from GitHub mode
+# keep the account this server has been trading (it changes every minute), then
+# take the newest code; if both changed the account, the server's copy wins
+git add state/paper_account.json 2>/dev/null || true
+git diff --cached --quiet || git commit -q -m "server check before update"
+git pull -q --rebase -X theirs --autostash origin main
 if [ "$(cat state/runner.txt 2>/dev/null | tr -d '[:space:]')" != "server" ]; then
   echo server > state/runner.txt
   git add state/runner.txt
@@ -76,7 +82,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=$USER
+User=${USER:-$(id -un)}
 WorkingDirectory=$DIR
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/paper-desk.env
