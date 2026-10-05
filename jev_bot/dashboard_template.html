@@ -194,6 +194,9 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   if (D.preview) {
     $("banner").hidden = false;
     $("banner").textContent = "Preview with simulated prices. Your own dashboard shows real gold and EUR/USD prices once the bot runs on GitHub.";
+  } else if (D.note) {
+    $("banner").hidden = false;
+    $("banner").textContent = D.note;
   } else if (lastCheck && staleMin > staleLimit) {
     $("banner").hidden = false;
     $("banner").textContent = isServer

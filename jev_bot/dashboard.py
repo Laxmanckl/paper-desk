@@ -27,7 +27,7 @@ _SOURCE_LABEL = {
 
 
 def build(acct, source: str = "yahoo", preview: bool = False,
-          auto_refresh_min: int = 5, full_document: bool = True) -> str:
+          auto_refresh_min: int = 5, full_document: bool = True, note: str = "") -> str:
     data = {
         "account": asdict(acct),
         "instruments": {s: {k: v for k, v in spec.items()} for s, spec in fx.INSTRUMENTS.items()},
@@ -35,6 +35,7 @@ def build(acct, source: str = "yahoo", preview: bool = False,
         "source_label": _SOURCE_LABEL.get(source, source),
         "preview": preview,
         "auto_refresh_min": auto_refresh_min,
+        "note": note,
     }
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     body = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/", blob)
