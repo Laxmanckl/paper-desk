@@ -20,7 +20,7 @@ import argparse
 import os
 import sys
 
-from . import render, markets, fx, backtest, feeds, live, dashboard
+from . import render, markets, fx, backtest, feeds, live, dashboard, alerts
 from .loop import run
 from .risk import Limits
 from .execution.paper import Book
@@ -144,12 +144,18 @@ def cmd_live(a):
     last_publish = 0.0
     while True:
         started = time.time()
+        before_closed, before_open = len(acct.closed), set(acct.positions)
         try:
             events = live.check(acct, symbols, a.source, settings, Limits(**_lim(a)), a.engine)
         except Exception as e:             # never let one bad check stop a 24/5 runner
             traceback.print_exc()
             events = [f"BOT: check failed ({type(e).__name__}: {e}); retrying next check"]
         acct.record(events)
+        if alerts.configured():
+            try:
+                alerts.notify(acct, events, before_closed, before_open)
+            except Exception:
+                traceback.print_exc()
         acct.save(a.account)
         if a.dashboard:
             dashboard.write(acct, a.dashboard, a.source)
@@ -205,6 +211,16 @@ def cmd_account(a):
         raise SystemExit("  no paper account yet. start one with: python -m jev_bot live")
     acct = live.Account.load(a.account)
     print(render.account_status(acct, history=True))
+
+
+def cmd_alert_test(a):
+    if not alerts.configured():
+        raise SystemExit("  set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID first (server/telegram.sh does this)")
+    ok = alerts.send("👋 Paper desk alerts are working. You'll get a message when a trade opens "
+                     "or closes, a daily summary after the market closes, and a warning if the bot has trouble.")
+    print("  sent" if ok else "  could not send; check the bot token and chat id")
+    if not ok:
+        raise SystemExit(1)
 
 
 def cmd_heartbeat(a):
@@ -313,6 +329,9 @@ def build_parser():
     lv.add_argument("--dashboard", default="", metavar="HTML",
                     help="also rewrite this dashboard page after each check, e.g. docs/index.html")
     lv.set_defaults(func=cmd_live)
+
+    at = sub.add_parser("alert-test", help="send a test Telegram message")
+    at.set_defaults(func=cmd_alert_test)
 
     hb = sub.add_parser("heartbeat", help="fail if the bot has not checked in recently")
     hb.add_argument("--account", default="paper_account.json")

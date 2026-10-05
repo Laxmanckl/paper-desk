@@ -62,6 +62,8 @@ class Account:
     closes: dict = field(default_factory=dict)           # symbol -> [[date, close], ...]
     config: dict = field(default_factory=dict)           # rules shown on the dashboard
 
+    bench_start: dict = field(default_factory=dict)      # symbol -> price when testing began
+    alerts_sent: dict = field(default_factory=dict)      # alert bookkeeping (daily summary etc.)
     last_check: str = ""                                 # heartbeat: time of the latest check
     runner: dict = field(default_factory=dict)           # who runs the bot: {"kind", "every_min"}
 
@@ -88,10 +90,22 @@ class Account:
             last_t = datetime.fromisoformat(self.equity_log[-1][0])
             if not events and (now - last_t).total_seconds() < self.EQUITY_EVERY_MIN * 60:
                 return
-        self.equity_log.append([t, self.equity()])
+        prices = {sym: lp["price"] for sym, lp in self.last_price.items() if lp.get("price")}
+        self._set_benchmark(prices)
+        self.equity_log.append([t, self.equity(), prices])
         if len(self.equity_log) > self.MAX_LOG:      # thin the oldest half, keep recent detail
             old, recent = self.equity_log[:-1000], self.equity_log[-1000:]
             self.equity_log = old[::2] + recent
+
+    def _set_benchmark(self, prices: dict) -> None:
+        """Buy-and-hold reference: the price of each instrument when testing
+        began (the last daily close on or before the account's start date)."""
+        start_day = (self.created or "")[:10]
+        for sym, px in prices.items():
+            if sym in self.bench_start:
+                continue
+            before = [c for c in self.closes.get(sym, []) if c[0] <= start_day]
+            self.bench_start[sym] = before[-1][1] if before else px
 
     # --- persistence -------------------------------------------------------
     @classmethod

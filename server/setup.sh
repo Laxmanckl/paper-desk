@@ -79,6 +79,7 @@ Wants=network-online.target
 User=$USER
 WorkingDirectory=$DIR
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/paper-desk.env
 ExecStart=/usr/bin/python3 -m jev_bot live --watch 1 --runner server --publish-every 15 --account state/paper_account.json
 Restart=always
 RestartSec=30

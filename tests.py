@@ -243,6 +243,41 @@ hb_bad = subprocess.run([sys.executable, "-m", "jev_bot", "heartbeat", "--accoun
 ok("heartbeat passes for a live bot and fails for one silent 2 hours",
    hb_ok.returncode == 0 and hb_bad.returncode != 0 and "NOT RUNNING" in hb_bad.stderr)
 
+# --- telegram alerts (no network: messages captured) -----------------------
+from jev_bot import alerts
+sent = []
+al = live.Account(created="2026-10-01T00:00:00+00:00")
+al.last_price = {"EURUSD": {"price": 1.10, "time": "", "source": "x"}}
+al.positions["EURUSD"] = {"symbol": "EURUSD", "side": "SELL", "entry": 1.1200, "stop": 1.13,
+                          "target": 1.10, "units": 10000, "opened_at": "2026-10-05T10:00:00+00:00",
+                          "entry_bar": "2026-10-02", "signal_prob": 0.9, "signal_conf": 0.85}
+mon = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+alerts.notify(al, [], 0, set(), mon, sent.append)
+ok("alert: a newly opened trade sends one OPENED message",
+   len(sent) == 1 and "OPENED SELL EUR/USD" in sent[0])
+alerts.notify(al, [], 0, {"EURUSD"}, mon, sent.append)
+ok("alert: an already-open trade is not announced again", len(sent) == 1)
+al.closed.append({"symbol": "EURUSD", "side": "SELL", "entry": 1.12, "exit": 1.10, "reason": "target",
+                  "pnl": 200.0, "pips": 200.0, "closed_at": "2026-10-05T13:00:00+00:00"})
+alerts.notify(al, [], 0, {"EURUSD"}, mon, sent.append)
+ok("alert: a closed trade sends CLOSED with its P&L", "CLOSED SELL EUR/USD" in sent[-1] and "+$200.00" in sent[-1])
+n = len(sent)
+for m in range(0, 40, 1):
+    alerts.notify(al, ["XAUUSD: data error, skipped this check (HTTP 429)"], 1, {"EURUSD"},
+                  mon + timedelta(minutes=m), sent.append)
+ok("alert: data trouble is reported once after 30 min, not every minute",
+   len(sent) == n + 1 and "problem for 30 min" in sent[-1])
+alerts.notify(al, [], 1, {"EURUSD"}, mon + timedelta(minutes=41), sent.append)
+ok("alert: recovery is reported once", "back to normal" in sent[-1])
+n = len(sent)
+alerts.notify(al, [], 1, {"EURUSD"}, datetime(2026, 10, 5, 21, 5, tzinfo=timezone.utc), sent.append)
+alerts.notify(al, [], 1, {"EURUSD"}, datetime(2026, 10, 5, 21, 6, tzinfo=timezone.utc), sent.append)
+alerts.notify(al, [], 1, {"EURUSD"}, datetime(2026, 10, 10, 21, 6, tzinfo=timezone.utc), sent.append)
+ok("alert: one daily summary per weekday after the close, none on Saturday",
+   len(sent) == n + 1 and "Paper desk" in sent[-1])
+ok("alert: nothing is sent when Telegram is not set up",
+   (not alerts.configured()) or os.environ.get("TELEGRAM_BOT_TOKEN") is not None)
+
 # --- dashboard ---------------------------------------------------------------
 from jev_bot import dashboard
 acct.record(["test event </script>"])

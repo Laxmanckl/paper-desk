@@ -69,6 +69,28 @@ That's it. You can close the terminal window. The server keeps running.
 
 ---
 
+## Step 5 (optional): Telegram alerts on your phone
+
+You get a Telegram message when a trade **opens** or **closes**, a **daily summary**
+after the forex market closes (around 2:30 AM India time), and a **warning** if the
+bot can't get prices for 30 minutes.
+
+1. In Telegram, search for **@BotFather** → tap **Start** → send `/newbot`.
+2. Give it any name (e.g. `Paper Desk`) and a username ending in `bot`
+   (e.g. `laxman_paperdesk_bot`). BotFather replies with a **token**; copy it.
+3. In the Lightsail browser terminal, run:
+
+   ```
+   bash ~/paper-desk/server/telegram.sh
+   ```
+
+4. Paste the token when asked. Then open your new bot in Telegram, tap **Start**,
+   and press Enter in the terminal. A test message arrives within seconds.
+
+Turn alerts off any time: `sudo rm /etc/paper-desk.env && sudo systemctl restart paper-desk`
+
+---
+
 ## Everyday use
 
 | You want to… | Do this (in the Lightsail browser terminal) |

@@ -28,6 +28,7 @@ _SOURCE_LABEL = {
 
 def build(acct, source: str = "yahoo", preview: bool = False,
           auto_refresh_min: int = 5, full_document: bool = True, note: str = "") -> str:
+    acct._set_benchmark({sym: lp["price"] for sym, lp in acct.last_price.items() if lp.get("price")})
     data = {
         "account": asdict(acct),
         "instruments": {s: {k: v for k, v in spec.items()} for s, spec in fx.INSTRUMENTS.items()},

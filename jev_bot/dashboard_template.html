@@ -16,13 +16,13 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
   --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
-  --xau: #d9a227; --eur: #3987e5;
+  --xau: #c98500; --eur: #3987e5;
   --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
   --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
   --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
-  --xau: #d9a227; --eur: #3987e5;
+  --xau: #c98500; --eur: #3987e5;
   --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
   --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; color-scheme: dark; }
 
@@ -89,6 +89,20 @@ th.r, td.r { text-align: right; }
 .log time { font-family: var(--f-num); color: var(--ink-3); font-size: 11.5px; }
 .log span { min-width: 0; overflow-wrap: anywhere; }
 .empty { padding: 28px 8px; text-align: center; color: var(--ink-3); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid currentColor; }
+.legend i.dash { border-top-style: dashed; border-top-width: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.seg button { font: inherit; font-size: 12px; padding: 4px 12px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.seg button:focus-visible, .filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 12.5px; color: var(--ink-2); }
+.filters label { display: inline-flex; align-items: center; gap: 6px; }
+.filters select { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--panel); color: var(--ink); }
+.filters .tot { margin-left: auto; font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .filters .tot { margin-left: 0; width: 100%; } }
 footer { font-size: 12px; color: var(--ink-3); display: grid; gap: 6px; }
 footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 @media (max-width: 520px) {
@@ -111,13 +125,29 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 
   <section class="card">
     <div class="card-head"><h2>Account equity</h2><span class="label" id="eq-range"></span></div>
+    <div class="legend" id="eq-legend"></div>
     <div class="chart" id="equity-chart"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Profit &amp; loss</h2>
+      <div class="seg" role="group" aria-label="Group profit and loss by">
+        <button type="button" id="pnl-day" aria-pressed="true">Daily</button><button type="button" id="pnl-week" aria-pressed="false">Weekly</button>
+      </div>
+    </div>
+    <div class="chart" id="pnl-chart"></div>
   </section>
 
   <section class="instruments" id="instruments"></section>
 
   <section class="card">
     <div class="card-head"><h2>Closed trades</h2><span class="label" id="trade-count"></span></div>
+    <div class="filters" id="filters" hidden>
+      <label for="f-pair">Pair <select id="f-pair"><option value="">All</option><option value="XAUUSD">Gold</option><option value="EURUSD">EUR/USD</option></select></label>
+      <label for="f-side">Side <select id="f-side"><option value="">All</option><option value="BUY">Buy</option><option value="SELL">Sell</option></select></label>
+      <label for="f-result">Result <select id="f-result"><option value="">All</option><option value="win">Winners</option><option value="loss">Losers</option></select></label>
+      <span class="tot" id="f-total"></span>
+    </div>
     <div class="table-wrap" id="trades"></div>
   </section>
 
@@ -212,6 +242,18 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     ["", "Win rate", closed.length ? Math.round(100 * wins.length / closed.length) + "%" : "–", closed.length ? wins.length + " won · " + (closed.length - wins.length) + " lost" : "no closed trades yet"],
     ["", "Max drawdown", (mdd * 100).toFixed(2) + "%", "worst drop from a peak"]
   ];
+  (function () {
+    var now = [new Date().toISOString(), equity, {}];
+    SYMS.forEach(function (s) { if (A.last_price[s]) now[2][s] = A.last_price[s].price; });
+    var bench = SYMS.filter(function (s) { return (A.bench_start || {})[s]; }).map(function (s) {
+      var p0 = A.bench_start[s], p = now[2][s]; return { s: s, r: p0 && p ? p / p0 - 1 : 0 };
+    });
+    if (!bench.length) return;
+    var beat = bench.filter(function (b) { return ret > b.r; });
+    var verdict = beat.length === bench.length ? "Yes, both" : beat.length ? "Only " + (beat[0].s === "XAUUSD" ? "gold" : "EUR/USD") : "Not yet";
+    stats.splice(1, 0, ["", "Beating buy &amp; hold?", verdict,
+      bench.map(function (b) { return (b.s === "XAUUSD" ? "Gold" : "EUR/USD") + " held <span class='" + cls(b.r) + "'>" + pct(b.r) + "</span>"; }).join(" · ")]);
+  })();
   $("summary").innerHTML = stats.map(function (s) {
     return '<div class="stat ' + s[0] + '"><span class="label">' + s[1] + '</span><span class="v">' + s[2] + '</span><span class="s">' + s[3] + "</span></div>";
   }).join("");
@@ -239,6 +281,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     var W = Math.max(280, box.clientWidth), H = opt.height, L = opt.left || 62, R = opt.right || 12, T = 10, B = 22;
     var xs = pts.map(function (p) { return +p.x; }), ys = pts.map(function (p) { return p.y; });
     var extra = (opt.levels || []).map(function (l) { return l.y; }).concat(opt.baseline != null ? [opt.baseline] : []);
+    (opt.series || []).forEach(function (sr) { sr.pts.forEach(function (p) { extra.push(p.y); }); });
     var lo = Math.min.apply(null, ys.concat(extra)), hi = Math.max.apply(null, ys.concat(extra));
     var pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.01 || 1; lo -= pad; hi += pad;
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
@@ -273,7 +316,12 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
       var w = tx.getComputedTextLength ? tx.getComputedTextLength() : l.label.length * 6.3;
       bg.setAttribute("x", W - R - 4 - w); bg.setAttribute("width", w + 4);
     });
-    el("path", { d: d, fill: "none", stroke: opt.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    (opt.series || []).forEach(function (sr) {
+      if (sr.pts.length < 2) return;
+      var sd = sr.pts.map(function (p, i) { return (i ? "L" : "M") + sx(+p.x).toFixed(1) + " " + sy(p.y).toFixed(1); }).join("");
+      el("path", { d: sd, fill: "none", stroke: sr.color, "stroke-width": 1.75, "stroke-dasharray": "6 4", "stroke-linejoin": "round" }, svg);
+    });
+    el("path", { d: d, fill: "none", stroke: opt.color, "stroke-width": 2.25, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
     var last = pts[pts.length - 1];
     el("circle", { cx: sx(+last.x), cy: sy(last.y), r: 4, fill: opt.color, stroke: "var(--panel)", "stroke-width": 2 }, svg);
 
@@ -295,17 +343,103 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     hit.addEventListener("pointermove", move); hit.addEventListener("pointerleave", leave);
   }
 
+  // buy-and-hold: what $10,000 would be worth holding each instrument from day one
+  var BENCH = A.bench_start || {};
+  function priceAt(sym, pt) {
+    if (pt[2] && pt[2][sym]) return pt[2][sym];
+    var day = pt[0].slice(0, 10), c = (A.closes[sym] || []).filter(function (x) { return x[0] <= day; });
+    return c.length ? c[c.length - 1][1] : BENCH[sym];
+  }
+  function holdValue(sym, pt) { var p0 = BENCH[sym], p = priceAt(sym, pt); return p0 && p ? A.start_equity * p / p0 : null; }
+  var SHORT = { XAUUSD: "Gold", EURUSD: "EUR/USD" };
+
   function drawEquity() {
     var log = A.equity_log || [];
-    var pts = log.map(function (p) { return { x: new Date(p[0]), y: p[1], label: stamp(p[0]) + "  " + money(p[1]) }; });
+    var hold = SYMS.filter(function (s) { return BENCH[s]; });
+    var pts = log.map(function (p) {
+      var lab = stamp(p[0]) + "  Bot " + money(p[1]);
+      hold.forEach(function (s) { var v = holdValue(s, p); if (v) lab += " · " + SHORT[s] + " hold " + money(v); });
+      return { x: new Date(p[0]), y: p[1], label: lab };
+    });
+    var series = hold.map(function (s) {
+      return { color: COLOR[s], pts: log.map(function (p) { return { x: new Date(p[0]), y: holdValue(s, p) }; }).filter(function (q) { return q.y; }) };
+    });
+    $("eq-legend").innerHTML = '<span style="color:var(--ink)"><i></i><span style="color:var(--ink-2)">Bot account</span></span>' +
+      hold.map(function (s) { return '<span style="color:' + COLOR[s] + '"><i class="dash"></i><span style="color:var(--ink-2)">If you had just bought ' + SHORT[s] + "</span></span>"; }).join("");
     if (log.length) $("eq-range").textContent = stamp(log[0][0]) + " → " + stamp(log[log.length - 1][0]);
     lineChart($("equity-chart"), pts, {
-      height: 220, color: "var(--accent)", area: true, baseline: A.start_equity, aria: "Account equity over time",
+      height: 230, color: "var(--ink)", area: true, baseline: A.start_equity, series: series, aria: "Bot account compared with buying and holding gold or EUR/USD",
       empty: "The equity curve appears after the first two checks.",
       yfmt: function (v) { return "$" + Math.round(v).toLocaleString("en-US"); },
       xfmt: function (d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
     });
   }
+
+  // ---- profit & loss bars ----
+  var pnlMode = "day";
+  function localDay(iso) { var d = new Date(iso); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function pnlBuckets(mode) {
+    var log = A.equity_log || [], out = [], prevEnd = A.start_equity;
+    log.forEach(function (p) {
+      var d = localDay(p[0]);
+      if (mode === "week") { var dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); }
+      var key = d.getTime();
+      if (!out.length || out[out.length - 1].key !== key) out.push({ key: key, date: d, start: prevEnd });
+      out[out.length - 1].end = p[1]; prevEnd = p[1];
+    });
+    out.forEach(function (b) { b.pnl = b.end - b.start; });
+    return out.slice(-30);
+  }
+  function drawPnl() {
+    var box = $("pnl-chart"); box.innerHTML = "";
+    var bars = pnlBuckets(pnlMode).filter(function (b) {     // skip weekend days with no change
+      return pnlMode === "week" || Math.abs(b.pnl) >= 0.005 || [0, 6].indexOf(b.date.getDay()) < 0;
+    });
+    if (!bars.length) { box.innerHTML = '<div class="empty">Daily profit and loss appears after the first day of trading.</div>'; return; }
+    var W = Math.max(280, box.clientWidth), H = 190, L = 62, R = 12, T = 12, B = 24;
+    var vals = bars.map(function (b) { return b.pnl; });
+    var hi = Math.max(0, Math.max.apply(null, vals)), lo = Math.min(0, Math.min.apply(null, vals));
+    if (hi === lo) { hi = 1; lo = -1; }
+    var pad = (hi - lo) * 0.1; hi += pad; lo -= pad;
+    var sy = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var slot = (W - L - R) / bars.length, bw = Math.max(4, Math.min(42, slot - 2));
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, height: H, role: "img", "aria-label": (pnlMode === "week" ? "Weekly" : "Daily") + " profit and loss" }, box);
+    niceTicks(lo, hi, 4).forEach(function (t) {
+      el("line", { x1: L, x2: W - R, y1: sy(t), y2: sy(t), stroke: t === 0 ? "var(--ink-3)" : "var(--grid)", "stroke-width": 1 }, svg);
+      el("text", { x: L - 8, y: sy(t) + 3.5, "text-anchor": "end" }, svg).textContent = (t < 0 ? "−$" : "$") + Math.abs(Math.round(t)).toLocaleString("en-US");
+    });
+    var tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+    var every = Math.ceil(bars.length / Math.max(2, Math.floor((W - L - R) / 64)));   // ~64px per date label
+    bars.forEach(function (b, i) {
+      var cx = L + slot * (i + 0.5), y0 = sy(0), y1 = sy(b.pnl), top = Math.min(y0, y1), h = Math.max(1, Math.abs(y1 - y0));
+      var r = Math.min(4, h / 2, bw / 2), up = b.pnl >= 0, x = cx - bw / 2;
+      // rounded only at the data end, square on the zero line
+      var path = up
+        ? "M" + x + " " + (top + h) + "V" + (top + r) + "Q" + x + " " + top + " " + (x + r) + " " + top + "H" + (x + bw - r) + "Q" + (x + bw) + " " + top + " " + (x + bw) + " " + (top + r) + "V" + (top + h) + "Z"
+        : "M" + x + " " + top + "V" + (top + h - r) + "Q" + x + " " + (top + h) + " " + (x + r) + " " + (top + h) + "H" + (x + bw - r) + "Q" + (x + bw) + " " + (top + h) + " " + (x + bw) + " " + (top + h - r) + "V" + top + "Z";
+      el("path", { d: path, fill: up ? "var(--good)" : "var(--bad)" }, svg);
+      var name = pnlMode === "week" ? "Week of " + b.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                                    : b.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+      var last = bars.length - 1;
+      if (i === last || (i % every === 0 && last - i >= Math.max(2, every * 0.75))) {
+        el("text", { x: cx, y: H - 6, "text-anchor": "middle" }, svg).textContent = b.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      }
+      var hit = el("rect", { x: L + slot * i, y: T, width: slot, height: H - T - B, fill: "transparent" }, svg);
+      hit.addEventListener("pointerenter", function () {
+        var rr = svg.getBoundingClientRect();
+        tip.hidden = false; tip.textContent = name + "  " + money(b.pnl, true);
+        tip.style.left = Math.min(Math.max(cx * rr.width / W, 70), rr.width - 70) + "px"; tip.style.top = (top * rr.height / H) + "px";
+      });
+      hit.addEventListener("pointerleave", function () { tip.hidden = true; });
+    });
+  }
+  function setPnlMode(m) {
+    pnlMode = m;
+    $("pnl-day").setAttribute("aria-pressed", m === "day"); $("pnl-week").setAttribute("aria-pressed", m === "week");
+    drawPnl();
+  }
+  $("pnl-day").addEventListener("click", function () { setPnlMode("day"); });
+  $("pnl-week").addEventListener("click", function () { setPnlMode("week"); });
 
   // ---- instrument panels ----
   function instrumentPanel(sym) {
@@ -368,13 +502,17 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   var inst = $("instruments");
   SYMS.forEach(function (s) { inst.appendChild(instrumentPanel(s)); });
 
-  // ---- closed trades ----
-  $("trade-count").textContent = closed.length ? closed.length + " total" : "";
-  if (!closed.length) {
-    $("trades").innerHTML = '<div class="empty">No closed trades yet. Each trade closes at its stop, its target, after ' + ((D.config && D.config.max_hold) || 20) + " trading days, or when the signal flips.</div>";
-  } else {
-    var REASON = { stop: "stop-loss", target: "target", time: "time limit", reverse: "signal flipped", end: "end" };
-    var rows = closed.slice().reverse().map(function (t) {
+  // ---- closed trades (with filters) ----
+  var REASON = { stop: "stop-loss", target: "target", time: "time limit", reverse: "signal flipped", end: "end" };
+  function renderTrades() {
+    var fp = $("f-pair").value, fs = $("f-side").value, fr = $("f-result").value;
+    var rowsData = closed.slice().reverse().filter(function (t) {
+      return (!fp || t.symbol === fp) && (!fs || t.side === fs) && (!fr || (fr === "win" ? t.pnl > 0 : t.pnl <= 0));
+    });
+    var net = rowsData.reduce(function (a, t) { return a + t.pnl; }, 0), w = rowsData.filter(function (t) { return t.pnl > 0; }).length;
+    $("f-total").innerHTML = rowsData.length + " trade" + (rowsData.length === 1 ? "" : "s") + " · " + w + " won · net <span class='" + cls(net) + "'>" + money(net, true) + "</span>";
+    if (!rowsData.length) { $("trades").innerHTML = '<div class="empty">No trades match these filters.</div>'; return; }
+    var rows = rowsData.map(function (t) {
       var r = riskOf(t);
       return "<tr><td class='l'>" + esc((t.closed_at || "").slice(0, 10)) + "</td>" +
         "<td class='l'><span class='sym'><span class='swatch' style='background:" + COLOR[t.symbol] + "'></span>" + t.symbol + "</span></td>" +
@@ -386,6 +524,14 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
         "<td class='r " + cls(t.pnl) + "'>" + money(t.pnl, true) + "</td></tr>";
     }).join("");
     $("trades").innerHTML = "<table><thead><tr><th class='l'>Closed</th><th class='l'>Pair</th><th>Side</th><th class='r'>Entry</th><th class='r'>Exit</th><th class='l'>Why</th><th class='r'>Pips</th><th class='r'>R</th><th class='r'>P&amp;L</th></tr></thead><tbody>" + rows + "</tbody></table>";
+  }
+  $("trade-count").textContent = closed.length ? closed.length + " total" : "";
+  if (!closed.length) {
+    $("trades").innerHTML = '<div class="empty">No closed trades yet. Each trade closes at its stop, its target, after ' + ((D.config && D.config.max_hold) || 20) + " trading days, or when the signal flips.</div>";
+  } else {
+    $("filters").hidden = false;
+    ["f-pair", "f-side", "f-result"].forEach(function (id) { $(id).addEventListener("change", renderTrades); });
+    renderTrades();
   }
 
   // ---- activity ----
@@ -405,7 +551,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     "One decision per trading day"
   ].map(function (t) { return "<span>" + t + "</span>"; }).join("");
 
-  function draw() { drawEquity(); drawPrices(); }
+  function draw() { drawEquity(); drawPnl(); drawPrices(); }
   draw();
   var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(draw, 120); });
   if (D.auto_refresh_min) setTimeout(function () { location.reload(); }, D.auto_refresh_min * 60000);
