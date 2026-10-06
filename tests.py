@@ -374,6 +374,10 @@ sf.tick_clock(me, [mf], 10_000)
 ok("scalp: the 1-second clock skips instruments with no real price for 2 min",
    me.book.prices["EURUSD"]["t"] == before)
 
+ok("scalp: MT5 feed knows forex hours (Saturday closed, Tuesday open)",
+   not sf.MT5Feed.market_open(datetime(2026, 10, 10, 12, tzinfo=timezone.utc).timestamp())
+   and sf.MT5Feed.market_open(datetime(2026, 10, 6, 12, tzinfo=timezone.utc).timestamp()))
+
 # --- dashboard ---------------------------------------------------------------
 from jev_bot import dashboard
 acct.record(["test event </script>"])

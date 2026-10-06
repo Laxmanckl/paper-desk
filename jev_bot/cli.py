@@ -167,8 +167,12 @@ def cmd_live(a):
             print(render.account_status(acct))
             break
         if a.publish_every and time.time() - last_publish >= a.publish_every * 60:
-            if publish(a.account):
-                last_publish = time.time()
+            try:
+                ok = publish(a.account)
+            except Exception:
+                traceback.print_exc()
+                ok = False
+            last_publish = time.time() if ok else last_publish + 60    # retry a minute later
         try:
             time.sleep(max(1.0, a.watch * 60 - (time.time() - started)))
         except KeyboardInterrupt:
@@ -182,8 +186,13 @@ def publish(account_path: str) -> bool:
     import subprocess
     from datetime import datetime, timezone
 
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")       # never wait for a password prompt
+
     def git(*args):
-        return subprocess.run(["git", *args], capture_output=True, text=True, timeout=120)
+        try:
+            return subprocess.run(["git", *args], capture_output=True, text=True, timeout=120, env=env)
+        except (subprocess.TimeoutExpired, OSError) as e:      # a stuck or missing git must not stop the bot
+            return subprocess.CompletedProcess(args, 1, "", f"{type(e).__name__}: {e}")
 
     git("add", account_path)
     if git("diff", "--cached", "--quiet").returncode != 0:

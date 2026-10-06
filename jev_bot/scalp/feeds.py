@@ -196,6 +196,16 @@ class MT5Feed:
             self.last_real[ours] = t
             self.engine.on_tick(ours, float(tick.bid), float(tick.ask), t)
 
+    SILENT_LIMIT = 180       # seconds with no new price while forex is open -> reconnect
+
+    @staticmethod
+    def market_open(t: float) -> bool:
+        """Forex trades Sunday ~21:00 UTC to Friday ~21:00 UTC."""
+        from datetime import datetime, timezone
+        d = datetime.fromtimestamp(t, timezone.utc)
+        wd, h = d.weekday(), d.hour
+        return not (wd == 5 or (wd == 4 and h >= 21) or (wd == 6 and h < 22))
+
     async def run(self) -> None:
         backoff = 5
         while True:
@@ -203,8 +213,13 @@ class MT5Feed:
                 self.status.set("connecting")
                 await asyncio.get_running_loop().run_in_executor(None, self.connect)
                 backoff = 5
+                started = _now()
                 while True:
                     self.poll_once()
+                    t = _now()
+                    newest = max(self.last_real.values(), default=started)
+                    if self.market_open(t) and t - max(newest, started) > self.SILENT_LIMIT:
+                        raise RuntimeError(f"no new prices from MT5 for {self.SILENT_LIMIT // 60} min; reconnecting")
                     await asyncio.sleep(self.POLL)
             except asyncio.CancelledError:
                 raise
