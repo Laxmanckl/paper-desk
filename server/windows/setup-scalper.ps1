@@ -67,7 +67,7 @@ if (-not (Test-Path $cred)) {
 
 Say "Downloading the bot"
 Get-ScheduledTask -TaskName "PaperScalper" -ErrorAction SilentlyContinue | Stop-ScheduledTask -ErrorAction SilentlyContinue
-Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -like "*jev_bot scalp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -like "*jev_bot scalp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 if (Test-Path "$Dir\.git") {
   & $Git -C $Dir add state/scalper_account.json
   & $Git -C $Dir commit -q -m "scalper save before update"
@@ -76,19 +76,30 @@ if (Test-Path "$Dir\.git") {
   & $Git clone -q "https://github.com/$Repo" $Dir
 }
 if (-not (Test-Path "$Dir\jev_bot")) { Write-Host "Download failed. Check the GitHub token, then run this again." -ForegroundColor Red; return }
+# The installer runs as administrator but the bot runs as you: give you full
+# control of the folder and tell git that's fine ("dubious ownership" otherwise).
+icacls $Dir /grant "$($env:USERNAME):(OI)(CI)F" /T /Q | Out-Null
+& $Git config --global --add safe.directory ($Dir -replace '\\', '/')
 Push-Location $Dir
 & $Py tests.py | Select-Object -Last 1
 Pop-Location
 
+if ((Test-Path $Settings) -and -not (Select-String -Path $Settings -Pattern 'MT5_LOGIN' -Quiet)) {
+  Write-Host "`nYour settings have no MT5 login yet. The bot needs it to log MT5 in by itself." -ForegroundColor Yellow
+  $ans = Read-Host "Enter the MT5 login details now? Type y and press Enter (or just press Enter to keep the current settings)"
+  if ($ans -match '^[yY]') { Remove-Item $Settings }
+}
 if (-not (Test-Path $Settings)) {
-  Say "Settings (stored only on this server)"
-  Write-Host "MT5 login: leave blank if MT5 is already logged in to your demo account."
+  Say "Settings (stored only on this computer)"
+  Write-Host "Your DEMO account details, exactly as in MT5 (File > Login to Trade Account)."
   $login = (Read-Host "MT5 demo login NUMBER, or just press the Enter key to skip").Trim()
   if ($login -and $login -notmatch '^\d+$') { Write-Host "That isn't a login number, so skipping (MT5 must already be logged in)." -ForegroundColor Yellow; $login = "" }
   $lines = @("`$env:MT5_PATH = '$($terminal.FullName)'")
   if ($login) {
-    $pw = Read-Host "MT5 demo password"
-    $srv = Read-Host "MT5 server name (as shown in MT5, e.g. Broker-Demo)"
+    $pwSec = Read-Host -AsSecureString "MT5 demo password (right-click to paste; nothing shows)"
+    $pw = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($pwSec))
+    $srv = (Read-Host "MT5 server name exactly as shown in MT5 (e.g. OctaFX-Demo)").Trim()
+    $pw = $pw -replace "'", "''"
     $lines += "`$env:MT5_LOGIN = '$login'", "`$env:MT5_PASSWORD = '$pw'", "`$env:MT5_SERVER = '$srv'"
   }
   $tg = Ask-Secret "Telegram bot token for alerts (right-click to paste, or just press the Enter key to skip)"
