@@ -1,0 +1,121 @@
+# Sets up the SCALPER on a Windows server, trading crypto majors (Binance prices)
+# AND forex majors + gold (prices from YOUR MetaTrader 5 demo account).
+# Paper only: fake money, no orders are ever sent to MT5.
+#
+# Before running: install your broker's MetaTrader 5, log in to your DEMO account,
+# and in MT5 tick Tools > Options > Expert Advisors > "Allow algorithmic trading".
+#
+# Run in PowerShell (Run as Administrator):
+#   irm https://raw.githubusercontent.com/Laxmanckl/paper-desk/main/server/windows/setup-scalper.ps1 | iex
+# Safe to run again: it updates the code and restarts the scalper.
+
+$ErrorActionPreference = "Continue"   # warnings from pip/git must not stop the script; key steps are checked below
+$ProgressPreference = "SilentlyContinue"
+$Repo = "Laxmanckl/paper-desk"
+$Dir = "C:\paper-scalper"
+$Settings = "C:\paper-scalper-settings.ps1"
+$Port = 8080
+$Py = "C:\Program Files\Python312\python.exe"
+$Git = "C:\Program Files\Git\cmd\git.exe"
+function Say($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
+function Clean($s) { ($s -replace '\e\[20[01]~', '') -replace '[^A-Za-z0-9:_\-]', '' }
+function Ask-Secret($prompt) {
+  $sec = Read-Host -AsSecureString $prompt
+  Clean ([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)))
+}
+
+Say "Finding MetaTrader 5"
+$terminal = Get-ChildItem "C:\Program Files\*\terminal64.exe", "C:\Program Files (x86)\*\terminal64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $terminal) { Write-Host "MetaTrader 5 not found. Install your broker's MT5, log in to your demo account, then run this again." -ForegroundColor Yellow; return }
+Write-Host "Found: $($terminal.FullName)"
+
+Say "Installing Python 3.12 and Git (first run only)"
+if (-not (Test-Path $Py)) {
+  $f = "$env:TEMP\python-installer.exe"
+  Invoke-WebRequest "https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe" -OutFile $f
+  Start-Process $f -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
+}
+if (-not (Test-Path $Git)) {
+  $f = "$env:TEMP\git-installer.exe"
+  Invoke-WebRequest "https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe" -OutFile $f
+  Start-Process $f -ArgumentList "/VERYSILENT /NORESTART" -Wait
+}
+if (-not (Test-Path $Py)) { Write-Host "Python did not install. Re-run this script; if it fails again, install Python 3.12 from python.org (tick 'Install for all users')." -ForegroundColor Red; return }
+if (-not (Test-Path $Git)) { Write-Host "Git did not install. Re-run this script, or install Git from git-scm.com." -ForegroundColor Red; return }
+& $Py -m pip install --quiet --upgrade pip
+& $Py -m pip install --quiet MetaTrader5 websockets
+& $Py -c "import MetaTrader5, websockets; print('MetaTrader5', MetaTrader5.__version__, '| websockets', websockets.__version__)"
+
+Say "GitHub token (lets the scalper save its account for the dashboard)"
+$cred = "$env:USERPROFILE\.git-credentials"
+if (-not (Test-Path $cred)) {
+  $tok = Ask-Secret "Paste your GitHub token (github_pat_...)"
+  if (-not $tok) { Write-Host "No token entered." -ForegroundColor Red; return }
+  Set-Content -Path $cred -Value "https://x-access-token:$tok@github.com" -NoNewline -Encoding ascii
+}
+& $Git config --global credential.helper store
+& $Git config --global user.name "paper-scalper-windows"
+& $Git config --global user.email "paper-scalper@users.noreply.github.com"
+& $Git config --global pull.rebase true
+
+Say "Downloading the bot"
+Get-ScheduledTask -TaskName "PaperScalper" -ErrorAction SilentlyContinue | Stop-ScheduledTask -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -like "*jev_bot scalp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+if (Test-Path "$Dir\.git") {
+  & $Git -C $Dir add state/scalper_account.json
+  & $Git -C $Dir commit -q -m "scalper save before update"
+  & $Git -C $Dir pull -q --rebase -X theirs --autostash origin main
+} else {
+  & $Git clone -q "https://github.com/$Repo" $Dir
+}
+if (-not (Test-Path "$Dir\jev_bot")) { Write-Host "Download failed. Check the GitHub token, then run this again." -ForegroundColor Red; return }
+Push-Location $Dir
+& $Py tests.py | Select-Object -Last 1
+Pop-Location
+
+if (-not (Test-Path $Settings)) {
+  Say "Settings (stored only on this server)"
+  Write-Host "MT5 login: leave blank if MT5 is already logged in to your demo account."
+  $login = Read-Host "MT5 demo login number (or Enter to skip)"
+  $lines = @("`$env:MT5_PATH = '$($terminal.FullName)'")
+  if ($login) {
+    $pw = Read-Host "MT5 demo password"
+    $srv = Read-Host "MT5 server name (as shown in MT5, e.g. Broker-Demo)"
+    $lines += "`$env:MT5_LOGIN = '$login'", "`$env:MT5_PASSWORD = '$pw'", "`$env:MT5_SERVER = '$srv'"
+  }
+  $tg = Ask-Secret "Telegram bot token for alerts (or Enter to skip)"
+  if ($tg) {
+    $chat = Read-Host "Telegram chat id (the number from your Linux server: sudo cat /etc/paper-desk.env)"
+    $lines += "`$env:TELEGRAM_BOT_TOKEN = '$tg'", "`$env:TELEGRAM_CHAT_ID = '$chat'"
+  }
+  $lines += "# Broker symbol names, only if auto-matching picks the wrong ones:", "# `$env:MT5_SYMBOLS = 'XAUUSD=GOLD,EURUSD=EURUSD.r'"
+  Set-Content -Path $Settings -Value $lines -Encoding utf8
+  icacls $Settings /inheritance:r /grant:r "$($env:USERNAME):F" "Administrators:F" | Out-Null
+}
+
+Say "Starting the scalper at every logon (MT5 needs a logged-in Windows session)"
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Dir\server\windows\run-scalper.ps1`""
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName "PaperScalper" -Action $action -Trigger $trigger -Settings $set -RunLevel Highest -Force | Out-Null
+if (-not (Get-NetFirewallRule -DisplayName "Paper scalper dashboard" -ErrorAction SilentlyContinue)) {
+  New-NetFirewallRule -DisplayName "Paper scalper dashboard" -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
+}
+Start-ScheduledTask -TaskName "PaperScalper"
+Start-Sleep 40
+try {
+  $s = Invoke-RestMethod "http://127.0.0.1:$Port/api/state" -TimeoutSec 10
+  Write-Host ("Prices for: " + (($s.prices.PSObject.Properties.Name | Sort-Object) -join ", "))
+  foreach ($k in $s.feeds.PSObject.Properties.Name) { Write-Host ("  $k : " + $s.feeds.$k.status + " " + $s.feeds.$k.detail) }
+} catch { Write-Host "Dashboard not answering yet. See the log: $Dir\scalper.log" -ForegroundColor Yellow }
+
+$ip = (Invoke-RestMethod "https://checkip.amazonaws.com").Trim()
+Say "Done"
+Write-Host @"
+The scalper runs crypto + forex/gold and checks exits every second.
+  Live dashboard:  http://${ip}:$Port   (allow TCP $Port in Lightsail: instance > Networking > Add rule)
+  Log file:        $Dir\scalper.log
+  IMPORTANT:       close the Remote Desktop window to leave; do NOT 'Sign out' (MT5 needs the session).
+  On your Linux server, stop its crypto-only scalper so only one scalper trades this account:
+                   sudo systemctl disable --now paper-scalper
+"@

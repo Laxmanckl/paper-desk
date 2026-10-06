@@ -278,6 +278,101 @@ ok("alert: one daily summary per weekday after the close, none on Saturday",
 ok("alert: nothing is sent when Telegram is not set up",
    (not alerts.configured()) or os.environ.get("TELEGRAM_BOT_TOKEN") is not None)
 
+# --- scalper -------------------------------------------------------------------
+from jev_bot.scalp import instruments as si, feeds as sf
+from jev_bot.scalp.bars import BarBuilder, Bar as SBar
+from jev_bot.scalp.book import ScalpBook
+from jev_bot.scalp.engine import Engine as SEngine
+from jev_bot.scalp.strategy import ScalpConfig
+
+ok("scalp: USDJPY profits convert yen to dollars",
+   abs(si.quote_to_usd(si.get("USDJPY"), {"USDJPY": 150.0}) - 1 / 150) < 1e-12)
+ok("scalp: EURGBP converts pounds via GBPUSD",
+   si.quote_to_usd(si.get("EURGBP"), {"GBPUSD": 1.3}) == 1.3)
+
+bb = BarBuilder()
+done = [bb.update(t, 100 + t % 7) for t in range(0, 185)]
+closed_bars = [d for d in done if d]
+ok("scalp: ticks become one candle per minute", len(closed_bars) == 3 and closed_bars[0].t == 0
+   and closed_bars[1].t == 60 and closed_bars[0].h == 106 and closed_bars[0].l == 100)
+
+cfg = ScalpConfig(crypto_fee=0.0005)
+T = 1791158400 + 10 * 3600                     # Monday 10:00 UTC (forex hours)
+bk = ScalpBook(created="x")
+bk.config = dict(cfg.__dict__)
+bk.on_tick("EURUSD", 1.10000, 1.10008, T)
+pos = bk.open("EURUSD", "BUY", 0.00020, T, cfg)
+ok("scalp: a buy fills at the ask, stop below, target 1.5x further",
+   isinstance(pos, dict) and pos["entry"] == 1.10008 and pos["stop"] < pos["entry"] < pos["target"]
+   and abs((pos["target"] - pos["entry"]) - 1.5 * (pos["entry"] - pos["stop"])) < 1e-12)
+risk_usd = (pos["entry"] - pos["stop"]) * pos["units"]
+ok("scalp: position sized to risk 0.25% of the account", abs(risk_usd - 25.0) < 0.01)
+bk.on_tick("EURUSD", pos["stop"] - 0.00001, pos["stop"] + 0.00007, T + 30)
+ok("scalp: the stop closes the trade at the bid (slippage included)",
+   not bk.positions and bk.trades[-1]["reason"] == "stop" and bk.trades[-1]["pnl"] < -25)
+ok("scalp: cash = start + every closed trade's net",
+   abs(bk.cash - (10_000 + sum(t["pnl"] for t in bk.trades))) < 0.01)   # trade P&L is shown to the cent
+ok("scalp: cooldown blocks re-entry right after a trade",
+   bk.open("EURUSD", "BUY", 0.0002, T + 60, cfg) == "cooling down after the last trade")
+
+c2 = ScalpBook(created="x"); c2.config = dict(cfg.__dict__)
+c2.on_tick("BTCUSDT", 62000, 62012, T)
+r = c2.open("BTCUSDT", "BUY", 30.0, T, cfg)              # tiny 1-min range vs fees + spread
+ok("scalp: a trade whose costs can't be kept under 25% of risk is skipped",
+   isinstance(r, str) and r.startswith("costs too high"))
+r = c2.open("BTCUSDT", "BUY", 200.0, T, cfg)
+ok("scalp: crypto fees are charged on entry", isinstance(r, dict) and r["fees"] > 0
+   and c2.cash < 10_000 and r["cost_frac"] <= 0.25 + 1e-9)
+
+c3 = ScalpBook(created="x"); c3.config = dict(cfg.__dict__)
+c3.on_tick("XAUUSD", 4000, 4000.3, T)
+night = 1791158400 + 23 * 3600
+c3.on_tick("XAUUSD", 4000, 4000.3, night)
+ok("scalp: no forex/gold trades outside 06-20 UTC",
+   "outside forex trading hours" in c3.open("XAUUSD", "BUY", 2.0, night, cfg))
+
+c4 = ScalpBook(created="x"); c4.config = dict(cfg.__dict__)
+c4.on_tick("EURUSD", 1.1, 1.10008, T)
+c4.cash -= 250                                          # lose 2.5% today
+ok("scalp: daily loss limit halts new trades for the day",
+   "halted" in c4.open("EURUSD", "BUY", 0.0002, T + 1, cfg) and c4.halted_day)
+
+ok("scalp: Binance bookTicker message parsed",
+   sf.parse_binance('{"stream":"btcusdt@bookTicker","data":{"u":1,"s":"BTCUSDT","b":"62000.1","B":"1","a":"62000.2","A":"2"}}')
+   == ("BTCUSDT", 62000.1, 62000.2))
+ok("scalp: broker symbol names matched (suffixes, GOLD for XAUUSD)",
+   sf.resolve_mt5_symbols(["EURUSD", "XAUUSD", "USDJPY"], ["EURUSD.a", "EURUSDx.pro", "GOLD", "USDJPY"], {})
+   == {"EURUSD": "EURUSD.a", "XAUUSD": "GOLD", "USDJPY": "USDJPY"})
+
+
+class FakeMT5:
+    TIMEFRAME_M1 = 1
+    def __init__(self): self.n = 0
+    def initialize(self, **kw): return True
+    def last_error(self): return (0, "ok")
+    def symbols_get(self): return [type("S", (), {"name": n}) for n in ("EURUSD.r", "XAUUSD.r")]
+    def symbol_select(self, *a): return True
+    def copy_rates_from_pos(self, *a):
+        return [{"open": 1.1, "high": 1.1002, "low": 1.0998, "close": 1.1001}] * 60
+    def symbol_info_tick(self, name):
+        self.n += 1
+        return type("T", (), {"bid": 1.1, "ask": 1.10008, "time_msc": self.n // 10, "time": 0})
+    def shutdown(self): pass
+
+
+me = SEngine(ScalpBook(created="x"), ["EURUSD", "XAUUSD"])
+mf = sf.MT5Feed(me, ["EURUSD", "XAUUSD"], mt5=FakeMT5())
+mf.connect()
+mf.poll_once(); mf.poll_once()
+ok("scalp: MT5 feed maps broker symbols, warms up and delivers ticks",
+   mf.map == {"EURUSD": "EURUSD.r", "XAUUSD": "XAUUSD.r"} and len(me.builders["EURUSD"].bars) == 60
+   and me.book.prices["EURUSD"]["ask"] == 1.10008 and me.book.feeds["mt5"]["status"] == "live")
+mf.last_real["EURUSD"] = 0                               # long silent: market closed
+before = me.book.prices["EURUSD"]["t"]
+sf.tick_clock(me, [mf], 10_000)
+ok("scalp: the 1-second clock skips instruments with no real price for 2 min",
+   me.book.prices["EURUSD"]["t"] == before)
+
 # --- dashboard ---------------------------------------------------------------
 from jev_bot import dashboard
 acct.record(["test event </script>"])

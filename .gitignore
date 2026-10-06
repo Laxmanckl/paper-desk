@@ -3,3 +3,5 @@ data/
 __pycache__/
 docs/index.html
 /paper_account.json
+scalper.log
+scalper.old.log

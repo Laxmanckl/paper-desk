@@ -220,6 +220,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
       ", page updates every ~15 min" : "") + "</span>");
   meta.push("<span>Prices: " + esc(D.source_label) + "</span>");
   meta.push("<span>Running since " + esc((A.created || "").slice(0, 10)) + "</span>");
+  if (D.has_scalper) meta.push('<a href="scalper.html" style="color:var(--accent)">Scalper desk →</a>');
   $("meta").innerHTML = meta.join("");
   if (D.preview) {
     $("banner").hidden = false;

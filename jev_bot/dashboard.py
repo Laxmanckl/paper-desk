@@ -37,6 +37,8 @@ def build(acct, source: str = "yahoo", preview: bool = False,
         "preview": preview,
         "auto_refresh_min": auto_refresh_min,
         "note": note,
+        "has_scalper": os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                                   "state", "scalper_account.json")),
     }
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     body = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/", blob)

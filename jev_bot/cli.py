@@ -7,6 +7,8 @@
     reflex live             paper-trade XAUUSD / EURUSD on real live prices
     reflex account          show the live paper account
     reflex dashboard        build the dashboard web page from the account
+    reflex scalp            run the scalper live (crypto via Binance, forex/gold via MT5)
+    reflex scalp-backtest   test the scalping rules on 1-minute history
 
 Add --market fx to decisions / run / card for gold and EUR/USD.
 
@@ -213,6 +215,26 @@ def cmd_account(a):
     print(render.account_status(acct, history=True))
 
 
+def cmd_scalp(a):
+    from .scalp import runner
+    runner.run(a)
+
+
+def cmd_scalp_dashboard(a):
+    from .scalp import runner
+    from .scalp.book import ScalpBook
+    if not os.path.exists(a.account):
+        raise SystemExit(f"  no scalper account at {a.account}")
+    runner.build_static(ScalpBook.load(a.account), a.out,
+                        "Snapshot, updated about every 15 minutes. The live page on the bot's server updates every second.")
+    print(f"  scalper dashboard written to {a.out}")
+
+
+def cmd_scalp_backtest(a):
+    from .scalp import backtest as sb
+    sb.cli(a)
+
+
 def cmd_alert_test(a):
     if not alerts.configured():
         raise SystemExit("  set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID first (server/telegram.sh does this)")
@@ -227,16 +249,26 @@ def cmd_heartbeat(a):
     """Exit with an error if the account has not been checked recently.
     GitHub runs this hourly in server mode, so a dead server shows as a failed
     run and GitHub emails the owner."""
+    import json
     from datetime import datetime, timezone
-    acct = live.Account.load(a.account)
-    stamp = acct.last_check or (acct.equity_log[-1][0] if acct.equity_log else "")
-    if not stamp:
-        raise SystemExit("  no checks recorded yet")
-    age = (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).total_seconds() / 60
-    runner = (acct.runner or {}).get("kind", "?")
+    with open(a.account) as fh:
+        raw = json.load(fh)
+    if "last_tick" in raw:                                  # the scalper's account
+        if not raw["last_tick"]:
+            raise SystemExit("  scalper has not received a price yet")
+        age = (datetime.now(timezone.utc).timestamp() - raw["last_tick"]) / 60
+        runner = "scalper"
+    else:
+        acct = live.Account.load(a.account)
+        stamp = acct.last_check or (acct.equity_log[-1][0] if acct.equity_log else "")
+        if not stamp:
+            raise SystemExit("  no checks recorded yet")
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).total_seconds() / 60
+        runner = (acct.runner or {}).get("kind", "?")
     if age > a.max_age:
+        svc = "paper-scalper" if runner == "scalper" else "paper-desk"
         raise SystemExit(f"  BOT IS NOT RUNNING: last check {age:.0f} min ago (runner: {runner}). "
-                         f"Log in to the server and run: sudo systemctl status paper-desk")
+                         f"Log in to the server and run: sudo systemctl status {svc}")
     print(f"  ok: last check {age:.0f} min ago (runner: {runner})")
 
 
@@ -329,6 +361,34 @@ def build_parser():
     lv.add_argument("--dashboard", default="", metavar="HTML",
                     help="also rewrite this dashboard page after each check, e.g. docs/index.html")
     lv.set_defaults(func=cmd_live)
+
+    sc = sub.add_parser("scalp", help="run the scalper live (1-min signals, exits every second)")
+    sc.add_argument("--crypto", default="majors", help="majors, none, or e.g. BTCUSDT,ETHUSDT")
+    sc.add_argument("--fx", default="none", help="majors, none, or e.g. EURUSD,XAUUSD (needs MT5 on Windows)")
+    sc.add_argument("--account", default="state/scalper_account.json")
+    sc.add_argument("--start", type=float, default=10_000.0)
+    sc.add_argument("--port", type=int, default=8080, help="live dashboard port (0 = off)")
+    sc.add_argument("--publish-every", type=int, default=0, metavar="MIN",
+                    help="git commit + push the scalper account every MIN minutes")
+    sc.add_argument("--crypto-fee", type=float, default=0.0005, help="per side, e.g. 0.001 for Binance spot")
+    sc.add_argument("--fx-commission", type=float, default=0.0, help="USD per 100k units per side")
+    sc.set_defaults(func=cmd_scalp)
+
+    sd = sub.add_parser("scalp-dashboard", help="build the scalper snapshot page for GitHub Pages")
+    sd.add_argument("--account", default="state/scalper_account.json")
+    sd.add_argument("--out", default="docs/scalper.html")
+    sd.set_defaults(func=cmd_scalp_dashboard)
+
+    sb_ = sub.add_parser("scalp-backtest", help="test the scalping rules on 1-minute history")
+    sb_.add_argument("symbols", nargs="*", help="default: BTCUSDT EURUSD XAUUSD (simulated)")
+    sb_.add_argument("--csv", action="append", metavar="SYMBOL=PATH", default=[],
+                     help="1-minute candles: time,open,high,low,close (+ optional spread column)")
+    sb_.add_argument("--days", type=int, default=20)
+    sb_.add_argument("--sweep", type=int, default=0)
+    sb_.add_argument("--trendless", action="store_true")
+    sb_.add_argument("--crypto-fee", type=float, default=0.0005)
+    sb_.add_argument("--fx-commission", type=float, default=0.0)
+    sb_.set_defaults(func=cmd_scalp_backtest)
 
     at = sub.add_parser("alert-test", help="send a test Telegram message")
     at.set_defaults(func=cmd_alert_test)

@@ -16,7 +16,7 @@ on:
   workflow_dispatch:               # "Run workflow" button on the Actions tab
   push:
     branches: [main]
-    paths: ["state/paper_account.json", "state/runner.txt"]   # the server's pushes
+    paths: ["state/paper_account.json", "state/runner.txt", "state/scalper_account.json"]   # the servers' pushes
 
 permissions:
   contents: write
@@ -67,8 +67,12 @@ jobs:
           git diff --cached --quiet || git commit -m "paper check $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 
-      - name: Build the dashboard
-        run: python -m jev_bot dashboard --account state/paper_account.json --out docs/index.html
+      - name: Build the dashboards
+        run: |
+          python -m jev_bot dashboard --account state/paper_account.json --out docs/index.html
+          if [ -f state/scalper_account.json ]; then
+            python -m jev_bot scalp-dashboard --account state/scalper_account.json --out docs/scalper.html
+          fi
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -80,3 +84,7 @@ jobs:
       - name: Is the server alive? (server mode)
         if: steps.mode.outputs.runner == 'server' && github.event_name == 'schedule'
         run: python -m jev_bot heartbeat --account state/paper_account.json --max-age 45
+
+      - name: Is the scalper alive?
+        if: github.event_name == 'schedule' && hashFiles('state/scalper_account.json') != ''
+        run: python -m jev_bot heartbeat --account state/scalper_account.json --max-age 45
