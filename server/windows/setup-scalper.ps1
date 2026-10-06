@@ -106,23 +106,29 @@ Say "Starting the scalper at every logon (MT5 needs a logged-in Windows session)
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Dir\server\windows\run-scalper.ps1`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName "PaperScalper" -Action $action -Trigger $trigger -Settings $set -RunLevel Highest -Force | Out-Null
+# Limited = same level as MT5 when you open it normally. An administrator-level
+# Python cannot attach to a normally-opened MT5, so do NOT use Highest here.
+Register-ScheduledTask -TaskName "PaperScalper" -Action $action -Trigger $trigger -Settings $set -RunLevel Limited -Force | Out-Null
 if (-not (Get-NetFirewallRule -DisplayName "Paper scalper dashboard" -ErrorAction SilentlyContinue)) {
   New-NetFirewallRule -DisplayName "Paper scalper dashboard" -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
 }
 Start-ScheduledTask -TaskName "PaperScalper"
 Start-Sleep 40
 try {
+  Start-Sleep 30
   $s = Invoke-RestMethod "http://127.0.0.1:$Port/api/state" -TimeoutSec 10
   Write-Host ("Prices for: " + (($s.prices.PSObject.Properties.Name | Sort-Object) -join ", "))
   foreach ($k in $s.feeds.PSObject.Properties.Name) { Write-Host ("  $k : " + $s.feeds.$k.status + " " + $s.feeds.$k.detail) }
-} catch { Write-Host "Dashboard not answering yet. See the log: $Dir\scalper.log" -ForegroundColor Yellow }
+} catch { Write-Host "Dashboard not answering yet." -ForegroundColor Yellow }
+Write-Host "`nLast lines of the log:"
+Get-Content "$Dir\scalper.log" -Tail 8 -ErrorAction SilentlyContinue
 
 $ip = (Invoke-RestMethod "https://checkip.amazonaws.com").Trim()
 Say "Done"
 Write-Host @"
 The scalper trades forex majors + gold and checks exits every second.
-  Live dashboard:  http://${ip}:$Port   (allow TCP $Port in Lightsail: instance > Networking > Add rule)
+  Live dashboard:  http://localhost:$Port on this computer
+                   (on a cloud server: http://${ip}:$Port after allowing TCP $Port in its firewall)
   Log file:        $Dir\scalper.log
   IMPORTANT:       close the Remote Desktop window to leave; do NOT 'Sign out' (MT5 needs the session).
   If you ever installed the crypto scalper on the Linux server, stop it there:

@@ -357,6 +357,7 @@ class FakeMT5:
     def symbol_info_tick(self, name):
         self.n += 1
         return type("T", (), {"bid": 1.1, "ask": 1.10008, "time_msc": self.n // 10, "time": 0})
+    def account_info(self): return type("A", (), {"login": 123, "server": "Demo-Server"})
     def shutdown(self): pass
 
 

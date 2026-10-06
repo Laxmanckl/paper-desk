@@ -38,6 +38,9 @@ class Status:
         self.book, self.source = book, source
 
     def set(self, status: str, detail: str = "") -> None:
+        prev = self.book.feeds.get(self.source, {})
+        if prev.get("status") != status or prev.get("detail") != detail[:200]:
+            print(f"[{self.source}] {status}" + (f": {detail}" if detail else ""), flush=True)   # goes to the log
         self.book.feeds[self.source] = {"status": status, "detail": detail[:200], "t": _now()}
 
 
@@ -149,14 +152,22 @@ class MT5Feed:
         if self.mt5 is None:
             import MetaTrader5 as mt5                      # Windows only
             self.mt5 = mt5
-        kw = {}
+        kw = {"timeout": 30_000}                           # ms; fail with a reason instead of hanging
         if os.environ.get("MT5_PATH"):
             kw["path"] = os.environ["MT5_PATH"]
         if os.environ.get("MT5_LOGIN"):
             kw.update(login=int(os.environ["MT5_LOGIN"]), password=os.environ.get("MT5_PASSWORD", ""),
                       server=os.environ.get("MT5_SERVER", ""))
         if not self.mt5.initialize(**kw):
-            raise RuntimeError(f"MT5 initialize failed: {self.mt5.last_error()}")
+            err = self.mt5.last_error()
+            hint = ""
+            if err and err[0] in (-10003, -10005, -10004):     # IPC init / timeout / no connection
+                hint = (" — is MT5 open and logged in, with Tools > Options > Expert Advisors > "
+                        "'Allow algorithmic trading' ticked?")
+            raise RuntimeError(f"MT5 initialize failed: {err}{hint}")
+        info = self.mt5.account_info()
+        if info is not None:
+            print(f"[mt5] connected to account {info.login} on {info.server}", flush=True)
         names = [s.name for s in (self.mt5.symbols_get() or [])]
         self.map = resolve_mt5_symbols(self.symbols, names, mt5_overrides())
         missing = [s for s in self.symbols if s not in self.map]
