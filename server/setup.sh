@@ -30,7 +30,9 @@ if [ ! -s "$HOME/.git-credentials" ]; then
   say "GitHub token"
   echo "Paste the token you created on GitHub (starts with github_pat_)."
   echo "Nothing will show while you paste. Press Enter after."
-  read -rsp "Token: " TOKEN </dev/tty; echo
+  read -rsp "Token: " RAW </dev/tty; echo
+  RAW=${RAW//$'\e[200~'/}; RAW=${RAW//$'\e[201~'/}     # strip browser paste markers
+  TOKEN=$(printf '%s' "$RAW" | tr -cd 'A-Za-z0-9_')
   [ -n "$TOKEN" ] || { echo "No token entered."; exit 1; }
   printf 'https://x-access-token:%s@github.com\n' "$TOKEN" > "$HOME/.git-credentials"
   chmod 600 "$HOME/.git-credentials"

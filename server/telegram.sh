@@ -9,10 +9,22 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 say "Telegram bot token"
 echo "Paste the token from @BotFather (looks like 123456789:AA...). Nothing shows while you paste."
-read -rsp "Token: " TOKEN </dev/tty; echo
+read -rsp "Token: " RAW </dev/tty; echo
+# browser terminals wrap pasted text in invisible markers (ESC[200~ ... ESC[201~);
+# a bot token is only digits, a colon, letters, '_' and '-', so keep just those
+RAW=${RAW//$'\e[200~'/}; RAW=${RAW//$'\e[201~'/}
+TOKEN=$(printf '%s' "$RAW" | tr -cd 'A-Za-z0-9:_-')
 [ -n "$TOKEN" ] || { echo "No token entered."; exit 1; }
-NAME=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getMe" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["username"])') \
-  || { echo "That token did not work. Copy it again from @BotFather and re-run."; exit 1; }
+if ! printf '%s' "$TOKEN" | grep -Eq '^[0-9]{5,}:[A-Za-z0-9_-]{30,}$'; then
+  echo "That doesn't look like a bot token (it should look like 1234567890:AAH...)."
+  echo "Copy the whole token from @BotFather's message and run this again."
+  exit 1
+fi
+NAME=$(curl -sS "https://api.telegram.org/bot$TOKEN/getMe" | python3 -c 'import json,sys
+try: print(json.load(sys.stdin)["result"]["username"])
+except Exception: sys.exit(1)') \
+  || { echo "Telegram did not accept that token. In @BotFather send /mybots, pick your bot,"; \
+       echo "tap 'API Token' and copy it again, then run this again."; exit 1; }
 
 say "Link your Telegram chat"
 echo "Open Telegram, search for @$NAME, tap Start (or send it any message, like hi)."
