@@ -58,13 +58,13 @@
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4206.5,
-      "time": "2026-10-06T12:13:28+00:00",
+      "price": 4205.8,
+      "time": "2026-10-06T12:14:24+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
       "price": 1.1274,
-      "time": "2026-10-06T12:22:47+00:00",
+      "time": "2026-10-06T12:23:47+00:00",
       "source": "yahoo"
     }
   },
@@ -4624,7 +4624,7 @@
     "EURUSD": 1.12499
   },
   "alerts_sent": {},
-  "last_check": "2026-10-06T12:23:30+00:00",
+  "last_check": "2026-10-06T12:24:29+00:00",
   "runner": {
     "kind": "server",
     "every_min": 1
