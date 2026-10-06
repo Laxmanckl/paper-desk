@@ -58,13 +58,13 @@
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4168.1,
-      "time": "2026-10-06T07:19:09+00:00",
+      "price": 4163.8,
+      "time": "2026-10-06T07:34:34+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
-      "price": 1.122,
-      "time": "2026-10-06T07:28:51+00:00",
+      "price": 1.1231,
+      "time": "2026-10-06T07:43:51+00:00",
       "source": "yahoo"
     }
   },
@@ -1702,6 +1702,30 @@
         "XAUUSD": 4166.8,
         "EURUSD": 1.1221
       }
+    ],
+    [
+      "2026-10-06T07:32:17+00:00",
+      10046.1,
+      {
+        "XAUUSD": 4165.3,
+        "EURUSD": 1.1218
+      }
+    ],
+    [
+      "2026-10-06T07:41:29+00:00",
+      10030.26,
+      {
+        "XAUUSD": 4164.7,
+        "EURUSD": 1.1233
+      }
+    ],
+    [
+      "2026-10-06T07:42:34+00:00",
+      10030.26,
+      {
+        "XAUUSD": 4164.7,
+        "EURUSD": 1.1233
+      }
     ]
   ],
   "events": [
@@ -1808,6 +1832,22 @@
     [
       "2026-10-06T04:10:30+00:00",
       "XAUUSD: new daily bar 2026-10-05 -> SELL (p 84%, conf 79%) gate EXECUTE \u00b7 already holding this side"
+    ],
+    [
+      "2026-10-06T07:32:17+00:00",
+      "XAUUSD: data error, skipped this check (could not reach https://query1.finance.yahoo.com/v8/finance/chart/GC=F: EOF occurred in violation of protocol (_ssl.c:2417))"
+    ],
+    [
+      "2026-10-06T07:32:17+00:00",
+      "EURUSD: data error, skipped this check (could not reach https://query1.finance.yahoo.com/v8/finance/chart/EURUSD=X: [Errno -3] Temporary failure in name resolution)"
+    ],
+    [
+      "2026-10-06T07:41:29+00:00",
+      "XAUUSD: data error, skipped this check (RemoteDisconnected from https://query1.finance.yahoo.com/v8/finance/chart/GC=F: Remote end closed connection without response)"
+    ],
+    [
+      "2026-10-06T07:42:34+00:00",
+      "XAUUSD: data error, skipped this check (could not reach https://query1.finance.yahoo.com/v8/finance/chart/GC=F: EOF occurred in violation of protocol (_ssl.c:2417))"
     ]
   ],
   "closes": {
@@ -2548,7 +2588,7 @@
     "EURUSD": 1.12499
   },
   "alerts_sent": {},
-  "last_check": "2026-10-06T07:29:24+00:00",
+  "last_check": "2026-10-06T07:44:37+00:00",
   "runner": {
     "kind": "server",
     "every_min": 1
