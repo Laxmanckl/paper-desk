@@ -49,8 +49,15 @@ if (-not (Test-Path $Git)) { Write-Host "Git did not install. Re-run this script
 Say "GitHub token (lets the scalper save its account for the dashboard)"
 $cred = "$env:USERPROFILE\.git-credentials"
 if (-not (Test-Path $cred)) {
-  $tok = Ask-Secret "Paste your GitHub token (github_pat_...)"
-  if (-not $tok) { Write-Host "No token entered." -ForegroundColor Red; return }
+  Write-Host "Paste with a RIGHT-CLICK (Ctrl+V often does nothing here), then press Enter. Nothing shows while you paste."
+  $tok = ""
+  for ($i = 1; $i -le 3 -and -not $tok; $i++) {
+    $tok = Ask-Secret "GitHub token (github_pat_...)"
+    if ($tok -and $tok.Length -lt 30) { Write-Host "Only $($tok.Length) characters arrived; a token is about 90. Try again." -ForegroundColor Yellow; $tok = "" }
+    elseif (-not $tok) { Write-Host "Nothing arrived. Right-click once to paste, then press Enter." -ForegroundColor Yellow }
+  }
+  if (-not $tok) { Write-Host "No token entered. Run the same command again when you have it copied." -ForegroundColor Red; return }
+  Write-Host "Token received ($($tok.Length) characters)." -ForegroundColor Green
   Set-Content -Path $cred -Value "https://x-access-token:$tok@github.com" -NoNewline -Encoding ascii
 }
 & $Git config --global credential.helper store
@@ -83,7 +90,7 @@ if (-not (Test-Path $Settings)) {
     $srv = Read-Host "MT5 server name (as shown in MT5, e.g. Broker-Demo)"
     $lines += "`$env:MT5_LOGIN = '$login'", "`$env:MT5_PASSWORD = '$pw'", "`$env:MT5_SERVER = '$srv'"
   }
-  $tg = Ask-Secret "Telegram bot token for alerts (or Enter to skip)"
+  $tg = Ask-Secret "Telegram bot token for alerts (right-click to paste, or Enter to skip)"
   if ($tg) {
     $chat = Read-Host "Telegram chat id (the number from your Linux server: sudo cat /etc/paper-desk.env)"
     $lines += "`$env:TELEGRAM_BOT_TOKEN = '$tg'", "`$env:TELEGRAM_CHAT_ID = '$chat'"
