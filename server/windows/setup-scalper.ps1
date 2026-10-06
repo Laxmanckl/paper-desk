@@ -83,14 +83,16 @@ Pop-Location
 if (-not (Test-Path $Settings)) {
   Say "Settings (stored only on this server)"
   Write-Host "MT5 login: leave blank if MT5 is already logged in to your demo account."
-  $login = Read-Host "MT5 demo login number (or Enter to skip)"
+  $login = (Read-Host "MT5 demo login NUMBER, or just press the Enter key to skip").Trim()
+  if ($login -and $login -notmatch '^\d+$') { Write-Host "That isn't a login number, so skipping (MT5 must already be logged in)." -ForegroundColor Yellow; $login = "" }
   $lines = @("`$env:MT5_PATH = '$($terminal.FullName)'")
   if ($login) {
     $pw = Read-Host "MT5 demo password"
     $srv = Read-Host "MT5 server name (as shown in MT5, e.g. Broker-Demo)"
     $lines += "`$env:MT5_LOGIN = '$login'", "`$env:MT5_PASSWORD = '$pw'", "`$env:MT5_SERVER = '$srv'"
   }
-  $tg = Ask-Secret "Telegram bot token for alerts (right-click to paste, or Enter to skip)"
+  $tg = Ask-Secret "Telegram bot token for alerts (right-click to paste, or just press the Enter key to skip)"
+  if ($tg -and $tg -notmatch '^\d{5,}:[A-Za-z0-9_-]{30,}$') { Write-Host "That isn't a Telegram token, so skipping alerts for now." -ForegroundColor Yellow; $tg = "" }
   if ($tg) {
     $chat = Read-Host "Telegram chat id (the number from your Linux server: sudo cat /etc/paper-desk.env)"
     $lines += "`$env:TELEGRAM_BOT_TOKEN = '$tg'", "`$env:TELEGRAM_CHAT_ID = '$chat'"
