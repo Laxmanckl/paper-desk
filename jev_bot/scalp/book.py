@@ -100,7 +100,7 @@ class ScalpBook:
         p = self.positions.get(sym)
         if not p:
             return None
-        cfg = ScalpConfig(**self.config) if self.config else ScalpConfig()
+        cfg = ScalpConfig.from_dict(self.config)
         if p["side"] == "BUY":
             if bid <= p["stop"]:
                 return self.close(sym, bid, t, "stop")
@@ -136,10 +136,13 @@ class ScalpBook:
             return f"{cfg.max_trades_per_day} trades today already"
         spec = instruments.get(sym)
         if spec.kind != "crypto":
-            h = datetime.fromtimestamp(t, timezone.utc).hour
-            lo, hi = cfg.fx_session_utc
-            if not (lo <= h < hi):
-                return "outside forex trading hours (06-20 UTC)"
+            d = datetime.fromtimestamp(t, timezone.utc)
+            h = d.hour + d.minute / 60
+            if cfg.fx_pause_utc:
+                lo, hi = cfg.fx_pause_utc
+                if lo <= h < hi:
+                    hm = lambda x: f"{int(x):02d}:{round(x % 1 * 60):02d}"
+                    return f"daily rollover pause ({hm(lo)}-{hm(hi)} UTC): spreads jump"
         return None
 
     def open(self, sym: str, side: str, atr_: float, t: float, cfg: ScalpConfig) -> dict | str:
@@ -194,7 +197,7 @@ class ScalpBook:
         spec = instruments.get(sym)
         conv = instruments.quote_to_usd(spec, self.mids()) or 1.0
         d = 1 if p["side"] == "BUY" else -1
-        cfg = ScalpConfig(**self.config) if self.config else ScalpConfig()
+        cfg = ScalpConfig.from_dict(self.config)
         gross = (price - p["entry"]) * d * p["units"] * conv
         fee = self._fee_per_unit(spec, price, conv, cfg) * p["units"] * conv
         fees = p["fees"] + fee

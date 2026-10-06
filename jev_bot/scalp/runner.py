@@ -167,6 +167,24 @@ def parse_list(value: str, majors: dict) -> list[str]:
     return [instruments.get(s).symbol for s in value.split(",") if s.strip()]
 
 
+def fx_pause_from_env() -> tuple:
+    """SCALP_FX_PAUSE="off" trades straight through rollover; "20.5-22" sets another window."""
+    raw = os.environ.get("SCALP_FX_PAUSE", "").strip().lower()
+    if raw in ("off", "none", "0"):
+        return ()
+    try:
+        lo, hi = (float(x) for x in raw.split("-"))
+        return (lo, hi)
+    except ValueError:
+        return ScalpConfig.fx_pause_utc
+
+
+def code_stamp() -> float:
+    """Newest modification time of the bot's code: changes when a git pull brings an update."""
+    root = Path(__file__).resolve().parent.parent
+    return max((f.stat().st_mtime for f in root.rglob("*.py")), default=0.0)
+
+
 async def main(a) -> None:
     from ..cli import publish
     crypto = parse_list(a.crypto, instruments.CRYPTO_MAJORS)
@@ -174,7 +192,8 @@ async def main(a) -> None:
     if not crypto and not fx:
         raise SystemExit("nothing to trade: use --crypto and/or --fx")
     book = ScalpBook.load(a.account, a.start)
-    cfg = ScalpConfig(crypto_fee=a.crypto_fee, fx_commission_per_100k=a.fx_commission)
+    cfg = ScalpConfig(crypto_fee=a.crypto_fee, fx_commission_per_100k=a.fx_commission,
+                      fx_pause_utc=fx_pause_from_env())
     engine = Engine(book, crypto + fx, cfg)
     book.config = dict(cfg.__dict__)
     srcs = []
@@ -186,6 +205,8 @@ async def main(a) -> None:
     if a.port:
         serve(a.port)
     print(f"scalper: {len(crypto)} crypto, {len(fx)} forex/gold · dashboard on port {a.port}", flush=True)
+
+    started_code = code_stamp()
 
     async def housekeeping():
         last_save = last_pub = 0.0
@@ -208,6 +229,10 @@ async def main(a) -> None:
                     ok = await asyncio.get_running_loop().run_in_executor(None, publish, a.account)
                     if ok:
                         last_pub = now
+                        if a.restart_on_update and code_stamp() != started_code:
+                            book.save(a.account)
+                            print("code updated from GitHub; restarting to use it", flush=True)
+                            os._exit(0)                # the Windows loop / systemd starts us again
             except Exception:
                 traceback.print_exc()
 

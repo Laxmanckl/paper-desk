@@ -29,7 +29,12 @@ On every closed 1-minute candle, for each instrument:
 
 Safety limits: one trade per instrument, max 5 open, 5-minute pause after each trade,
 max 20 trades per instrument per day, **stops opening trades after −2% in a day**,
-forex/gold only 06:00–20:00 UTC (the liquid hours).
+forex/gold trade **24/5** (Sunday 22:00 to Friday 21:00 UTC), except no *new* trades
+20:45–22:00 UTC, the daily rollover when brokers' spreads jump. To trade through it too,
+add `$env:SCALP_FX_PAUSE = 'off'` to `C:\paper-scalper-settings.ps1`.
+
+**Updates install themselves:** after each save the Windows scalper pulls from GitHub, and if
+the code changed it restarts itself 15 seconds later with the new version.
 
 **Honest expectation:** scalping is the hardest style to make money with. Every trade pays
 the spread (and fees on crypto), so the strategy must win often enough to cover that.

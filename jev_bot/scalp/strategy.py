@@ -48,7 +48,16 @@ class ScalpConfig:
     max_trades_per_day: int = 20     # per instrument
     max_open: int = 5                # across everything
     daily_loss_halt: float = 0.02    # stop opening trades after -2% in a UTC day
-    fx_session_utc: tuple = (6, 20)  # forex/gold: trade 06:00-20:00 UTC only
+    # forex/gold trade round the clock (Sun 22:00 - Fri 21:00 UTC), except no NEW trades
+    # during the daily rollover, when brokers' spreads jump for a few minutes.
+    # (start, end) in UTC hours; () = no pause.  20.75 = 20:45.
+    fx_pause_utc: tuple = (20.75, 22.0)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ScalpConfig":
+        """Rebuild from a saved account, ignoring settings older versions had."""
+        known = cls.__dataclass_fields__
+        return cls(**{k: v for k, v in (d or {}).items() if k in known})
 
 
 @dataclass

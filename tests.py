@@ -326,10 +326,23 @@ ok("scalp: crypto fees are charged on entry", isinstance(r, dict) and r["fees"] 
 
 c3 = ScalpBook(created="x"); c3.config = dict(cfg.__dict__)
 c3.on_tick("XAUUSD", 4000, 4000.3, T)
-night = 1791158400 + 23 * 3600
+roll = 1791158400 + 21 * 3600                            # Mon 21:00 UTC
+c3.on_tick("XAUUSD", 4000, 4000.3, roll)
+ok("scalp: no new forex/gold trades in the daily rollover pause",
+   "rollover" in c3.open("XAUUSD", "BUY", 2.0, roll, cfg))
+night = 1791158400 + 23 * 3600                           # Mon 23:00 UTC (Asian session)
 c3.on_tick("XAUUSD", 4000, 4000.3, night)
-ok("scalp: no forex/gold trades outside 06-20 UTC",
-   "outside forex trading hours" in c3.open("XAUUSD", "BUY", 2.0, night, cfg))
+ok("scalp: forex/gold trade round the clock outside the pause",
+   isinstance(c3.open("XAUUSD", "BUY", 2.0, night, cfg), dict))
+old = dict(cfg.__dict__); old.pop("fx_pause_utc"); old["fx_session_utc"] = [6, 20]
+ok("scalp: an account saved by the old version still loads",
+   ScalpConfig.from_dict(old).fx_pause_utc == ScalpConfig().fx_pause_utc)
+from jev_bot.scalp import runner as _sr
+import os as _os
+_os.environ["SCALP_FX_PAUSE"] = "off"; _a = _sr.fx_pause_from_env()
+_os.environ["SCALP_FX_PAUSE"] = "20.5-22"; _b = _sr.fx_pause_from_env()
+_os.environ.pop("SCALP_FX_PAUSE")
+ok("scalp: rollover pause can be turned off or moved", _a == () and _b == (20.5, 22.0))
 
 c4 = ScalpBook(created="x"); c4.config = dict(cfg.__dict__)
 c4.on_tick("EURUSD", 1.1, 1.10008, T)

@@ -381,6 +381,8 @@ def build_parser():
                     help="git commit + push the scalper account every MIN minutes")
     sc.add_argument("--crypto-fee", type=float, default=0.0005, help="per side, e.g. 0.001 for Binance spot")
     sc.add_argument("--fx-commission", type=float, default=0.0, help="USD per 100k units per side")
+    sc.add_argument("--restart-on-update", action="store_true",
+                    help="exit after a publish pulls new code (a restart loop must start it again)")
     sc.set_defaults(func=cmd_scalp)
 
     sd = sub.add_parser("scalp-dashboard", help="build the scalper snapshot page for GitHub Pages")
