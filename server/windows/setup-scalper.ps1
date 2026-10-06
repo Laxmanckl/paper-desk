@@ -1,5 +1,5 @@
-# Sets up the SCALPER on a Windows server, trading crypto majors (Binance prices)
-# AND forex majors + gold (prices from YOUR MetaTrader 5 demo account).
+# Sets up the SCALPER on a Windows server, trading forex majors + gold with prices
+# from YOUR MetaTrader 5 demo account. (Crypto is off; add it in run-scalper.ps1.)
 # Paper only: fake money, no orders are ever sent to MT5.
 #
 # Before running: install your broker's MetaTrader 5, log in to your DEMO account,
@@ -112,10 +112,10 @@ try {
 $ip = (Invoke-RestMethod "https://checkip.amazonaws.com").Trim()
 Say "Done"
 Write-Host @"
-The scalper runs crypto + forex/gold and checks exits every second.
+The scalper trades forex majors + gold and checks exits every second.
   Live dashboard:  http://${ip}:$Port   (allow TCP $Port in Lightsail: instance > Networking > Add rule)
   Log file:        $Dir\scalper.log
   IMPORTANT:       close the Remote Desktop window to leave; do NOT 'Sign out' (MT5 needs the session).
-  On your Linux server, stop its crypto-only scalper so only one scalper trades this account:
+  If you ever installed the crypto scalper on the Linux server, stop it there:
                    sudo systemctl disable --now paper-scalper
 "@

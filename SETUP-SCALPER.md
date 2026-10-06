@@ -59,7 +59,9 @@ The live page is plain `http` and anyone with the link can view it. It only show
 
 ---
 
-## Part B: add forex + gold from your MT5 broker (Windows server)
+## Part B: forex majors + gold from your MT5 broker (Windows server)
+
+This is the current plan: forex majors + gold only (crypto is off). Part A is optional.
 
 MetaTrader 5's Python connection only works on **Windows**, with the MT5 program running.
 
@@ -83,7 +85,7 @@ testing (it only works while the PC is on).
    It asks for your **GitHub token** (the same kind as before), optionally your MT5 login
    (skip it if MT5 is already logged in), and optionally the Telegram token and chat id.
 5. **Open port 8080** for this server in Lightsail (same steps as Part A).
-6. **Stop the crypto-only scalper on the Linux server** so only one scalper trades the account:
+6. **Only if you installed the crypto scalper (Part A)**, stop it on the Linux server so only one scalper trades the account:
 
    ```
    sudo systemctl disable --now paper-scalper
