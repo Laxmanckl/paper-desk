@@ -30,7 +30,7 @@
   "closed": [],
   "last_bar": {
     "XAUUSD": "2026-10-06",
-    "EURUSD": "2026-10-06"
+    "EURUSD": "2026-10-07"
   },
   "last_decision": {
     "XAUUSD": {
@@ -45,26 +45,26 @@
       "source": "offline"
     },
     "EURUSD": {
-      "bar": "2026-10-06",
+      "bar": "2026-10-07",
       "action": "SELL",
-      "probability": 0.937,
-      "confidence": 0.894,
+      "probability": 0.934,
+      "confidence": 0.891,
       "gate": "EXECUTE",
       "reason": "",
-      "momentum": -0.817,
+      "momentum": -0.818,
       "regime": "bearish",
       "source": "offline"
     }
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4129.2,
-      "time": "2026-10-07T22:42:52+00:00",
+      "price": 4130.2,
+      "time": "2026-10-07T22:58:53+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
-      "price": 1.1204,
-      "time": "2026-10-07T22:52:50+00:00",
+      "price": 1.1203,
+      "time": "2026-10-07T23:08:50+00:00",
       "source": "yahoo"
     }
   },
@@ -6966,6 +6966,30 @@
         "XAUUSD": 4129.5,
         "EURUSD": 1.1204
       }
+    ],
+    [
+      "2026-10-07T22:56:01+00:00",
+      10087.69,
+      {
+        "XAUUSD": 4129.8,
+        "EURUSD": 1.1204
+      }
+    ],
+    [
+      "2026-10-07T23:01:00+00:00",
+      10086.5,
+      {
+        "XAUUSD": 4131.4,
+        "EURUSD": 1.1204
+      }
+    ],
+    [
+      "2026-10-07T23:06:00+00:00",
+      10087.24,
+      {
+        "XAUUSD": 4130.4,
+        "EURUSD": 1.1204
+      }
     ]
   ],
   "events": [
@@ -7100,6 +7124,10 @@
     [
       "2026-10-07T04:10:35+00:00",
       "XAUUSD: new daily bar 2026-10-06 -> SELL (p 84%, conf 79%) gate EXECUTE \u00b7 already holding this side"
+    ],
+    [
+      "2026-10-07T23:01:00+00:00",
+      "EURUSD: new daily bar 2026-10-07 -> SELL (p 93%, conf 89%) gate EXECUTE \u00b7 already holding this side"
     ]
   ],
   "closes": {
@@ -7467,10 +7495,6 @@
     ],
     "EURUSD": [
       [
-        "2026-06-03",
-        1.16221
-      ],
-      [
         "2026-06-04",
         1.16094
       ],
@@ -7825,6 +7849,10 @@
       [
         "2026-10-06",
         1.12171
+      ],
+      [
+        "2026-10-07",
+        1.12535
       ]
     ]
   },
@@ -7842,7 +7870,7 @@
   "alerts_sent": {
     "daily": "2026-10-07"
   },
-  "last_check": "2026-10-07T22:53:01+00:00",
+  "last_check": "2026-10-07T23:09:00+00:00",
   "runner": {
     "kind": "server",
     "every_min": 1
