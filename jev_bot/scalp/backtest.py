@@ -130,7 +130,11 @@ def report(name: str, book: ScalpBook) -> str:
 
 
 def cli(a) -> None:
-    cfg = ScalpConfig(crypto_fee=a.crypto_fee, fx_commission_per_100k=a.fx_commission)
+    if getattr(a, "strategy", "pullback") == "orb":
+        from .runner import orb_config
+        cfg = orb_config(a)
+    else:
+        cfg = ScalpConfig(crypto_fee=a.crypto_fee, fx_commission_per_100k=a.fx_commission)
     syms = [instruments.get(s).symbol for s in (a.symbols or ["BTCUSDT", "EURUSD", "XAUUSD"])]
     csvs = dict(c.split("=", 1) for c in a.csv)
     csvs = {instruments.get(k).symbol: v for k, v in csvs.items()}

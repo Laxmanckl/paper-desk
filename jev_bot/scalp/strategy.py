@@ -12,6 +12,10 @@ On every closed 1-minute candle, per instrument:
             25% of the risk: the stop is widened to make that true, and the
             trade is skipped if that would need a stop wider than 4 x ATR
   quiet     skip if the market is barely moving (ATR tiny vs price)
+  15-min    the bigger trend must agree: EMA(20) vs EMA(50) on 15-minute
+            candles must point the same way as the 1-minute trend
+  spread    skip if the spread is over 1.5 x its normal level (last hour)
+  gold      no new gold trades 21:00-06:00 UTC (thin, jumpy Asian session)
 
 Exits (checked on every price update, roughly every second):
   stop   = 1.2 x ATR(14, 1-min) from entry (wider if costs require it)
@@ -52,6 +56,17 @@ class ScalpConfig:
     # during the daily rollover, when brokers' spreads jump for a few minutes.
     # (start, end) in UTC hours; () = no pause.  20.75 = 20:45.
     fx_pause_utc: tuple = (20.75, 22.0)
+    metal_pause_utc: tuple = (21.0, 6.0)   # gold: no new trades 21:00-06:00 UTC; () = off
+    spread_guard: float = 1.5        # skip if spread > 1.5 x its normal (median of last hour); 0 = off
+    htf_minutes: int = 15            # bigger-trend filter: EMA(20)/EMA(50) on 15-min candles
+    htf_fast: int = 20
+    htf_slow: int = 50               # 0 = filter off
+    strategy: str = "pullback"       # "pullback" (A) or "orb" (B: opening-range breakout)
+    # --- B: opening-range breakout (only used when strategy == "orb") ---
+    orb_range_utc: tuple = (6.0, 7.0)      # the range: high/low of 06:00-07:00 UTC
+    orb_entry_until: float = 12.0          # breakouts only until 12:00 UTC
+    orb_exit_utc: float = 16.0             # anything still open closes at 16:00 UTC
+    orb_buffer: float = 0.1                # close must clear the range by 10% of its height
 
     @classmethod
     def from_dict(cls, d: dict) -> "ScalpConfig":
@@ -64,16 +79,44 @@ class ScalpConfig:
 class Signal:
     action: str | None     # "BUY", "SELL" or None
     atr: float
-    trend: str             # "up", "down" or "flat"
-    rsi: float
+    trend: str             # "up", "down", "flat" (or "" when not used)
+    rsi: float | None
     reason: str            # why there is (or isn't) a trade
+    stop: float | None = None       # absolute stop price (else the ATR rule)
+    deadline: float | None = None   # unix time to close by (else max_minutes)
 
 
-def evaluate(bars: list[Bar], cfg: ScalpConfig) -> Signal:
+def htf_closes(bars: list[Bar], minutes: int) -> list[float]:
+    """Closes of the completed N-minute candles inside a list of 1-minute candles."""
+    step = minutes * 60
+    out, last_block = [], None
+    for b in bars:
+        blk = b.t // step
+        if last_block is not None and blk != last_block:
+            out.append(prev_c)
+        last_block, prev_c = blk, b.c
+    if bars and (bars[-1].t + 60) % step == 0:       # the newest bar finished its block
+        out.append(bars[-1].c)
+    return out
+
+
+def htf_trend(bars: list[Bar], cfg: ScalpConfig) -> str | None:
+    """"up"/"down"/"flat" on the bigger timeframe, or None while there is too little history."""
+    c = htf_closes(bars, cfg.htf_minutes)
+    if len(c) < cfg.htf_slow:
+        return None
+    f, s = ema(c, cfg.htf_fast)[-1], ema(c, cfg.htf_slow)[-1]
+    return "up" if f > s else "down" if f < s else "flat"
+
+
+def evaluate(bars: list[Bar], cfg: ScalpConfig, t: float = 0.0, st: dict | None = None) -> Signal:
+    if cfg.strategy == "orb":
+        from .orb import evaluate as orb_eval
+        return orb_eval(bars, cfg, t, st if st is not None else {})
     need = cfg.ema_slow + 5
     if len(bars) < need:
         return Signal(None, 0.0, "flat", 50.0, f"warming up ({len(bars)}/{need} candles)")
-    closes = [b.c for b in bars]
+    closes = [b.c for b in bars[-300:]]
     ef, es = ema(closes, cfg.ema_fast)[-1], ema(closes, cfg.ema_slow)[-1]
     r = rsi(closes, cfg.rsi_len)
     a = atr(bars, 14)
@@ -82,6 +125,12 @@ def evaluate(bars: list[Bar], cfg: ScalpConfig) -> Signal:
     recent = r[-1 - cfg.lookback:-1]
     if a < px * cfg.min_atr_frac:
         return Signal(None, a, trend, r[-1], "market too quiet")
+    big = htf_trend(bars, cfg) if cfg.htf_slow else trend
+    if big is None:
+        need_m = cfg.htf_minutes * cfg.htf_slow
+        return Signal(None, a, trend, r[-1], f"collecting 15-min trend history ({len(bars)}/{need_m} min)")
+    if trend in ("up", "down") and big != trend:
+        return Signal(None, a, trend, r[-1], f"1-min trend {trend}, 15-min trend {big}: waiting until they agree")
     if trend == "up" and min(recent) < cfg.rsi_low and r[-1] >= cfg.rsi_low + cfg.rsi_reset:
         return Signal("BUY", a, trend, r[-1], "pullback in uptrend turned up")
     if trend == "down" and max(recent) > cfg.rsi_high and r[-1] <= cfg.rsi_high - cfg.rsi_reset:

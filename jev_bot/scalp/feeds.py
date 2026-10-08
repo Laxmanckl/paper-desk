@@ -137,6 +137,21 @@ def mt5_overrides() -> dict:
     return dict(p.split("=", 1) for p in raw.split(",") if "=" in p)
 
 
+def mt5_bars(rates, now: float) -> list[Bar]:
+    """MT5 candles -> our Bars in UTC. Broker candle times are in the broker's own
+    time zone, so the offset is worked out from the newest candle (which closed
+    within the last minute or so) and rounded to the half hour."""
+    m = int(now // 60) * 60
+    try:
+        times = [int(r["time"]) for r in rates]
+        off = round((times[-1] - (m - 60)) / 1800) * 1800
+        stamps = [x - off for x in times]
+    except (KeyError, ValueError, IndexError, TypeError):      # no times: lay them on the minute grid
+        stamps = [m - (len(rates) - i) * 60 for i in range(len(rates))]
+    return [Bar(ts, float(r["open"]), float(r["high"]), float(r["low"]), float(r["close"]))
+            for ts, r in zip(stamps, rates)]
+
+
 class MT5Feed:
     POLL = 0.5
 
@@ -173,14 +188,9 @@ class MT5Feed:
         missing = [s for s in self.symbols if s not in self.map]
         for ours, theirs in self.map.items():
             self.mt5.symbol_select(theirs, True)
-            rates = self.mt5.copy_rates_from_pos(theirs, self.mt5.TIMEFRAME_M1, 1, 120)
+            rates = self.mt5.copy_rates_from_pos(theirs, self.mt5.TIMEFRAME_M1, 1, 1000)
             if rates is not None and len(rates):
-                # broker bar times are in the broker's own time zone; only the order
-                # matters for indicators, so re-stamp them on our UTC minute grid
-                m = int(_now() // 60) * 60
-                n = len(rates)
-                self.engine.seed(ours, [Bar(m - (n - i) * 60, float(r["open"]), float(r["high"]),
-                                            float(r["low"]), float(r["close"])) for i, r in enumerate(rates)])
+                self.engine.seed(ours, mt5_bars(rates, _now()))
         self.status.set("live", ("not offered by your broker: " + ", ".join(missing)) if missing else "")
 
     def poll_once(self) -> None:

@@ -43,6 +43,15 @@ header { display: grid; gap: 6px; }
 .dot.live { background: var(--good); box-shadow: 0 0 0 0 var(--good); animation: pulse 2s infinite; }
 .dot.down { background: var(--bad); }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.desks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.desk { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel);
+  color: inherit; text-decoration: none; }
+.desk:hover { border-color: var(--accent); }
+.desk[aria-current="page"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.desk b { font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.desk .num { font-size: 15px; }
+.desk .s { font-size: 12px; color: var(--ink-3); }
+.about { font-size: 13px; color: var(--ink-2); margin: 0; }
 .banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 10px 14px; font-size: 13px; }
 
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
@@ -96,6 +105,8 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     <div class="title-row"><h1>Scalp Desk</h1><span class="paper">PAPER · FAKE MONEY</span></div>
     <div class="meta" id="meta"><span>Connecting…</span></div>
   </header>
+  <nav class="desks" id="desks" aria-label="Strategies" hidden></nav>
+  <p class="about" id="about" hidden></p>
   <div class="banner" id="banner" hidden></div>
 
   <section class="summary" id="summary" aria-label="Account summary"></section>
@@ -170,8 +181,10 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   }
   var FEED = { binance: "Crypto (Binance)", mt5: "Forex & gold (MT5)" };
 
+  var ORB = false;
   function render() {
     if (!S) return;
+    ORB = (S.config || {}).strategy === "orb";
     var now = S.server_time || Date.now() / 1000;
     var ref = S.static_note ? (S.last_tick || now) : now;     // a snapshot judges freshness at its own last price
     var age = now - (S.last_tick || 0);
@@ -185,6 +198,17 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     meta.push("<span>Running since " + esc((S.created || "").slice(0, 10)) + "</span>");
     if (S.daily_url || S.static_note) meta.push('<a href="' + esc(S.static_note ? "./" : S.daily_url) + '">Daily bot dashboard →</a>');
     $("meta").innerHTML = meta.join("");
+    var me = (S.desk || {}).key || "a", peers = S.peers || [];
+    $("desks").hidden = peers.length < 2;
+    $("desks").innerHTML = peers.map(function (p) {
+      var r = p.equity / p.start - 1, href = S.static_note ? p.page : (p.key === "a" ? "./" : "./?desk=" + p.key);
+      return '<a class="desk" href="' + esc(href) + '"' + (p.key === me ? ' aria-current="page"' : "") + "><b>" + esc(p.name) + "</b>" +
+        "<span class='num'>" + money(p.equity) + " <span class='" + cls(r) + "'>" + pct(r) + "</span></span>" +
+        "<span class='s'>" + (p.n ? p.n + " trades · " + Math.round(100 * p.wins / p.n) + "% won" : "no trades yet") + (p.open ? " · " + p.open + " open" : "") + "</span></a>";
+    }).join("");
+    $("about").hidden = !(S.desk || {}).about;
+    $("about").textContent = (S.desk || {}).about || "";
+    document.title = "Scalp Desk" + (peers.length > 1 && S.desk ? " · " + S.desk.name : "");
     var day = new Date(now * 1000).toISOString().slice(0, 10), b = $("banner");
     if (S.static_note) { b.hidden = false; b.textContent = S.static_note; }
     else if (S.halted_day === day) { b.hidden = false; b.textContent = "Daily loss limit reached: no new trades until 00:00 UTC. Open trades keep their stops and targets."; }
@@ -240,7 +264,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
           "<td><div class='range'><i style='left:" + (f * 100).toFixed(1) + "%'></i></div><div class='range-lab'><span>stop " + px(sym, p.stop) + "</span><span>target " + px(sym, p.target) + "</span></div></td>" +
           "<td class='n r'>" + dur(now - p.t_open) + "</td><td class='n r " + cls(u) + "'>" + money(u, true) + "</td></tr>";
       }).join("") + "</tbody></table></div>"
-      : "<div class='empty'>No open trades. The bot waits for a pullback inside a 1-minute trend, with costs under 25% of the risk.</div>";
+      : "<div class='empty'>No open trades. " + (ORB ? "This desk waits for a break out of the 06:00–07:00 UTC range (07:00–12:00 UTC)." : "The bot waits for a pullback inside a 1-minute trend that the 15-minute trend agrees with, with costs under 25% of the risk.") + "</div>";
 
     // activity
     var ev = (S.events || []).slice(-60).reverse();
@@ -248,11 +272,13 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 
     renderTrades();
     renderBySym();
-    var c = S.config || {};
-    $("rules").innerHTML = ["1-min trend + pullback entries", "Risk " + ((c.risk_frac || 0.0025) * 100).toFixed(2) + "% per trade",
-      "Stop " + (c.stop_atr || 1.2) + "× ATR, target " + (c.reward_risk || 1.5) + "× the stop", "Costs ≤ " + ((c.max_cost_frac || 0.25) * 100) + "% of risk",
-      "Max " + (c.max_minutes || 30) + " min per trade", "Daily loss limit " + ((c.daily_loss_halt || 0.02) * 100) + "%",
-      "Crypto fee " + ((c.crypto_fee || 0.0005) * 100).toFixed(3) + "% per side", "Forex hours 06–20 UTC"]
+    var c = S.config || {}, common = ["Risk " + ((c.risk_frac || 0.0025) * 100).toFixed(2) + "% per trade",
+      "Costs ≤ " + ((c.max_cost_frac || 0.25) * 100) + "% of risk", "Skip if spread > " + (c.spread_guard || 1.5) + "× normal",
+      "Daily loss limit " + ((c.daily_loss_halt || 0.02) * 100) + "%", "No new trades 20:45–22:00 UTC (rollover)"];
+    $("rules").innerHTML = (ORB ? ["Range 06:00–07:00 UTC", "Breakouts 07:00–12:00 UTC", "Stop: middle of the range",
+      "Target " + (c.reward_risk || 1.5) + "× the stop", "Closes by 16:00 UTC", "1 trade per instrument per day"].concat(common)
+      : ["1-min trend + pullback entries", "15-min trend must agree", "Stop " + (c.stop_atr || 1.2) + "× ATR, target " + (c.reward_risk || 1.5) + "× the stop",
+      "Max " + (c.max_minutes || 30) + " min per trade", "No gold 21:00–06:00 UTC"].concat(common))
       .map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
   }
 
@@ -324,9 +350,9 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     S = EMBED; EQ = S.equity_log || []; render(); drawEq();
     return;
   }
-  var fails = 0;
+  var fails = 0, DESK = encodeURIComponent(new URLSearchParams(location.search).get("desk") || "a");
   function poll(full) {
-    return fetch("api/state" + (full ? "?full=1" : ""), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+    return fetch("api/state?desk=" + DESK + (full ? "&full=1" : ""), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
       fails = 0; S = d; if (full && d.equity_log) { EQ = d.equity_log; drawEq(); } render();
     }).catch(function () {
       if (++fails === 3) { $("banner").hidden = false; $("banner").textContent = "Lost contact with the bot's server. Retrying every second…"; }

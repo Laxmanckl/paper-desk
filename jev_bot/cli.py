@@ -180,7 +180,7 @@ def cmd_live(a):
             break
 
 
-def publish(account_path: str) -> bool:
+def publish(*account_paths: str) -> bool:
     """Commit the account file and push it, so GitHub rebuilds the dashboard.
     Used by the always-on server. Failures are reported and retried later."""
     import subprocess
@@ -194,7 +194,7 @@ def publish(account_path: str) -> bool:
         except (subprocess.TimeoutExpired, OSError) as e:      # a stuck or missing git must not stop the bot
             return subprocess.CompletedProcess(args, 1, "", f"{type(e).__name__}: {e}")
 
-    git("add", account_path)
+    git("add", *[p for p in account_paths if os.path.exists(p)])
     if git("diff", "--cached", "--quiet").returncode != 0:
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         git("commit", "-q", "-m", f"server check {stamp}")
@@ -234,9 +234,15 @@ def cmd_scalp_dashboard(a):
     from .scalp.book import ScalpBook
     if not os.path.exists(a.account):
         raise SystemExit(f"  no scalper account at {a.account}")
-    runner.build_static(ScalpBook.load(a.account), a.out,
-                        "Snapshot, updated about every 15 minutes. The live page on the bot's server updates every second.")
-    print(f"  scalper dashboard written to {a.out}")
+    note = "Snapshot, updated about every 15 minutes. The live page on the bot's computer updates every second."
+    books = {"a": ScalpBook.load(a.account)}
+    if a.orb_account and os.path.exists(a.orb_account):
+        books["orb"] = ScalpBook.load(a.orb_account)
+    peers = [runner.desk_summary(k, b) for k, b in books.items()]
+    outs = {"a": a.out, "orb": os.path.join(os.path.dirname(a.out) or ".", runner.DESKS["orb"]["page"])}
+    for k, b in books.items():
+        runner.build_static(b, outs[k], note, k, peers)
+        print(f"  scalper dashboard ({runner.DESKS[k]['name']}) written to {outs[k]}")
 
 
 def cmd_scalp_backtest(a):
@@ -381,12 +387,15 @@ def build_parser():
                     help="git commit + push the scalper account every MIN minutes")
     sc.add_argument("--crypto-fee", type=float, default=0.0005, help="per side, e.g. 0.001 for Binance spot")
     sc.add_argument("--fx-commission", type=float, default=0.0, help="USD per 100k units per side")
+    sc.add_argument("--orb-account", default="state/scalper_orb.json",
+                    help="account for strategy B, the opening-range breakout ('none' = off)")
     sc.add_argument("--restart-on-update", action="store_true",
                     help="exit after a publish pulls new code (a restart loop must start it again)")
     sc.set_defaults(func=cmd_scalp)
 
     sd = sub.add_parser("scalp-dashboard", help="build the scalper snapshot page for GitHub Pages")
     sd.add_argument("--account", default="state/scalper_account.json")
+    sd.add_argument("--orb-account", default="state/scalper_orb.json")
     sd.add_argument("--out", default="docs/scalper.html")
     sd.set_defaults(func=cmd_scalp_dashboard)
 
@@ -397,6 +406,8 @@ def build_parser():
     sb_.add_argument("--days", type=int, default=20)
     sb_.add_argument("--sweep", type=int, default=0)
     sb_.add_argument("--trendless", action="store_true")
+    sb_.add_argument("--strategy", choices=["pullback", "orb"], default="pullback",
+                     help="pullback = A (default), orb = B, the opening-range breakout")
     sb_.add_argument("--crypto-fee", type=float, default=0.0005)
     sb_.add_argument("--fx-commission", type=float, default=0.0)
     sb_.set_defaults(func=cmd_scalp_backtest)

@@ -15,30 +15,40 @@ stop and target **every second**. Paper only: it never sends an order anywhere.
 
 ## How it trades
 
-On every closed 1-minute candle, for each instrument:
+Two strategies (“desks”) run side by side on the same live prices, each with its own
+fake **$10,000**, so you can compare them fairly. Switch between them at the top of the dashboard
+(`scalper.html` for A, `scalper-orb.html` for B).
+
+**A · Pullback** — on every closed 1-minute candle, for each instrument:
 
 1. **Trend:** fast average (EMA 20) above slow (EMA 50) = only buys; below = only sells.
-2. **Entry:** a short pullback against the trend that has just turned back
+2. **Bigger trend agrees:** the same test on **15-minute** candles must point the same way.
+3. **Entry:** a short pullback against the trend that has just turned back
    (RSI 7 went below 30 and is back above 40 for buys; mirror for sells).
-3. **Costs check:** the spread plus fees for the round trip must be **at most 25% of the
-   amount at risk**. If the 1-minute moves are too small for that, the bot skips the trade
-   and says "costs too high right now".
-4. **Size:** risks **0.25%** of the account per trade.
-5. **Exit:** stop = 1.2 × the 1-minute range (wider if costs need it), target = 1.5 × the stop,
+4. **Costs check:** spread + fees for the round trip must be **at most 25% of the amount at risk**.
+5. **Spread guard:** skip if the spread is more than **1.5× its normal level** (median of the last hour).
+6. **Gold:** no new gold trades **21:00–06:00 UTC** (thin, jumpy Asian session). Forex pairs trade 24/5.
+7. **Exit:** stop = 1.2 × the 1-minute range (wider if costs need it), target = 1.5 × the stop,
    or close after **30 minutes**.
 
-Safety limits: one trade per instrument, max 5 open, 5-minute pause after each trade,
-max 20 trades per instrument per day, **stops opening trades after −2% in a day**,
-forex/gold trade **24/5** (Sunday 22:00 to Friday 21:00 UTC), except no *new* trades
-20:45–22:00 UTC, the daily rollover when brokers' spreads jump. To trade through it too,
-add `$env:SCALP_FX_PAUSE = 'off'` to `C:\paper-scalper-settings.ps1`.
+**B · Breakout** (the London opening-range breakout), forex + gold:
+
+1. **Range:** the high and low from **06:00 to 07:00 UTC**.
+2. **Entry:** 07:00–12:00 UTC, the first 1-minute close beyond the range (plus 10% of its height)
+   → buy above, sell below. **One trade per instrument per day.**
+3. **Stop:** the middle of the range. **Target:** 1.5 × the stop. **Closes by 16:00 UTC** at the latest.
+4. Same costs check and spread guard as A.
+
+Both: risk **0.25%** of the account per trade, max 5 open, **stop opening trades after −2% in a day**,
+no new trades 20:45–22:00 UTC (the daily rollover, when spreads jump).
+To trade through the rollover, add `$env:SCALP_FX_PAUSE = 'off'` to `C:\paper-scalper-settings.ps1`.
 
 **Updates install themselves:** after each save the Windows scalper pulls from GitHub, and if
 the code changed it restarts itself 15 seconds later with the new version.
 
 **Honest expectation:** scalping is the hardest style to make money with. Every trade pays
 the spread (and fees on crypto), so the strategy must win often enough to cover that.
-In simulated tests it **lost** in every run (about −4% over 10 days when markets trended,
+In simulated tests the pullback scalper **lost** in every run (about −4% over 10 days when markets trended,
 about −9% when they didn't): it captures some trend, but not enough to cover costs. Real
 prices may behave differently. That is exactly what the paper test is for. Judge it on at
 least a few hundred trades.

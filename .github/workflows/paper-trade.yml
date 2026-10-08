@@ -16,7 +16,7 @@ on:
   workflow_dispatch:               # "Run workflow" button on the Actions tab
   push:
     branches: [main]
-    paths: ["state/paper_account.json", "state/runner.txt", "state/scalper_account.json"]   # the servers' pushes
+    paths: ["state/paper_account.json", "state/runner.txt", "state/scalper_account.json", "state/scalper_orb.json"]   # the servers' pushes
 
 permissions:
   contents: write

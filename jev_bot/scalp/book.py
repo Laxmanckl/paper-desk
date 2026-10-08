@@ -43,6 +43,7 @@ class ScalpBook:
     prices: dict = field(default_factory=dict)         # symbol -> {bid, ask, t}
     signals: dict = field(default_factory=dict)        # symbol -> last signal info (dashboard)
     feeds: dict = field(default_factory=dict)          # source -> {status, t}
+    spreads: dict = field(default_factory=dict)        # symbol -> spread at each of the last 60 candle closes
     last_tick: float = 0.0
     config: dict = field(default_factory=dict)
 
@@ -111,9 +112,20 @@ class ScalpBook:
                 return self.close(sym, ask, t, "stop")
             if ask <= p["target"]:
                 return self.close(sym, p["target"], t, "target")
-        if t - p["t_open"] >= cfg.max_minutes * 60:
+        if t >= (p.get("t_deadline") or p["t_open"] + cfg.max_minutes * 60):
             return self.close(sym, bid if p["side"] == "BUY" else ask, t, "time")
         return None
+
+    # --- spread guard -------------------------------------------------------
+    def note_spread(self, sym: str) -> None:
+        """Called once per closed candle: remember the spread at that moment."""
+        px = self.prices.get(sym)
+        if px:
+            self.spreads[sym] = (self.spreads.get(sym, []) + [px["ask"] - px["bid"]])[-60:]
+
+    def normal_spread(self, sym: str) -> float | None:
+        s = sorted(self.spreads.get(sym, []))
+        return s[len(s) // 2] if len(s) >= 10 else None
 
     # --- opening ------------------------------------------------------------
     def can_open(self, sym: str, t: float, cfg: ScalpConfig) -> str | None:
@@ -143,9 +155,14 @@ class ScalpBook:
                 if lo <= h < hi:
                     hm = lambda x: f"{int(x):02d}:{round(x % 1 * 60):02d}"
                     return f"daily rollover pause ({hm(lo)}-{hm(hi)} UTC): spreads jump"
+            if spec.kind == "metal" and cfg.metal_pause_utc:
+                lo, hi = cfg.metal_pause_utc
+                if (lo <= h < hi) if lo < hi else (h >= lo or h < hi):
+                    return f"no gold trades {int(lo):02d}:00-{int(hi):02d}:00 UTC (thin Asian session)"
         return None
 
-    def open(self, sym: str, side: str, atr_: float, t: float, cfg: ScalpConfig) -> dict | str:
+    def open(self, sym: str, side: str, atr_: float, t: float, cfg: ScalpConfig,
+             stop_price: float | None = None, deadline: float | None = None) -> dict | str:
         """Open at the live price. Returns the position, or the reason it was skipped."""
         why = self.can_open(sym, t, cfg)
         if why:
@@ -154,18 +171,29 @@ class ScalpBook:
         if not px:
             return "no price yet"
         spec = instruments.get(sym)
-        if atr_ <= 0:
+        if atr_ <= 0 and stop_price is None:
             return "no volatility reading"
         conv = instruments.quote_to_usd(spec, self.mids())
         if conv is None:
             return "missing conversion rate to USD"
+        spread = px["ask"] - px["bid"]
+        normal = self.normal_spread(sym)
+        if cfg.spread_guard and normal and spread > cfg.spread_guard * normal:
+            return f"spread {spread / normal:.1f}x its normal level; waiting for it to settle"
         entry = px["ask"] if side == "BUY" else px["bid"]
         # round-trip cost in price terms: the spread plus the fee on both sides
-        cost = (px["ask"] - px["bid"]) + 2 * self._fee_per_unit(spec, entry, conv, cfg)
-        stop_dist = max(cfg.stop_atr * atr_, cost / cfg.max_cost_frac)
-        if stop_dist > cfg.max_stop_atr * atr_:
-            return (f"costs too high right now ({cost / atr_:.1f} x the 1-min range); "
-                    f"waiting for more movement")
+        cost = spread + 2 * self._fee_per_unit(spec, entry, conv, cfg)
+        if stop_price is not None:                       # the strategy set its own stop
+            stop_dist = (entry - stop_price) if side == "BUY" else (stop_price - entry)
+            if stop_dist <= 0:
+                return "price already beyond the stop"
+            if cost > cfg.max_cost_frac * stop_dist:
+                return f"costs too high for this stop ({cost / stop_dist:.0%} of the risk)"
+        else:
+            stop_dist = max(cfg.stop_atr * atr_, cost / cfg.max_cost_frac)
+            if stop_dist > cfg.max_stop_atr * atr_:
+                return (f"costs too high right now ({cost / atr_:.1f} x the 1-min range); "
+                        f"waiting for more movement")
         eq = self.equity()
         units = eq * cfg.risk_frac / (stop_dist * conv)
         units = min(units, eq * spec.max_leverage / (entry * conv))
@@ -173,7 +201,7 @@ class ScalpBook:
         d = 1 if side == "BUY" else -1
         pos = {"symbol": sym, "side": side, "entry": entry, "units": units,
                "stop": entry - d * stop_dist, "target": entry + d * cfg.reward_risk * stop_dist,
-               "t_open": t, "opened": _iso(t), "fees": fee,
+               "t_open": t, "opened": _iso(t), "fees": fee, "t_deadline": deadline,
                "spread_at_entry": px["ask"] - px["bid"], "cost_frac": round(cost / stop_dist, 3)}
         self.cash -= fee
         self.positions[sym] = pos

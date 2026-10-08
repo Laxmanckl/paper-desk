@@ -332,8 +332,72 @@ ok("scalp: no new forex/gold trades in the daily rollover pause",
    "rollover" in c3.open("XAUUSD", "BUY", 2.0, roll, cfg))
 night = 1791158400 + 23 * 3600                           # Mon 23:00 UTC (Asian session)
 c3.on_tick("XAUUSD", 4000, 4000.3, night)
-ok("scalp: forex/gold trade round the clock outside the pause",
-   isinstance(c3.open("XAUUSD", "BUY", 2.0, night, cfg), dict))
+ok("scalp: no new gold trades in the thin Asian session (21-06 UTC)",
+   "no gold trades" in c3.open("XAUUSD", "BUY", 2.0, night, cfg))
+c3.on_tick("EURUSD", 1.1, 1.10008, night)
+ok("scalp: forex pairs still trade round the clock outside the rollover pause",
+   isinstance(c3.open("EURUSD", "BUY", 0.0002, night, cfg), dict))
+
+c5 = ScalpBook(created="x"); c5.config = dict(cfg.__dict__)
+for i in range(20):
+    c5.on_tick("EURUSD", 1.1, 1.10008, T + i); c5.note_spread("EURUSD")
+c5.on_tick("EURUSD", 1.1, 1.10020, T + 30)                  # spread jumps 0.8 -> 2.0 pips
+ok("scalp: spread guard skips entries when the spread is 1.5x+ normal",
+   "normal level" in c5.open("EURUSD", "BUY", 0.0002, T + 30, cfg))
+c5.on_tick("EURUSD", 1.1, 1.10009, T + 40)
+ok("scalp: ...and trades again once it settles", isinstance(c5.open("EURUSD", "BUY", 0.0002, T + 40, cfg), dict))
+
+from jev_bot.scalp import strategy as sst, orb as sorb
+def mkbars(n, f, t0=1791158400):
+    return [SBar(t0 + i * 60, f(i), f(i) + 0.0001, f(i) - 0.0001, f(i)) for i in range(n)]
+up15 = mkbars(900, lambda i: 1.1 + i * 0.00001)
+ok("scalp: 15-minute candles built from 1-minute ones",
+   len(sst.htf_closes(up15, 15)) == 60 and sst.htf_trend(up15, cfg) == "up")
+dn = mkbars(900, lambda i: 1.1 - i * 0.00001)
+base = dn[839].c
+mixed = dn[:840] + [SBar(b.t, base + j * 0.00003, base + j * 0.00003 + 0.0001, base + j * 0.00003 - 0.0001,
+                         base + j * 0.00003) for j, b in enumerate(dn[840:], 1)]
+sig = sst.evaluate(mixed, cfg)
+ok("scalp: no trade when the 1-min and 15-min trends disagree",
+   sig.action is None and sig.trend == "up" and "15-min trend down" in sig.reason)
+ok("scalp: waits for enough history for the 15-min trend",
+   "15-min trend history" in sst.evaluate(mkbars(200, lambda i: 1.1 + i * 0.00001), cfg).reason)
+
+from jev_bot.scalp import runner as _sr
+ocfg = _sr.orb_config(type("A", (), {"crypto_fee": 0.0, "fx_commission": 0.0})())
+D0 = 1791158400                                              # Mon 00:00 UTC
+rb = mkbars(7 * 60, lambda i: 1.1 + (0.0005 if i % 2 else 0.0), D0)     # 06-07 range ~1.0999-1.1006
+st_ = {}
+ok("scalp B: measures the 06-07 UTC range before trading",
+   "measuring" in sorb.evaluate(rb[:400], ocfg, 0, {}).reason)
+inside = sorb.evaluate(rb + mkbars(5, lambda i: 1.1003, D0 + 420 * 60), ocfg, 0, st_)
+ok("scalp B: no trade while price stays inside the range", inside.action is None and "inside" in inside.reason)
+brk = sorb.evaluate(rb + mkbars(5, lambda i: 1.1003, D0 + 420 * 60) + mkbars(1, lambda i: 1.1009, D0 + 425 * 60), ocfg, 0, st_)
+ok("scalp B: a close above the range + buffer is a BUY, stop at the range middle, out by 16:00",
+   brk.action == "BUY" and abs(brk.stop - (1.1006 + 1.0999) / 2) < 1e-9 and brk.deadline == D0 + 16 * 3600)
+ob = ScalpBook(created="x"); ob.config = dict(ocfg.__dict__)
+tb = D0 + 426 * 60
+ob.on_tick("EURUSD", 1.1009, 1.10098, tb)
+pos = ob.open("EURUSD", "BUY", 0.0002, tb, ocfg, stop_price=brk.stop, deadline=brk.deadline)
+ok("scalp B: risk sized to the range-middle stop, target 1.5x",
+   isinstance(pos, dict) and abs(pos["stop"] - brk.stop) < 1e-12
+   and abs((pos["entry"] - pos["stop"]) * pos["units"] - 25) < 0.01)
+ob.on_tick("EURUSD", 1.1010, 1.10108, D0 + 16 * 3600)
+ok("scalp B: trades still open at 16:00 UTC are closed", not ob.positions and ob.trades[-1]["reason"] == "time")
+ok("scalp B: one breakout per instrument per day",
+   "one breakout" in sorb.evaluate(rb, ocfg, 0, {"range": (D0, 1.1006, 1.0999), "traded": D0}).reason
+   or "done for today" in sorb.evaluate(rb + mkbars(1, lambda i: 1.1009, D0 + 425 * 60), ocfg, 0,
+                                         {"range": (D0, 1.1006, 1.0999), "traded": D0}).reason)
+
+from jev_bot.scalp.engine import Fanout
+ea, eb = SEngine(ScalpBook(created="x"), ["EURUSD"], cfg), SEngine(ScalpBook(created="x"), ["EURUSD"], ocfg)
+fan = Fanout([ea, eb]); fan.on_tick("EURUSD", 1.1, 1.10008, T)
+ok("scalp: one price feed drives both strategies' accounts",
+   ea.book.prices["EURUSD"]["ask"] == eb.book.prices["EURUSD"]["ask"] == 1.10008 and ea.book is not eb.book)
+now_ = 1791158400 + 10 * 3600 + 30
+rates = [{"time": 1791158400 + 3 * 3600 + 10 * 3600 - (5 - i) * 60, "open": 1, "high": 1, "low": 1, "close": 1} for i in range(5)]
+ok("scalp: MT5 candle times converted from broker time (UTC+3) to UTC",
+   [b.t for b in sf.mt5_bars(rates, now_)][-1] == 1791158400 + 10 * 3600 - 60)
 old = dict(cfg.__dict__); old.pop("fx_pause_utc"); old["fx_session_utc"] = [6, 20]
 ok("scalp: an account saved by the old version still loads",
    ScalpConfig.from_dict(old).fx_pause_utc == ScalpConfig().fx_pause_utc)
