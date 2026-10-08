@@ -58,13 +58,13 @@
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4162.1,
-      "time": "2026-10-08T02:10:47+00:00",
+      "price": 4160.6,
+      "time": "2026-10-08T02:26:58+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
-      "price": 1.1216,
-      "time": "2026-10-08T02:20:49+00:00",
+      "price": 1.1211,
+      "time": "2026-10-08T02:36:50+00:00",
       "source": "yahoo"
     }
   },
@@ -7286,6 +7286,30 @@
         "XAUUSD": 4161.9,
         "EURUSD": 1.1216
       }
+    ],
+    [
+      "2026-10-08T02:24:01+00:00",
+      10053.69,
+      {
+        "XAUUSD": 4162.4,
+        "EURUSD": 1.1213
+      }
+    ],
+    [
+      "2026-10-08T02:28:24+00:00",
+      10053.09,
+      {
+        "XAUUSD": 4163.2,
+        "EURUSD": 1.1213
+      }
+    ],
+    [
+      "2026-10-08T02:34:00+00:00",
+      10056.19,
+      {
+        "XAUUSD": 4160.5,
+        "EURUSD": 1.1212
+      }
     ]
   ],
   "events": [
@@ -7424,6 +7448,10 @@
     [
       "2026-10-07T23:01:00+00:00",
       "EURUSD: new daily bar 2026-10-07 -> SELL (p 93%, conf 89%) gate EXECUTE \u00b7 already holding this side"
+    ],
+    [
+      "2026-10-08T02:28:24+00:00",
+      "EURUSD: data error, skipped this check (could not reach https://query1.finance.yahoo.com/v8/finance/chart/EURUSD=X: _ssl.c:983: The handshake operation timed out)"
     ]
   ],
   "closes": {
@@ -8166,7 +8194,7 @@
   "alerts_sent": {
     "daily": "2026-10-07"
   },
-  "last_check": "2026-10-08T02:21:01+00:00",
+  "last_check": "2026-10-08T02:37:01+00:00",
   "runner": {
     "kind": "server",
     "every_min": 1
