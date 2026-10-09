@@ -29,18 +29,18 @@
   },
   "closed": [],
   "last_bar": {
-    "XAUUSD": "2026-10-07",
+    "XAUUSD": "2026-10-08",
     "EURUSD": "2026-10-08"
   },
   "last_decision": {
     "XAUUSD": {
-      "bar": "2026-10-07",
+      "bar": "2026-10-08",
       "action": "SELL",
-      "probability": 0.869,
-      "confidence": 0.818,
+      "probability": 0.853,
+      "confidence": 0.802,
       "gate": "EXECUTE",
       "reason": "",
-      "momentum": -0.642,
+      "momentum": -0.651,
       "regime": "neutral",
       "source": "offline"
     },
@@ -58,13 +58,13 @@
   },
   "last_price": {
     "XAUUSD": {
-      "price": 4201.0,
-      "time": "2026-10-09T03:47:53+00:00",
+      "price": 4202.3,
+      "time": "2026-10-09T04:03:52+00:00",
       "source": "yahoo"
     },
     "EURUSD": {
-      "price": 1.123,
-      "time": "2026-10-09T03:57:51+00:00",
+      "price": 1.1228,
+      "time": "2026-10-09T04:13:51+00:00",
       "source": "yahoo"
     }
   },
@@ -9694,6 +9694,30 @@
         "XAUUSD": 4199.7,
         "EURUSD": 1.123
       }
+    ],
+    [
+      "2026-10-09T04:01:01+00:00",
+      10006.84,
+      {
+        "XAUUSD": 4200.6,
+        "EURUSD": 1.123
+      }
+    ],
+    [
+      "2026-10-09T04:06:01+00:00",
+      10003.82,
+      {
+        "XAUUSD": 4203.2,
+        "EURUSD": 1.1231
+      }
+    ],
+    [
+      "2026-10-09T04:11:01+00:00",
+      10005.28,
+      {
+        "XAUUSD": 4202.7,
+        "EURUSD": 1.123
+      }
     ]
   ],
   "events": [
@@ -9844,14 +9868,14 @@
     [
       "2026-10-08T23:01:01+00:00",
       "EURUSD: new daily bar 2026-10-08 -> SELL (p 94%, conf 90%) gate EXECUTE \u00b7 already holding this side"
+    ],
+    [
+      "2026-10-09T04:11:01+00:00",
+      "XAUUSD: new daily bar 2026-10-08 -> SELL (p 85%, conf 80%) gate EXECUTE \u00b7 already holding this side"
     ]
   ],
   "closes": {
     "XAUUSD": [
-      [
-        "2026-06-01",
-        4506.3
-      ],
       [
         "2026-06-02",
         4519.9
@@ -10207,6 +10231,10 @@
       [
         "2026-10-07",
         4140.7
+      ],
+      [
+        "2026-10-08",
+        4157.0
       ]
     ],
     "EURUSD": [
@@ -10586,7 +10614,7 @@
   "alerts_sent": {
     "daily": "2026-10-08"
   },
-  "last_check": "2026-10-09T03:58:01+00:00",
+  "last_check": "2026-10-09T04:14:01+00:00",
   "runner": {
     "kind": "server",
     "every_min": 1
