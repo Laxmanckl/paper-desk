@@ -560,7 +560,7 @@
       "created": "2026-10-10T20:18:35+00:00",
       "strategy": "jev_bot/strategies/hiwin_dip.py v1",
       "version": 2,
-      "variations": 1,
+      "variations": 2,
       "max_variations": 5,
       "falsify": "Win rate below 85%, or a net loss after costs: a win is worth 0.25 of a loss, so break-even needs about 80% wins",
       "prediction": {
@@ -577,15 +577,15 @@
       },
       "regime": "trending up",
       "backtest": {
-        "return_pct": -4.12,
-        "max_drawdown_pct": 8.08,
-        "trades": 483,
-        "win_rate_pct": 71.6,
-        "sharpe": -0.0177,
-        "sharpe_ann": -0.28,
+        "return_pct": -6.7,
+        "max_drawdown_pct": 7.76,
+        "trades": 496,
+        "win_rate_pct": 71.2,
+        "sharpe": -0.0282,
+        "sharpe_ann": -0.45,
         "first": "2016-12-22",
         "last": "2024-05-03",
-        "dsr": 0.218,
+        "dsr": 0.039,
         "period": "2016-12-22 → 2024-05-03",
         "sealed_from": "2024-04-10",
         "bars": 2513,
@@ -593,53 +593,53 @@
           {
             "first": "2016-12-22",
             "last": "2019-01-23",
-            "return_pct": -2.15,
-            "trades": 117,
-            "win_rate_pct": 69.2,
-            "max_drawdown_pct": 3.11
+            "return_pct": -0.18,
+            "trades": 130,
+            "win_rate_pct": 74.6,
+            "max_drawdown_pct": 2.56
           },
           {
             "first": "2018-10-19",
             "last": "2020-10-27",
-            "return_pct": -4.24,
-            "trades": 123,
-            "win_rate_pct": 67.5,
-            "max_drawdown_pct": 5.51
+            "return_pct": -2.87,
+            "trades": 131,
+            "win_rate_pct": 70.2,
+            "max_drawdown_pct": 4.59
           },
           {
             "first": "2020-08-17",
             "last": "2022-07-29",
-            "return_pct": 1.5,
-            "trades": 120,
-            "win_rate_pct": 75.8,
-            "max_drawdown_pct": 1.36
+            "return_pct": -1.62,
+            "trades": 110,
+            "win_rate_pct": 67.3,
+            "max_drawdown_pct": 3.41
           },
           {
             "first": "2022-06-10",
             "last": "2024-05-03",
-            "return_pct": 1.11,
-            "trades": 114,
-            "win_rate_pct": 74.6,
-            "max_drawdown_pct": 2.94
+            "return_pct": -2.62,
+            "trades": 113,
+            "win_rate_pct": 70.8,
+            "max_drawdown_pct": 5.0
           }
         ],
         "costs_2x": {
-          "return_pct": -5.92,
-          "max_drawdown_pct": 8.71,
-          "trades": 481,
-          "win_rate_pct": 71.3,
-          "sharpe": -0.0259,
-          "sharpe_ann": -0.41,
+          "return_pct": -8.38,
+          "max_drawdown_pct": 9.2,
+          "trades": 498,
+          "win_rate_pct": 70.9,
+          "sharpe": -0.0356,
+          "sharpe_ann": -0.56,
           "first": "2016-12-22",
           "last": "2024-05-03"
         },
         "breaker": {
-          "return_pct": 10.99,
-          "max_drawdown_pct": 3.28,
-          "trades": 497,
-          "win_rate_pct": 74.2,
-          "sharpe": 0.0433,
-          "sharpe_ann": 0.69,
+          "return_pct": 13.23,
+          "max_drawdown_pct": 3.92,
+          "trades": 507,
+          "win_rate_pct": 75.9,
+          "sharpe": 0.051,
+          "sharpe_ann": 0.81,
           "first": "2016-12-22",
           "last": "2024-05-03"
         },
@@ -647,37 +647,37 @@
           {
             "first": "2019-05-16",
             "last": "2019-11-04",
-            "return_pct": 1.41,
-            "trades": 15,
-            "max_drawdown_pct": 0.56
+            "return_pct": 1.65,
+            "trades": 17,
+            "max_drawdown_pct": 0.51
           },
           {
             "first": "2020-02-25",
             "last": "2020-08-03",
-            "return_pct": 0.04,
-            "trades": 14,
-            "max_drawdown_pct": 1.27
+            "return_pct": -0.71,
+            "trades": 11,
+            "max_drawdown_pct": 1.17
           },
           {
             "first": "2020-05-20",
             "last": "2020-10-26",
-            "return_pct": 0.0,
-            "trades": 13,
-            "max_drawdown_pct": 0.84
+            "return_pct": 0.85,
+            "trades": 17,
+            "max_drawdown_pct": 0.51
           },
           {
             "first": "2020-12-22",
             "last": "2021-05-24",
-            "return_pct": 0.01,
-            "trades": 11,
-            "max_drawdown_pct": 0.89
+            "return_pct": 0.48,
+            "trades": 12,
+            "max_drawdown_pct": 0.64
           },
           {
             "first": "2022-10-27",
             "last": "2023-03-06",
-            "return_pct": 1.62,
+            "return_pct": 0.89,
             "trades": 15,
-            "max_drawdown_pct": 0.2
+            "max_drawdown_pct": 0.55
           }
         ],
         "regime": "trending up",
@@ -685,38 +685,38 @@
           {
             "name": "Beats its own written prediction",
             "passed": false,
-            "detail": "return -4.12% < 0.0%; win rate 72% < 85.0%"
+            "detail": "return -6.70% < 0.0%; win rate 71% < 85.0%"
           },
           {
             "name": "Deflated Sharpe (luck-adjusted)",
             "passed": false,
-            "detail": "0.22 after 1 attempt; needs 0.95"
+            "detail": "0.04 after 2 attempts; needs 0.95"
           },
           {
             "name": "Walk-forward windows",
             "passed": false,
-            "detail": "2 of 4 windows with trades were profitable"
+            "detail": "0 of 4 windows with trades were profitable"
           },
           {
             "name": "Survives double costs",
             "passed": false,
-            "detail": "-5.92% with 2x spread"
+            "detail": "-8.38% with 2x spread"
           },
           {
             "name": "Survives delayed fills + double costs",
             "passed": true,
-            "detail": "+10.99%"
+            "detail": "+13.23%"
           },
           {
             "name": "Worst historical stretches",
             "passed": true,
-            "detail": "worst of 5 stretches +0.00% (prediction allowed -10.0%)"
+            "detail": "worst of 5 stretches -0.71% (prediction allowed -10.0%)"
           }
         ],
         "passed": false,
         "data": "yahoo",
-        "at": "2026-10-10T20:19:11+00:00",
-        "version": 1
+        "at": "2026-10-10T20:22:13+00:00",
+        "version": 2
       },
       "attempts": [
         {
@@ -729,6 +729,19 @@
           "sharpe_ann": -0.28,
           "sharpe": -0.0177,
           "dsr": 0.218,
+          "data": "yahoo",
+          "passed": false
+        },
+        {
+          "at": "2026-10-10T20:22:13+00:00",
+          "version": 2,
+          "return_pct": -6.7,
+          "win_rate_pct": 71.2,
+          "max_drawdown_pct": 7.76,
+          "trades": 496,
+          "sharpe_ann": -0.45,
+          "sharpe": -0.0282,
+          "dsr": 0.039,
           "data": "yahoo",
           "passed": false
         }
@@ -746,6 +759,11 @@
           "at": "2026-10-10T20:22:01+00:00",
           "source": "revision",
           "text": "v2: v2: enter one day after the dip, not on it (the breaker test's delayed fills made +11% where v1 lost 4%)"
+        },
+        {
+          "at": "2026-10-10T20:22:13+00:00",
+          "source": "backtest",
+          "text": "v2 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
         }
       ],
       "notes": "",
