@@ -124,11 +124,14 @@ def _close(tr: Trade, price: float, date: str, reason: str, t_open: int, t: int,
 
 def run(symbol: str, bars: list, settings: Settings | None = None,
         limits: risk.Limits | None = None, engine: str = "offline",
-        source: str = "sim") -> Result:
+        source: str = "sim", cost_mult: float = 1.0, late_fill: bool = False) -> Result:
+    """cost_mult multiplies the spread (stress test: 2.0 = double costs).
+    late_fill fills signals at the next bar's CLOSE instead of its open (a delayed fill)."""
     symbol = fx.resolve(symbol)
     s = settings or Settings()
     lim = limits or risk.Limits()
-    spec = fx.INSTRUMENTS[symbol]
+    spec = dict(fx.INSTRUMENTS[symbol])
+    spec["spread"] *= cost_mult
     half = spec["spread"] / 2
 
     res = Result(symbol=symbol, source=source, first_date=bars[fx.WARMUP].date,
@@ -147,7 +150,8 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
         # 1. fill an order signalled on the previous bar, at this bar's open
         if pending and pos is None:
             a = fx.atr(bars, t - 1)
-            entry = b.open + half if pending == "BUY" else b.open - half
+            px_in = b.close if late_fill else b.open
+            entry = px_in + half if pending == "BUY" else px_in - half
             stop_dist = s.sl_atr * a
             units = (equity * s.risk_pct) / stop_dist if stop_dist > 0 else 0
             units = min(units, equity * s.max_leverage / entry)

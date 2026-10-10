@@ -1,0 +1,74 @@
+# The research loop's GitHub side.
+#
+#   Every Sunday     the weekly critic reads the paper accounts, compares them with the
+#                    backtests and written predictions, writes state/reviews/ and the ledger.
+#   Run workflow     (Actions tab -> research -> Run workflow) with one command:
+#                      review               the critic, right now
+#                      backtest H1          honest development-period backtest on real
+#                                           daily history (Yahoo, 10 years)
+#                      sealed H1            the ONE run on the sealed newest 25% of history
+#
+# Results land in state/ledger.json and both dashboards are rebuilt.
+# Scalper (1-minute) backtests need MT5 history and run on the Windows PC instead.
+
+name: research
+
+on:
+  schedule:
+    - cron: "47 7 * * 0"          # Sundays 07:47 UTC, after the forex week has closed
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "review · backtest H1 · sealed H1 (sealed runs once per idea, ever)"
+        required: true
+        default: "review"
+
+permissions:
+  contents: write
+  actions: write                  # to start the dashboard rebuild afterwards
+
+concurrency:
+  group: research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the research command
+        env:
+          CMD: ${{ github.event.inputs.command || 'review' }}
+        run: |
+          set -e
+          read -r VERB ID REST <<< "$CMD"
+          case "$VERB" in
+            review)          python -m jev_bot research review ;;
+            backtest|sealed) [[ "$ID" =~ ^[Hh][0-9]+$ ]] || { echo "usage: $VERB H1"; exit 1; }
+                             python -m jev_bot research "$VERB" "$ID" --source yahoo --range 10y ;;
+            *)               echo "unknown command '$CMD': use review, backtest H1 or sealed H1"; exit 1 ;;
+          esac
+
+      - name: Save the ledger and the review
+        run: |
+          git config user.name  "research-bot"
+          git config user.email "research-bot@users.noreply.github.com"
+          git add state/ledger.json state/reviews
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "research: ${{ github.event.inputs.command || 'weekly review' }} $(date -u +'%Y-%m-%d')"
+          for i in 1 2 3; do
+            git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0
+            sleep 10
+          done
+          exit 1
+
+      - name: Rebuild the dashboards
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run paper-trade.yml --ref main

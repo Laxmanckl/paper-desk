@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "hypotheses": [
+    {
+      "id": "H1",
+      "idea": "Daily trend signal on gold and EUR/USD: the offline JEV engine's momentum (EMA10 vs EMA30 over ATR) and SMA50 regime, traded with a 1.5 ATR stop, 3 ATR target, 20-day max hold and 1% risk per trade",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD"
+      ],
+      "source": "jev-bot (original)",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/jev.py (offline engine) + backtest.Settings",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 30+ paper trades, or failing the honest backtest (walk-forward, 2x costs, DSR 0.95)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": 0.21,
+        "trades": 0,
+        "win_rate_pct": 0.0,
+        "max_drawdown_pct": 1.67,
+        "avg_r": null,
+        "since": "2026-10-02",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "no closed trades yet: nothing to judge"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    },
+    {
+      "id": "H2",
+      "idea": "1-minute pullback scalp: buy RSI(7) dips that turn back up through 40 inside an EMA20/50 uptrend the 15-minute trend agrees with (mirror for shorts); stop 1.2 ATR, target 1.5x the stop, 30-minute limit, costs at most 25% of risk",
+      "desk": "scalper_a",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP",
+        "XAUUSD"
+      ],
+      "source": "jev-bot scalper A",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/scalp/strategy.py (pullback)",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 200+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": -4.06,
+        "trades": 42,
+        "win_rate_pct": 31.0,
+        "max_drawdown_pct": 4.78,
+        "avg_r": -0.39,
+        "since": "2026-10-06",
+        "open": 0,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "a run of 7 losing trades in a row (latest on XAUUSD)"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    },
+    {
+      "id": "H3",
+      "idea": "Opening-range breakout: trade the first close beyond the 06:00-07:00 UTC range (by 10% of its height) between 07:00 and 12:00 UTC, stop at the middle of the range, target 1.5x the stop, out by 16:00 UTC, once per instrument per day",
+      "desk": "scalper_orb",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP",
+        "XAUUSD"
+      ],
+      "source": "jev-bot scalper B",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/scalp/orb.py",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 100+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": -2.57,
+        "trades": 16,
+        "win_rate_pct": 12.5,
+        "max_drawdown_pct": 3.25,
+        "avg_r": -0.7,
+        "since": "2026-10-08",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "a run of 13 losing trades in a row (latest on USDJPY)"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    }
+  ]
+}

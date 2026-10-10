@@ -9,6 +9,7 @@
     reflex dashboard        build the dashboard web page from the account
     reflex scalp            run the scalper live (crypto via Binance, forex/gold via MT5)
     reflex scalp-backtest   test the scalping rules on 1-minute history
+    reflex research ...     the research loop: ledger, predictions, honest backtests, weekly critic
 
 Add --market fx to decisions / run / card for gold and EUR/USD.
 
@@ -144,6 +145,7 @@ def cmd_live(a):
     acct.runner = {"kind": a.runner, "every_min": a.watch or None}
     print(render.live_banner(a.source, symbols, a.account, a.watch))
     last_publish = 0.0
+    started_code = _code_stamp()
     while True:
         started = time.time()
         before_closed, before_open = len(acct.closed), set(acct.positions)
@@ -173,11 +175,24 @@ def cmd_live(a):
                 traceback.print_exc()
                 ok = False
             last_publish = time.time() if ok else last_publish + 60    # retry a minute later
+            if ok and a.runner == "server" and _code_stamp() != started_code:
+                # the pull brought new code (e.g. kill switch rules): exit so systemd
+                # (Restart=always) starts the bot again on the new version
+                acct.save(a.account)
+                print("  code updated from GitHub; restarting to use it", flush=True)
+                os._exit(0)
         try:
             time.sleep(max(1.0, a.watch * 60 - (time.time() - started)))
         except KeyboardInterrupt:
             print("\n  stopped. run the same command again to continue.")
             break
+
+
+def _code_stamp() -> float:
+    """Newest modification time of the bot's code: changes when a git pull brings an update."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent
+    return max((f.stat().st_mtime for f in root.rglob("*.py")), default=0.0)
 
 
 def publish(*account_paths: str) -> bool:
@@ -419,6 +434,9 @@ def build_parser():
     hb.add_argument("--account", default="paper_account.json")
     hb.add_argument("--max-age", type=int, default=45, metavar="MIN")
     hb.set_defaults(func=cmd_heartbeat)
+
+    from .research import cli as research_cli
+    research_cli.add_parser(sub)
 
     db = sub.add_parser("dashboard", help="build the dashboard page from the paper account")
     db.add_argument("--account", default="paper_account.json")

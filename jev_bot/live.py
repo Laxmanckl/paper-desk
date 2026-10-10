@@ -26,7 +26,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from . import backtest, feeds, fx, jev, risk
+from . import backtest, feeds, fx, jev, killswitch, risk
 
 ACCOUNT_VERSION = 1
 
@@ -43,6 +43,7 @@ class Position:
     entry_bar: str          # date of the last completed bar when it opened
     signal_prob: float
     signal_conf: float
+    regime: str = ""        # market regime when it opened (for the weekly review)
 
 
 @dataclass
@@ -66,6 +67,9 @@ class Account:
     alerts_sent: dict = field(default_factory=dict)      # alert bookkeeping (daily summary etc.)
     last_check: str = ""                                 # heartbeat: time of the latest check
     runner: dict = field(default_factory=dict)           # who runs the bot: {"kind", "every_min"}
+    peak_equity: float = 0.0                             # kill switch: highest equity seen
+    day_start: dict = field(default_factory=dict)        # kill switch: utc day -> equity at its start
+    killswitch: dict = field(default_factory=dict)       # kill switch bookkeeping (recent blocks)
 
     MAX_LOG = 3000
     MAX_EVENTS = 300
@@ -80,6 +84,10 @@ class Account:
         now = now or _now()
         t = now.isoformat(timespec="seconds")
         self.last_check = t
+        try:
+            self.risk_numbers(now)                    # keep the kill switch's peak and day start current
+        except Exception:                             # bookkeeping must never stop a check
+            pass
         for e in events:
             sym = e.split(":", 1)[0]
             prev = next((x[1] for x in reversed(self.events) if x[1].split(":", 1)[0] == sym), None)
@@ -137,6 +145,22 @@ class Account:
     def equity(self) -> float:
         return round(self.cash + self.open_pnl(), 2)
 
+    def history_peak(self) -> float:
+        return max([self.start_equity] + [p[1] for p in self.equity_log])
+
+    def risk_numbers(self, now: datetime | None = None, cfg: dict | None = None) -> dict:
+        """What the kill switch needs: equity, its peak, equity at the start of the UTC day."""
+        eq = self.equity()
+        day = (now or _now()).strftime("%Y-%m-%d")
+        if day not in self.day_start:
+            self.day_start = {day: eq}                    # keep just today
+        killswitch.track(KS_DESK, self, eq, cfg)
+        return {"equity": eq, "peak": self.peak_equity, "day_start": self.day_start[day],
+                "open_positions": len(self.positions)}
+
+
+KS_DESK = "daily"
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -168,18 +192,25 @@ def _close(acct: Account, sym: str, price: float, reason: str, now: datetime) ->
     return trade
 
 
-def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: str,
-          d, settings: backtest.Settings, now: datetime) -> dict:
+def _size(acct: Account, sym: str, side: str, price: float, a: float,
+          settings: backtest.Settings) -> tuple[float, float, float]:
+    """(entry, stop distance, units) for a new position, before it is opened."""
     entry = price + _half_spread(sym) if side == "BUY" else price - _half_spread(sym)
     stop_dist = settings.sl_atr * a
     equity = acct.equity()
     units = (equity * settings.risk_pct) / stop_dist if stop_dist > 0 else 0
     units = min(units, equity * settings.max_leverage / entry)
+    return entry, stop_dist, units
+
+
+def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: str,
+          d, settings: backtest.Settings, now: datetime, regime: str = "") -> dict:
+    entry, stop_dist, units = _size(acct, sym, side, price, a, settings)
     sign = 1 if side == "BUY" else -1
     p = Position(sym, side, entry, entry - sign * stop_dist,
                  entry + sign * settings.tp_atr * a, round(units, 6),
                  now.isoformat(timespec="seconds"), bar_date,
-                 d.probability, d.confidence)
+                 d.probability, d.confidence, regime)
     acct.positions[sym] = asdict(p)
     return acct.positions[sym]
 
@@ -198,7 +229,8 @@ def completed_bars(bars: list, quote_time, utc_offset_s: int = 0) -> list:
 
 def check(acct: Account, symbols: list[str], source: str = "yahoo",
           settings: backtest.Settings | None = None, limits: risk.Limits | None = None,
-          engine: str = "offline", fetch=None, now: datetime | None = None) -> list[str]:
+          engine: str = "offline", fetch=None, now: datetime | None = None,
+          risk_cfg: dict | None = None) -> list[str]:
     """One pass over the instruments. Returns human-readable event lines."""
     s = settings or backtest.Settings()
     lim = limits or risk.Limits()
@@ -280,12 +312,24 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
         if p and p["side"] == d.action:
             events.append(line + " · already holding this side")
             continue
+        # 3. the kill switch: hard limits from config/risk.json, checked in code before
+        #    every new trade. If it says no, nothing changes: an open position keeps its stops.
+        a = fx.atr(done, len(done) - 1)
+        entry, _, units = _size(acct, sym, d.action, px, a, s)
+        nums = acct.risk_numbers(t_now, risk_cfg)
+        nums["open_positions"] -= 1 if p else 0           # a reversal replaces a position
+        allowed, why = killswitch.check_order(KS_DESK, {"notional": units * entry}, nums, risk_cfg)
+        if not allowed:
+            killswitch.note_block(acct, f"{sym} {d.action}: {why}", t_now)
+            acct.last_decision[sym]["gate"] = "BLOCKED"
+            acct.last_decision[sym]["reason"] = why
+            events.append(line + f" · BLOCKED by {why}")
+            continue
         if p:
             tr = _close(acct, sym, px, "reverse", t_now)
             events.append(f"{sym}: CLOSED {tr['side']} at {tr['exit']:,.{d_px}f} (reverse)  "
                           f"{tr['pips']:+.1f} pips  ${tr['pnl']:+,.2f}")
-        a = fx.atr(done, len(done) - 1)
-        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now)
+        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now, state.regime)
         events.append(line)
         events.append(f"{sym}: OPENED {d.action} at {np_['entry']:,.{d_px}f}  "
                       f"stop {np_['stop']:,.{d_px}f}  target {np_['target']:,.{d_px}f}  "

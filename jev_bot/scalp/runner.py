@@ -56,6 +56,10 @@ DESKS = {
 }
 
 
+# desk -> its section in config/risk.json (the kill switch)
+KS_DESK = {"a": "scalper_a", "orb": "scalper_orb"}
+
+
 def desk_summary(key: str, book: ScalpBook) -> dict:
     s = book.stats.get("_all", {})
     return {"key": key, "name": DESKS[key]["name"], "page": DESKS[key]["page"], "equity": book.equity(),
@@ -77,6 +81,8 @@ def snapshot(book: ScalpBook, full: bool, key: str = "a", peers: list | None = N
     d["specs"] = {s: {"digits": instruments.get(s).digits, "kind": instruments.get(s).kind,
                       "pip": instruments.get(s).pip} for s in syms}
     d["trades"] = d["trades"][-200:]
+    from ..research import panel
+    d["research"] = panel.safe(panel.scalp_panel, book, key)
     if not full:
         d.pop("equity_log", None)
         d["events"] = d["events"][-60:]
@@ -96,7 +102,8 @@ class _Handler(BaseHTTPRequestHandler):
             body = self.state.get(kind if desk == "a" else f"{desk}:{kind}", b"{}")
             ctype = "application/json"
         elif u.path in ("/", "/index.html"):
-            body = PAGE.read_bytes().replace(b"/*__DATA__*/", b"null")
+            from ..research import panel
+            body = panel.inject(PAGE.read_text(encoding="utf-8")).replace("/*__DATA__*/", "null").encode()
             ctype = "text/html; charset=utf-8"
         else:
             self.send_error(404)
@@ -123,7 +130,8 @@ def build_static(book: ScalpBook, out: str, note: str = "", key: str = "a",
     data = snapshot(book, True, key, peers)
     data["static_note"] = note
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    html = PAGE.read_text(encoding="utf-8").replace("/*__DATA__*/", blob)
+    from ..research import panel
+    html = panel.inject(PAGE.read_text(encoding="utf-8")).replace("/*__DATA__*/", blob)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     Path(out).write_text("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
                          "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
@@ -225,9 +233,11 @@ async def main(a) -> None:
                       fx_pause_utc=fx_pause_from_env())
     # desk key -> (account file, book, engine); A trades everything, B (breakout) forex/gold only
     desks = {"a": (a.account, ScalpBook.load(a.account, a.start))}
+    desks["a"][1].ks_desk = KS_DESK["a"]
     desks["a"] += (Engine(desks["a"][1], crypto + fx, cfg),)
     if fx and getattr(a, "orb_account", "none") not in ("", "none"):
         ob = ScalpBook.load(a.orb_account, a.start)
+        ob.ks_desk = KS_DESK["orb"]
         desks["orb"] = (a.orb_account, ob, Engine(ob, fx, orb_config(a)))
     driver = Fanout([e for _, _, e in desks.values()])
     book = desks["a"][1]

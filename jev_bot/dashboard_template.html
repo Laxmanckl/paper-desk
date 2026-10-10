@@ -140,6 +140,11 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 
   <section class="instruments" id="instruments"></section>
 
+  <section class="card" id="research">
+    <div class="card-head"><h2>Research loop</h2><span class="label">predict · test honestly · paper · review · remember</span></div>
+    <div id="rl-box"></div>
+  </section>
+
   <section class="card">
     <div class="card-head"><h2>Closed trades</h2><span class="label" id="trade-count"></span></div>
     <div class="filters" id="filters" hidden>
@@ -162,6 +167,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   </footer>
 </div>
 
+<!--__RESEARCH__-->
 <script type="application/json" id="desk-data">/*__DATA__*/</script>
 <script>
 (function () {
@@ -546,6 +552,15 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   $("log").innerHTML = ev.length ? ev.map(function (e) {
     return "<div><time>" + esc(stamp(e[0])) + "</time><span>" + esc(e[1]) + "</span></div>";
   }).join("") : '<div class="empty" style="display:block">Nothing yet. Each check adds a line here.</div>';
+
+  // ---- research loop (kill switch, prediction vs reality, critic, ledger) ----
+  if (window.renderResearch) window.renderResearch($("rl-box"), D.research, { fullLedger: true });
+  else $("research").hidden = true;
+  var KS = D.research && D.research.killswitch;
+  if (KS && KS.state === "halted") {
+    $("banner").hidden = false;
+    $("banner").textContent = "No new trades: " + KS.reason + ". Open positions keep their stops." + (D.note ? " " + D.note : "");
+  }
 
   // ---- rules ----
   var C = D.config || {};

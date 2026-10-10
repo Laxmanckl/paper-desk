@@ -15,4 +15,7 @@ dependencies = []
 jev-bot = "jev_bot.cli:main"
 
 [tool.setuptools]
-packages = ["jev_bot", "jev_bot.execution"]
+packages = ["jev_bot", "jev_bot.execution", "jev_bot.scalp", "jev_bot.research"]
+
+[tool.setuptools.package-data]
+"*" = ["*.html"]

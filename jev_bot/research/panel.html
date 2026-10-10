@@ -1,0 +1,190 @@
+<style>
+/* Research loop panel: shared by the daily and scalper dashboards. Uses each page's own tokens. */
+.rl { display: grid; gap: 16px; }
+.rl-loop { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; position: relative; }
+.rl-step { display: grid; gap: 4px; justify-items: start; padding: 0 8px 0 0; position: relative; min-width: 0; }
+.rl-step::before { content: ""; position: absolute; left: 14px; right: 0; top: 7px; border-top: 2px solid var(--rule); }
+.rl-step:last-child::before { display: none; }
+.rl-step.done::before { border-top-color: var(--good); }
+.rl-node { position: relative; z-index: 1; width: 16px; height: 16px; border-radius: 50%; background: var(--panel); border: 2px solid var(--rule); }
+.rl-step.done .rl-node { background: var(--good); border-color: var(--good); }
+.rl-step.fail .rl-node { background: var(--bad); border-color: var(--bad); }
+.rl-step.now .rl-node { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+.rl-step b { font-family: var(--f-display); font-weight: 600; font-size: 13.5px; }
+.rl-step span { font-size: 11.5px; color: var(--ink-3); line-height: 1.3; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .rl-loop { grid-template-columns: 1fr; gap: 10px; }
+  .rl-step { grid-template-columns: 16px 1fr; column-gap: 10px; align-items: start; }
+  .rl-step::before { left: 7px; top: 16px; bottom: -12px; right: auto; border-top: 0; border-left: 2px solid var(--rule); }
+  .rl-step.done::before { border-left-color: var(--good); }
+  .rl-step .rl-node { grid-row: span 2; }
+}
+.rl-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; }
+@media (max-width: 860px) { .rl-grid { grid-template-columns: 1fr; } }
+.rl-box { border: 1px solid var(--rule); border-radius: 6px; padding: 14px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.rl-box h3 { font-family: var(--f-display); font-weight: 600; font-size: 15px; margin: 0; }
+.rl-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+.rl-state { font-family: var(--f-num); font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 3px; }
+.rl-state.ok { background: var(--good-bg); color: var(--good); }
+.rl-state.warning { background: var(--warn-bg); color: var(--warn-ink); }
+.rl-state.halted { background: var(--bad); color: var(--panel); }
+.rl-reason { font-size: 13px; color: var(--bad); }
+.rl-meter { display: grid; gap: 5px; }
+.rl-meter .top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.rl-meter .top span:last-child { font-family: var(--f-num); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.rl-track { position: relative; height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; }
+.rl-track i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--ink-3); }
+.rl-track i.w { background: var(--warn-ink); } .rl-track i.b { background: var(--bad); }
+.rl-track.tick::after { content: ""; position: absolute; top: 0; bottom: 0; left: 75%; border-left: 1px dashed var(--ink-3); opacity: .6; }
+.rl-small { font-size: 12px; color: var(--ink-3); }
+.rl-small code, .rl-hint code { font-family: var(--f-num); font-size: 11.5px; background: var(--hold-bg); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+.rl-hint { font-size: 12.5px; color: var(--ink-2); border-left: 3px solid var(--rule); padding: 2px 0 2px 10px; }
+.rl table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.rl th { text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .04em; color: var(--ink-3); padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; text-transform: none; }
+.rl td { padding: 7px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; font-family: var(--f-num); font-variant-numeric: tabular-nums; vertical-align: top; }
+@media (max-width: 520px) { .rl-cmp th, .rl-cmp td { padding: 6px 5px; font-size: 12px; } .rl-box { padding: 12px; } }
+.rl td.t, .rl th.t { font-family: var(--f-body); }
+.rl td.wrap { white-space: normal; min-width: 220px; max-width: 420px; font-family: var(--f-body); font-size: 12.5px; color: var(--ink-2); }
+.rl td.r, .rl th.r { text-align: right; }
+.rl td.paper-col, .rl th.paper-col { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.rl .na { color: var(--ink-3); }
+.rl-checks { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.rl-checks li { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: baseline; }
+.rl-tag { font-family: var(--f-num); font-size: 11px; font-weight: 500; text-align: center; padding: 1px 0; border-radius: 3px; background: var(--hold-bg); color: var(--ink-3); }
+.rl-tag.p { background: var(--good-bg); color: var(--good); } .rl-tag.f { background: var(--bad-bg); color: var(--bad); }
+.rl-checks em { font-style: normal; color: var(--ink-3); font-size: 12px; display: block; }
+.rl-rec { font-family: var(--f-num); font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 3px; }
+.rl-rec.keep { background: var(--good-bg); color: var(--good); }
+.rl-rec.watch { background: var(--warn-bg); color: var(--warn-ink); }
+.rl-rec.pause { background: var(--bad-bg); color: var(--bad); }
+.rl-find { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
+.rl-st { font-family: var(--f-num); font-size: 11px; padding: 2px 7px; border-radius: 3px; background: var(--hold-bg); color: var(--ink-2); white-space: nowrap; }
+.rl-st.failed, .rl-st.retired { background: var(--bad-bg); color: var(--bad); }
+.rl-st.paper, .rl-st.passed_paper, .rl-st.passed_sealed, .rl-st.passed_backtest { background: var(--good-bg); color: var(--good); }
+.rl-st.paused { background: var(--warn-bg); color: var(--warn-ink); }
+.rl-wf { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.rl-wf div { flex: 1; display: grid; align-items: end; height: 100%; position: relative; }
+.rl-wf i { display: block; border-radius: 2px 2px 0 0; min-height: 2px; }
+.rl-wf i.up { background: var(--good); } .rl-wf i.dn { background: var(--bad); }
+.rl details summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.rl details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+<script>
+window.renderResearch = (function () {
+  "use strict";
+  var last = {};
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function sgn(v, d) { return v == null ? null : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d == null ? 2 : d); }
+  function cell(v, cls) { return v == null || v === "" ? "<td class='r na " + (cls || "") + "'>—</td>" : "<td class='r " + (cls || "") + "'>" + v + "</td>"; }
+  function pctc(v) { return v == null ? null : "<span class='" + (v > 0 ? "pos" : v < 0 ? "neg" : "") + "'>" + sgn(v) + "%</span>"; }
+  var CMD = "python -m jev_bot research ";
+
+  function loop(h, rv) {
+    var p = h && h.prediction, bt = h && h.backtest, se = h && h.sealed, st = h ? h.status : "";
+    var paperish = ["paper", "passed_paper", "paused"].indexOf(st) >= 0;
+    var steps = [
+      ["Idea", h ? h.id + " · from " + (h.source || "?") : "none yet", h ? "done" : "now"],
+      ["Prediction", p ? "locked " + p.written.slice(0, 10) + (h.prediction_intact === false ? " · EDITED" : "") : "not written", p ? (h.prediction_intact === false ? "fail" : "done") : "now"],
+      ["Backtest", bt ? (bt.passed ? "passed" : "failed") + " · DSR " + (bt.dsr != null ? bt.dsr.toFixed(2) : "–") : "not run", bt ? (bt.passed ? "done" : "fail") : (p || paperish ? "now" : "")],
+      ["Sealed test", se ? (se.passed ? "passed " : "failed ") + sgn(se.return_pct) + "%" : "unused", se ? (se.passed ? "done" : "fail") : (bt && bt.passed ? "now" : "")],
+      ["Paper", paperish ? "running" + (h.paper && h.paper.since ? " since " + h.paper.since : "") : "not yet", paperish ? (st === "paused" ? "fail" : "done") : ""],
+      ["Weekly critic", rv && rv.date ? rv.date + " · " + (rv.recommend || "") : "first review on Sunday", rv && rv.date ? (rv.recommend === "pause" ? "fail" : "done") : (paperish ? "now" : "")]
+    ];
+    var first = true;
+    steps.forEach(function (s) { if (s[2] === "now") { if (!first) s[2] = ""; first = false; } });
+    return "<div class='rl-loop' role='list' aria-label='Where this strategy is in the research loop'>" + steps.map(function (s) {
+      return "<div class='rl-step " + s[2] + "' role='listitem'><span class='rl-node' aria-hidden='true'></span><b>" + s[0] + "</b><span>" + esc(s[1]) + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  function killBox(k) {
+    var LAB = { ok: "Armed · all clear", warning: "Armed · near a limit", halted: "Halted" };
+    var meters = k.meters.map(function (m) {
+      var f = Math.min(1, m.frac), cap = m.key === "open", c = cap ? "" : f >= 1 ? "b" : f >= 0.75 ? "w" : "";
+      var val = m.unit === "%" ? m.value.toFixed(2) + "% of " + m.limit + "%" : m.value + " of " + m.limit;
+      return "<div class='rl-meter'><div class='top'><span>" + esc(m.label) + "</span><span>" + val + "</span></div>" +
+        "<div class='rl-track" + (cap ? "" : " tick") + "' role='meter' aria-valuemin='0' aria-valuemax='" + m.limit + "' aria-valuenow='" + m.value + "' aria-label='" + esc(m.label) + "'><i class='" + c + "' style='width:" + (f * 100).toFixed(1) + "%'></i></div></div>";
+    }).join("");
+    var blocks = (k.blocks || []).slice().reverse();
+    return "<div class='rl-box'><div class='rl-head'><h3>Kill switch</h3><span class='rl-state " + k.state + "'>" + LAB[k.state] + "</span></div>" +
+      (k.reason ? "<div class='rl-reason'>" + esc(k.reason) + "</div>" : "") + meters +
+      "<div class='rl-small'>Checked in code before every new trade · one order ≤ " + k.max_order_leverage + "× equity · peak $" +
+      Number(k.peak).toLocaleString("en-US", { maximumFractionDigits: 0 }) + ". Open trades keep their stops either way. Change the limits in <code>config/risk.json</code>." +
+      (k.config_missing ? " <b>config/risk.json is missing: defaults apply.</b>" : "") + "</div>" +
+      (blocks.length ? "<details><summary>" + blocks.length + " recent block" + (blocks.length > 1 ? "s" : "") + "</summary><ul class='rl-find' style='margin-top:8px'>" +
+        blocks.map(function (b) { return "<li><span class='rl-small'>" + esc(b[0].replace("T", " ").slice(0, 16)) + "</span> " + esc(b[1]) + "</li>"; }).join("") + "</ul></details>" : "") +
+      "</div>";
+  }
+
+  function compareBox(h, paper) {
+    if (!h) return "<div class='rl-box'><h3>Reality vs the plan</h3><div class='rl-hint'>No ledger entry for this desk yet.</div></div>";
+    var p = h.prediction || {}, bt = h.backtest || {}, se = h.sealed || {}, pp = paper || {};
+    var rows = [
+      ["Return", pctc(p.return_pct), pctc(bt.return_pct), pctc(se.return_pct), pctc(pp.return_pct)],
+      ["Win rate", p.win_rate_pct != null ? p.win_rate_pct + "%" : null, bt.trades ? bt.win_rate_pct + "%" : null, se.trades ? se.win_rate_pct + "%" : null, pp.trades ? pp.win_rate_pct + "%" : null],
+      ["Max drawdown", p.max_drawdown_pct != null ? p.max_drawdown_pct + "%" : null, bt.max_drawdown_pct != null ? bt.max_drawdown_pct + "%" : null, se.max_drawdown_pct != null ? se.max_drawdown_pct + "%" : null, pp.max_drawdown_pct != null ? pp.max_drawdown_pct + "%" : null],
+      ["Trades", p.min_trades != null ? "≥ " + p.min_trades : null, bt.trades, se.trades, pp.trades],
+      ["Sharpe / yr", null, bt.sharpe_ann != null ? bt.sharpe_ann.toFixed(2) : null, se.sharpe_ann != null ? se.sharpe_ann.toFixed(2) : null, null],
+      ["DSR (luck-adj.)", null, bt.dsr != null ? bt.dsr.toFixed(2) : null, null, null]
+    ];
+    var html = "<div class='rl-box'><div class='rl-head'><h3>Reality vs the plan</h3><span class='rl-small'>" + esc(h.id) + " · v" + h.version + " · attempt " + h.variations + " of " + h.max_variations + "</span></div>" +
+      "<div class='table-wrap'><table class='rl-cmp'><thead><tr><th class='t'></th><th class='r paper-col'>Paper now</th><th class='r'>Predicted</th><th class='r'>Backtest</th><th class='r'>Sealed</th></tr></thead><tbody>" +
+      rows.map(function (r) { return "<tr><td class='t'>" + r[0] + "</td>" + cell(r[4], "paper-col") + cell(r[1]) + cell(r[2]) + cell(r[3]) + "</tr>"; }).join("") +
+      "</tbody></table></div>";
+    var hints = [];
+    if (!h.prediction) hints.push("Write the prediction before anything else, it is locked once saved: <code>" + CMD + "predict " + esc(h.id) + " --return 5 --win-rate 45 --max-dd 8 --min-trades 30 --fail-return-below 0</code> (your numbers)");
+    if (!h.backtest) hints.push(h.desk === "daily" ? "Run the honest backtest on GitHub: Actions → research → Run workflow → <code>backtest " + esc(h.id) + "</code>"
+      : "Export 1-minute history on the MT5 PC, then: <code>" + CMD + "backtest " + esc(h.id) + " --csv EURUSD=data/mt5/EURUSD_M1.csv …</code>");
+    if (h.prediction && h.prediction.scope) hints.push("This prediction covers forward paper trading from " + esc(h.prediction.written.slice(0, 10)) + ".");
+    html += hints.map(function (t) { return "<div class='rl-hint'>" + t + "</div>"; }).join("");
+    if (h.backtest && h.backtest.checks) {
+      var wf = h.backtest.walk_forward || [], mx = Math.max.apply(null, wf.map(function (w) { return Math.abs(w.return_pct) || 0; }).concat([0.01]));
+      html += "<details><summary>How the backtest tried to kill it (" + esc(h.backtest.period || "") + ", " + esc(h.backtest.data || "") + ")</summary><div style='display:grid;gap:12px;margin-top:10px'>" +
+        "<ul class='rl-checks'>" + h.backtest.checks.map(function (c) {
+          var t = c.passed == null ? ["", "n/a"] : c.passed ? ["p", "pass"] : ["f", "fail"];
+          return "<li><span class='rl-tag " + t[0] + "'>" + t[1] + "</span><span>" + esc(c.name) + "<em>" + esc(c.detail) + "</em></span></li>";
+        }).join("") + "</ul>" +
+        (wf.length ? "<div><div class='rl-small' style='margin-bottom:4px'>Walk-forward windows, oldest first</div><div class='rl-wf' role='img' aria-label='Return in each walk-forward window'>" +
+          wf.map(function (w) { var hgt = Math.max(4, 100 * Math.abs(w.return_pct) / mx); return "<div title='" + esc(w.first + " → " + w.last + ": " + sgn(w.return_pct) + "% · " + w.trades + " trades") + "'><i class='" + (w.return_pct > 0 ? "up" : "dn") + "' style='height:" + hgt + "%'></i></div>"; }).join("") +
+          "</div></div>" : "") + "</div></details>";
+    }
+    return html + "</div>";
+  }
+
+  function criticBox(rv) {
+    if (!rv || !rv.date) return "<div class='rl-box'><h3>Weekly critic</h3><div class='rl-hint'>The first review runs on Sunday. It compares paper trades with the backtest and the prediction, and says whether to pause.</div></div>";
+    var f = (rv.findings || []), w = rv.week || {};
+    return "<div class='rl-box'><div class='rl-head'><h3>Weekly critic · " + esc(rv.date) + "</h3><span class='rl-rec " + esc(rv.recommend) + "'>" + esc((rv.recommend || "").replace(/^./, function (c) { return c.toUpperCase(); })) + "</span></div>" +
+      "<div class='rl-small'>Last 7 days: " + (w.trades || 0) + " trades, " + Math.round(w.win_rate_pct || 0) + "% won, net " + (w.net < 0 ? "−$" : "$") + Math.abs(w.net || 0).toFixed(2) + "</div>" +
+      (f.length ? "<ul class='rl-find'>" + f.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<div class='rl-small'>Nothing notable this week.</div>") +
+      ((rv.recommend_why || []).length ? "<div class='rl-hint'>" + (rv.recommend === "pause" ? "Pause it: " : "Watch: ") + esc(rv.recommend_why.join("; ")) +
+        (rv.recommend === "pause" ? ". Set <code>\"enabled\": false</code> for this desk in <code>config/risk.json</code>." : "") + "</div>" : "") +
+      ((rv.compare || []).length ? "<div class='rl-small'>" + esc(rv.compare.join(" · ")) + "</div>" : "") + "</div>";
+  }
+
+  function ledgerBox(R) {
+    var rows = R.ledger || [], DESK = { daily: "Daily", scalper_a: "Scalper A", scalper_orb: "Scalper B", idea: "Idea" };
+    var failed = (R.counts || {}).failed || 0;
+    return "<div class='rl-box'><div class='rl-head'><h3>Hypothesis ledger</h3><span class='rl-small'>" + R.total + " idea" + (R.total === 1 ? "" : "s") + " tested or queued · " + failed + " failed and kept</span></div>" +
+      "<div class='rl-small'>Every idea is checked against this list before it is proposed, so failed ones are not rediscovered. Search it with <code>" + CMD + "search --market XAUUSD --status failed</code>.</div>" +
+      "<div class='table-wrap'><table><thead><tr><th class='t'>Id</th><th class='t'>Idea</th><th class='t'>Desk</th><th class='t'>Regime</th><th class='r'>Attempts</th><th class='t'>Status</th><th class='t'>Latest lesson</th></tr></thead><tbody>" +
+      rows.map(function (h) {
+        return "<tr><td>" + esc(h.id) + "</td><td class='wrap'>" + esc(h.idea) + "</td><td class='t'>" + esc(DESK[h.desk] || h.desk) + "</td><td class='t'>" + esc(h.regime || "—") + "</td>" +
+          "<td class='r'>" + h.variations + "/" + h.max_variations + "</td><td class='t'><span class='rl-st " + esc(h.status) + "'>" + esc(h.status_label) + "</span></td><td class='wrap'>" + esc(h.lesson || "—") + "</td></tr>";
+      }).join("") + "</tbody></table></div></div>";
+  }
+
+  return function (box, R, opts) {
+    if (!box) return;
+    opts = opts || {};
+    var key = JSON.stringify(R);
+    if (last[box.id] === key) return;
+    last[box.id] = key;
+    if (!R || R.error) { box.innerHTML = "<div class='rl-hint'>The research panel could not be built" + (R && R.error ? ": " + esc(R.error) : "") + ".</div>"; return; }
+    var h = R.hypothesis;
+    box.innerHTML = "<div class='rl'>" + loop(h, R.review) +
+      "<div class='rl-grid'>" + killBox(R.killswitch) + compareBox(h, R.paper) + "</div>" +
+      criticBox(R.review) + (opts.fullLedger ? ledgerBox(R) : (opts.ledgerLink ? "<div class='rl-small'>The full hypothesis ledger is on the <a href='" + esc(opts.ledgerLink) + "#research' style='color:var(--accent)'>daily dashboard</a>.</div>" : "")) + "</div>";
+  };
+})();
+</script>

@@ -1,0 +1,30 @@
+{
+  "_read_me": "The kill switch. The bots read this file before EVERY new trade; a rule here cannot be argued past. Edit it on GitHub (pencil icon) and the servers pick it up within ~15 minutes. Open trades always keep their stops and targets: these rules only stop NEW trades. Numbers are examples, not advice.",
+  "kill_all": false,
+  "desks": {
+    "daily": {
+      "enabled": true,
+      "max_daily_loss_pct": 3.0,
+      "max_drawdown_pct": 10.0,
+      "max_open_positions": 2,
+      "max_order_leverage": 10.0,
+      "peak_reset": ""
+    },
+    "scalper_a": {
+      "enabled": true,
+      "max_daily_loss_pct": 2.0,
+      "max_drawdown_pct": 8.0,
+      "max_open_positions": 5,
+      "max_order_leverage": 20.0,
+      "peak_reset": ""
+    },
+    "scalper_orb": {
+      "enabled": true,
+      "max_daily_loss_pct": 2.0,
+      "max_drawdown_pct": 8.0,
+      "max_open_positions": 5,
+      "max_order_leverage": 20.0,
+      "peak_reset": ""
+    }
+  }
+}
