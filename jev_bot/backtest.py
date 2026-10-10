@@ -165,8 +165,10 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
             t_open = t
         pending = None
 
-        # 2. manage the open position against this bar's range
-        if pos is not None:
+        # 2. manage the open position against this bar's range. A late fill happens at
+        #    this bar's CLOSE, so this bar's high and low came before the trade existed:
+        #    managing it against them would be looking back in time.
+        if pos is not None and not (late_fill and t_open == t):
             hit = None
             if pos.side == "BUY":
                 if b.low <= pos.stop:

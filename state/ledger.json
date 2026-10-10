@@ -209,6 +209,11 @@
           "at": "2026-10-10T20:18:59+00:00",
           "source": "backtest",
           "text": "honest backtest v1 failed: deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-10T20:24:49+00:00",
+          "source": "backtest fix",
+          "text": "its 'delayed fills' figure (-4.06%) came from the backtester bug fixed on 2026-10-11; the other failures (DSR 0.55, 2 of 4 windows, loses at 2x costs) stand"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -764,6 +769,11 @@
           "at": "2026-10-10T20:22:13+00:00",
           "source": "backtest",
           "text": "v2 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-10T20:24:49+00:00",
+          "source": "backtest fix",
+          "text": "the 'delayed fills' results before 2026-10-11 (+11%, +13%) were inflated by a backtester bug (fixed); v2 was built on that false clue. Both v1 and v2 lost money at a ~71% win rate: the 0.25R payoff needs 80%+ wins"
         }
       ],
       "notes": "",

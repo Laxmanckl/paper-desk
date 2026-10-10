@@ -679,5 +679,20 @@ L.PATH = _real_ledger
 ok("agents without an API key: a pasted reply goes into the ledger, then the Skeptic's brief and verdict",
    _r1["added"] == ["H1"] and "EUR/USD snaps back" in _brief and _led["hypotheses"][0]["skeptic"]["verdict"] == "test")
 
+from jev_bot.fx import Bar as _B
+_late = [_B(f"x{i:03d}", 100, 100.5, 99.5, 100) for i in range(60)]
+
+
+class _BuyOnce(STR.DailyStrategy):
+    def signal(self, history):
+        return "BUY" if len(history) == 55 else None
+
+
+_bo = _BuyOnce(name="buyonce", hypothesis="x", markets=("EURUSD",), sl_atr=50, tp_atr=0.1, max_hold=100)
+_late[55] = _B("x055", 100, 110, 90, 100)                 # a wide day: target sits inside its range
+_rl = backtest.run("EURUSD", _late, strategy=_bo, late_fill=True)
+ok("backtest: a late fill at the close is never managed against that same day's high and low",
+   not _rl.trades or _rl.trades[0].bars > 0)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
