@@ -1,5 +1,5 @@
 > **This copy: gold (XAUUSD) + EUR/USD paper trading.** Real prices, fake money, run by GitHub every hour.
-> Dashboard: **https://laxmanckl.github.io/paper-desk/** · setup: [SETUP-GITHUB.md](SETUP-GITHUB.md) · always-on server: [SETUP-SERVER.md](SETUP-SERVER.md) · scalper: [SETUP-SCALPER.md](SETUP-SCALPER.md) · commands: [FOREX.md](FOREX.md)
+> Dashboard: **https://laxmanckl.github.io/paper-desk/** · setup: [SETUP-GITHUB.md](SETUP-GITHUB.md) · always-on server: [SETUP-SERVER.md](SETUP-SERVER.md) · scalper: [SETUP-SCALPER.md](SETUP-SCALPER.md) · commands: [FOREX.md](FOREX.md) · research loop & kill switch: [RESEARCH.md](RESEARCH.md)
 
 ![jev-bot](assets/banner.png)
 

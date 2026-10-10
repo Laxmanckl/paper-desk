@@ -16,6 +16,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from . import feeds, fx
+from .research import panel
 
 TEMPLATE = Path(__file__).with_name("dashboard_template.html")
 
@@ -27,7 +28,8 @@ _SOURCE_LABEL = {
 
 
 def build(acct, source: str = "yahoo", preview: bool = False,
-          auto_refresh_min: int = 5, full_document: bool = True, note: str = "") -> str:
+          auto_refresh_min: int = 5, full_document: bool = True, note: str = "",
+          account_path: str = "state/paper_account.json") -> str:
     acct._set_benchmark({sym: lp["price"] for sym, lp in acct.last_price.items() if lp.get("price")})
     data = {
         "account": asdict(acct),
@@ -37,11 +39,12 @@ def build(acct, source: str = "yahoo", preview: bool = False,
         "preview": preview,
         "auto_refresh_min": auto_refresh_min,
         "note": note,
+        "research": panel.safe(panel.daily_panel, acct, account_path),
         "has_scalper": os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                                    "state", "scalper_account.json")),
     }
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    body = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/", blob)
+    body = panel.inject(TEMPLATE.read_text(encoding="utf-8")).replace("/*__DATA__*/", blob)
     if not full_document:
         return body
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"

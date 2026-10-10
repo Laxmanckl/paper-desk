@@ -26,7 +26,8 @@ import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from . import backtest, feeds, fx, jev, risk
+from . import backtest, feeds, fx, jev, journal, killswitch, risk
+from .types import Decision
 
 ACCOUNT_VERSION = 1
 
@@ -43,6 +44,7 @@ class Position:
     entry_bar: str          # date of the last completed bar when it opened
     signal_prob: float
     signal_conf: float
+    regime: str = ""        # market regime when it opened (for the weekly review)
 
 
 @dataclass
@@ -66,6 +68,9 @@ class Account:
     alerts_sent: dict = field(default_factory=dict)      # alert bookkeeping (daily summary etc.)
     last_check: str = ""                                 # heartbeat: time of the latest check
     runner: dict = field(default_factory=dict)           # who runs the bot: {"kind", "every_min"}
+    peak_equity: float = 0.0                             # kill switch: highest equity seen
+    day_start: dict = field(default_factory=dict)        # kill switch: utc day -> equity at its start
+    killswitch: dict = field(default_factory=dict)       # kill switch bookkeeping (recent blocks)
 
     MAX_LOG = 3000
     MAX_EVENTS = 300
@@ -80,6 +85,10 @@ class Account:
         now = now or _now()
         t = now.isoformat(timespec="seconds")
         self.last_check = t
+        try:
+            self.risk_numbers(now)                    # keep the kill switch's peak and day start current
+        except Exception:                             # bookkeeping must never stop a check
+            pass
         for e in events:
             sym = e.split(":", 1)[0]
             prev = next((x[1] for x in reversed(self.events) if x[1].split(":", 1)[0] == sym), None)
@@ -137,6 +146,23 @@ class Account:
     def equity(self) -> float:
         return round(self.cash + self.open_pnl(), 2)
 
+    def history_peak(self) -> float:
+        return max([self.start_equity] + [p[1] for p in self.equity_log])
+
+    def risk_numbers(self, now: datetime | None = None, cfg: dict | None = None,
+                     desk: str | None = None) -> dict:
+        """What the kill switch needs: equity, its peak, equity at the start of the UTC day."""
+        eq = self.equity()
+        day = (now or _now()).strftime("%Y-%m-%d")
+        if day not in self.day_start:
+            self.day_start = {day: eq}                    # keep just today
+        killswitch.track(desk or KS_DESK, self, eq, cfg)
+        return {"equity": eq, "peak": self.peak_equity, "day_start": self.day_start[day],
+                "open_positions": len(self.positions)}
+
+
+KS_DESK = "daily"
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -168,20 +194,36 @@ def _close(acct: Account, sym: str, price: float, reason: str, now: datetime) ->
     return trade
 
 
-def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: str,
-          d, settings: backtest.Settings, now: datetime) -> dict:
+def _size(acct: Account, sym: str, side: str, price: float, a: float,
+          settings: backtest.Settings) -> tuple[float, float, float]:
+    """(entry, stop distance, units) for a new position, before it is opened."""
     entry = price + _half_spread(sym) if side == "BUY" else price - _half_spread(sym)
     stop_dist = settings.sl_atr * a
     equity = acct.equity()
     units = (equity * settings.risk_pct) / stop_dist if stop_dist > 0 else 0
     units = min(units, equity * settings.max_leverage / entry)
+    return entry, stop_dist, units
+
+
+def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: str,
+          d, settings: backtest.Settings, now: datetime, regime: str = "") -> dict:
+    entry, stop_dist, units = _size(acct, sym, side, price, a, settings)
     sign = 1 if side == "BUY" else -1
     p = Position(sym, side, entry, entry - sign * stop_dist,
                  entry + sign * settings.tp_atr * a, round(units, 6),
                  now.isoformat(timespec="seconds"), bar_date,
-                 d.probability, d.confidence)
+                 d.probability, d.confidence, regime)
     acct.positions[sym] = asdict(p)
     return acct.positions[sym]
+
+
+def _close_entry(tr: dict) -> dict:
+    risk_ = abs(tr["entry"] - tr["stop"]) * tr["units"]
+    return {"symbol": tr["symbol"], "decision": "CLOSE", "side": tr["side"], "price": tr["exit"],
+            "conditions": tr.get("conditions") or {"regime": tr.get("regime", "")},
+            "reasoning": f"closed by {tr['reason']}",
+            "result": {"pnl": tr["pnl"], "pips": tr["pips"], "reason": tr["reason"],
+                       "r": round(tr["pnl"] / risk_, 2) if risk_ else None, "opened": tr["opened_at"]}}
 
 
 def completed_bars(bars: list, quote_time, utc_offset_s: int = 0) -> list:
@@ -198,9 +240,23 @@ def completed_bars(bars: list, quote_time, utc_offset_s: int = 0) -> list:
 
 def check(acct: Account, symbols: list[str], source: str = "yahoo",
           settings: backtest.Settings | None = None, limits: risk.Limits | None = None,
-          engine: str = "offline", fetch=None, now: datetime | None = None) -> list[str]:
-    """One pass over the instruments. Returns human-readable event lines."""
+          engine: str = "offline", fetch=None, now: datetime | None = None,
+          risk_cfg: dict | None = None, desk: str = KS_DESK, strategy=None,
+          journal_on: bool = False) -> list[str]:
+    """One pass over the instruments. Returns human-readable event lines.
+
+    strategy    a jev_bot.strategies strategy instead of the JEV engine (promoted
+                strategies run on their own paper accounts this way)
+    desk        whose kill-switch limits and journal apply
+    journal_on  write every decision to journal/<desk>/ (the live runner turns it on)
+    """
+    if strategy is not None:
+        settings = strategy.settings()
     s = settings or backtest.Settings()
+
+    def note(entry: dict, when: datetime) -> None:
+        if journal_on:
+            journal.write(desk, entry, when)
     lim = limits or risk.Limits()
     # one year of daily bars is plenty (50-bar warm-up) and light enough to poll every minute
     fetch = fetch or (lambda sym: feeds.fetch(sym, source, rng="1y"))
@@ -257,14 +313,32 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
                 tr = _close(acct, sym, hit[0], hit[1], t_now)
                 events.append(f"{sym}: CLOSED {tr['side']} at {tr['exit']:,.{d_px}f} "
                               f"({tr['reason']})  {tr['pips']:+.1f} pips  ${tr['pnl']:+,.2f}")
+                note(_close_entry(tr), t_now)
 
         # 2. decide once per new completed daily bar
         last = done[-1].date
         if acct.last_bar.get(sym) == last:
             continue
         state = fx.state_at(sym, done, len(done) - 1)
-        d = jev.decide(state, engine=engine)
-        gate = risk.check(d, 0, lim)
+        if strategy is not None:
+            act = strategy.signal(done)
+            d = Decision(sym, act or "HOLD", 1.0, 1.0, source=strategy.name)
+            gate = risk.Gate("EXECUTE", "") if act in ("BUY", "SELL") else risk.Gate("SKIP", "no signal")
+        else:
+            d = jev.decide(state, engine=engine)
+            gate = risk.check(d, 0, lim)
+        cond = {"regime": state.regime, "momentum": round(state.momentum, 3),
+                "change_1d_pct": round(state.change_24h * 100, 3),
+                "atr": round(fx.atr(done, len(done) - 1), fx.INSTRUMENTS[sym]["digits"]),
+                "probability": d.probability, "confidence": d.confidence, "engine": d.source}
+        if strategy is not None:
+            cond.update(strategy.conditions(done))
+        why_signal = (f"{d.action} from the {d.source} engine: momentum {state.momentum:+.2f}, "
+                      f"{state.regime} regime, p {d.probability:.0%}, conf {d.confidence:.0%}"
+                      if strategy is None else f"{d.action} from {strategy.name} v{strategy.version}: "
+                      + strategy.explain(done))
+        base = {"symbol": sym, "bar": last, "side": d.action if d.action in ("BUY", "SELL") else None,
+                "price": px, "conditions": cond}
         acct.last_bar[sym] = last
         acct.last_decision[sym] = {"bar": last, "action": d.action, "probability": d.probability,
                                    "confidence": d.confidence, "gate": gate.verdict,
@@ -275,17 +349,38 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
                 + (f" · {gate.reason}" if gate.reason else ""))
         if gate.verdict != "EXECUTE":
             events.append(line)
+            note({**base, "decision": "SKIP", "reasoning": f"{why_signal}; not traded: {gate.reason}"}, t_now)
             continue
         p = acct.positions.get(sym)
         if p and p["side"] == d.action:
             events.append(line + " · already holding this side")
+            note({**base, "decision": "HOLDING", "reasoning": f"{why_signal}; already holding {d.action}"}, t_now)
+            continue
+        # 3. the kill switch: hard limits from config/risk.json, checked in code before
+        #    every new trade. If it says no, nothing changes: an open position keeps its stops.
+        a = fx.atr(done, len(done) - 1)
+        entry, _, units = _size(acct, sym, d.action, px, a, s)
+        nums = acct.risk_numbers(t_now, risk_cfg, desk)
+        nums["open_positions"] -= 1 if p else 0           # a reversal replaces a position
+        allowed, why = killswitch.check_order(desk, {"notional": units * entry}, nums, risk_cfg)
+        if not allowed:
+            killswitch.note_block(acct, f"{sym} {d.action}: {why}", t_now)
+            acct.last_decision[sym]["gate"] = "BLOCKED"
+            acct.last_decision[sym]["reason"] = why
+            events.append(line + f" · BLOCKED by {why}")
+            note({**base, "decision": "BLOCKED", "reasoning": f"{why_signal}; {why}"}, t_now)
             continue
         if p:
             tr = _close(acct, sym, px, "reverse", t_now)
             events.append(f"{sym}: CLOSED {tr['side']} at {tr['exit']:,.{d_px}f} (reverse)  "
                           f"{tr['pips']:+.1f} pips  ${tr['pnl']:+,.2f}")
-        a = fx.atr(done, len(done) - 1)
-        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now)
+            note(_close_entry(tr), t_now)
+        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now, state.regime)
+        np_["conditions"] = cond
+        note({**base, "decision": "REVERSE" if p else "OPEN",
+              "reasoning": f"{why_signal}; passed the gate and the kill switch",
+              "order": {"entry": np_["entry"], "stop": np_["stop"], "target": np_["target"],
+                        "units": np_["units"]}}, t_now)
         events.append(line)
         events.append(f"{sym}: OPENED {d.action} at {np_['entry']:,.{d_px}f}  "
                       f"stop {np_['stop']:,.{d_px}f}  target {np_['target']:,.{d_px}f}  "

@@ -80,9 +80,11 @@ def load_csv(path: str) -> list[Bar]:
     return sorted(out, key=lambda b: b.t)
 
 
-def replay(series: dict, cfg: ScalpConfig) -> ScalpBook:
-    """series: symbol -> list[Bar] (same minutes). Returns the finished paper book."""
-    book = ScalpBook(created=datetime.fromtimestamp(T0, timezone.utc).isoformat())
+def replay(series: dict, cfg: ScalpConfig, spread_mult: float = 1.0) -> ScalpBook:
+    """series: symbol -> list[Bar] (same minutes). Returns the finished paper book.
+    spread_mult widens every spread (stress test: 2.0 = double costs)."""
+    t_first = min((b[0].t for b in series.values() if b), default=T0)
+    book = ScalpBook(created=datetime.fromtimestamp(t_first, timezone.utc).isoformat())
     eng = Engine(book, list(series), cfg)
     n = min(len(b) for b in series.values())
     for i in range(n):
@@ -90,7 +92,7 @@ def replay(series: dict, cfg: ScalpConfig) -> ScalpBook:
             b = bars[i]
             path = [b.o, b.l, b.h, b.c] if (b.h - b.o) > (b.o - b.l) else [b.o, b.h, b.l, b.c]
             for k, price in enumerate(path):
-                half = spread_for(sym, price) / 2
+                half = spread_for(sym, price) * spread_mult / 2
                 eng.on_tick(sym, price - half, price + half, b.t + (0, 15, 30, 59)[k])
     last_t = max(bars[n - 1].t for bars in series.values()) + 60
     for sym in list(book.positions):

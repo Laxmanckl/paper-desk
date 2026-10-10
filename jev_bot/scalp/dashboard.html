@@ -124,6 +124,11 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     <div id="open"></div>
   </section>
 
+  <section class="card" id="research">
+    <div class="card-head"><h2>Research loop</h2><span class="label">this desk</span></div>
+    <div id="rl-box"></div>
+  </section>
+
   <div class="cols">
     <section class="card">
       <div class="card-head"><h2>Equity</h2><span class="label" id="eq-note">last 24 hours</span></div>
@@ -156,6 +161,7 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
   </footer>
 </div>
 
+<!--__RESEARCH__-->
 <script type="application/json" id="desk-data">/*__DATA__*/</script>
 <script>
 (function () {
@@ -210,7 +216,9 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
     $("about").textContent = (S.desk || {}).about || "";
     document.title = "Scalp Desk" + (peers.length > 1 && S.desk ? " · " + S.desk.name : "");
     var day = new Date(now * 1000).toISOString().slice(0, 10), b = $("banner");
-    if (S.static_note) { b.hidden = false; b.textContent = S.static_note; }
+    var KS = S.research && S.research.killswitch;
+    if (KS && KS.state === "halted") { b.hidden = false; b.textContent = "No new trades: " + KS.reason + ". Open trades keep their stops." + (S.static_note ? " " + S.static_note : ""); }
+    else if (S.static_note) { b.hidden = false; b.textContent = S.static_note; }
     else if (S.halted_day === day) { b.hidden = false; b.textContent = "Daily loss limit reached: no new trades until 00:00 UTC. Open trades keep their stops and targets."; }
     else if (S.last_tick && age > 180) { b.hidden = false; b.textContent = "No prices for " + ago(age).replace(" ago", "") + ". The bot retries automatically; check the server if this lasts."; }
     else b.hidden = true;
@@ -272,6 +280,8 @@ footer .rules { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 
     renderTrades();
     renderBySym();
+    if (window.renderResearch) window.renderResearch($("rl-box"), S.research, { ledgerLink: S.static_note ? "./" : S.daily_url });
+    else $("research").hidden = true;
     var c = S.config || {}, common = ["Risk " + ((c.risk_frac || 0.0025) * 100).toFixed(2) + "% per trade",
       "Costs ≤ " + ((c.max_cost_frac || 0.25) * 100) + "% of risk", "Skip if spread > " + (c.spread_guard || 1.5) + "× normal",
       "Daily loss limit " + ((c.daily_loss_halt || 0.02) * 100) + "%", "No new trades 20:45–22:00 UTC (rollover)"];

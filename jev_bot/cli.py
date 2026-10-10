@@ -9,6 +9,7 @@
     reflex dashboard        build the dashboard web page from the account
     reflex scalp            run the scalper live (crypto via Binance, forex/gold via MT5)
     reflex scalp-backtest   test the scalping rules on 1-minute history
+    reflex research ...     the research loop: ledger, predictions, honest backtests, weekly critic
 
 Add --market fx to decisions / run / card for gold and EUR/USD.
 
@@ -144,14 +145,18 @@ def cmd_live(a):
     acct.runner = {"kind": a.runner, "every_min": a.watch or None}
     print(render.live_banner(a.source, symbols, a.account, a.watch))
     last_publish = 0.0
+    started_code = _code_stamp()
     while True:
         started = time.time()
         before_closed, before_open = len(acct.closed), set(acct.positions)
+        fetch = _cached_fetch(a.source)
         try:
-            events = live.check(acct, symbols, a.source, settings, Limits(**_lim(a)), a.engine)
+            events = live.check(acct, symbols, a.source, settings, Limits(**_lim(a)), a.engine,
+                                fetch=fetch, journal_on=a.runner != "computer" or a.journal)
         except Exception as e:             # never let one bad check stop a 24/5 runner
             traceback.print_exc()
             events = [f"BOT: check failed ({type(e).__name__}: {e}); retrying next check"]
+        promoted_paths = _run_promoted(a, fetch)
         acct.record(events)
         if alerts.configured():
             try:
@@ -168,16 +173,83 @@ def cmd_live(a):
             break
         if a.publish_every and time.time() - last_publish >= a.publish_every * 60:
             try:
-                ok = publish(a.account)
+                from . import journal
+                ok = publish(a.account, journal.folder("daily"), *promoted_paths)
             except Exception:
                 traceback.print_exc()
                 ok = False
             last_publish = time.time() if ok else last_publish + 60    # retry a minute later
+            if ok and a.runner == "server" and _code_stamp() != started_code:
+                # the pull brought new code (e.g. kill switch rules): exit so systemd
+                # (Restart=always) starts the bot again on the new version
+                acct.save(a.account)
+                print("  code updated from GitHub; restarting to use it", flush=True)
+                os._exit(0)
         try:
             time.sleep(max(1.0, a.watch * 60 - (time.time() - started)))
         except KeyboardInterrupt:
             print("\n  stopped. run the same command again to continue.")
             break
+
+
+def _cached_fetch(source: str, max_age: float = 45.0):
+    """One download per instrument per check, shared by the main bot and promoted strategies."""
+    import time
+    cache: dict = {}
+
+    def fetch(sym):
+        hit = cache.get(sym)
+        if hit and time.time() - hit[0] < max_age:
+            return hit[1]
+        res = feeds.fetch(sym, source, rng="1y")
+        cache[sym] = (time.time(), res)
+        return res
+    return fetch
+
+
+def _run_promoted(a, fetch) -> list[str]:
+    """Paper-trade every strategy the ledger has promoted (status paper, wired to
+    jev_bot/strategies/), each on its own account with its own journal and the
+    kill switch of desk "daily:<id>". Returns the files to publish."""
+    import traceback
+    from . import journal, strategies
+    from .research import ledger
+    paths = []
+    try:
+        hs = [h for h in ledger.load()["hypotheses"] if h.get("status") == "paper" and h.get("module")]
+    except Exception:
+        traceback.print_exc()
+        return paths
+    for h in hs:
+        try:
+            strat = strategies.load(h["module"])
+            path = os.path.join(os.path.dirname(a.account) or ".", "strategies", f"{h['id']}.json")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            acct = live.Account.load(path, a.start)
+            acct.config = {"risk_pct": strat.risk_pct, "sl_atr": strat.sl_atr, "tp_atr": strat.tp_atr,
+                           "max_hold": strat.max_hold, "source": a.source, "strategy": strat.label,
+                           "hypothesis": h["id"]}
+            acct.runner = {"kind": a.runner, "every_min": a.watch or None}
+            desk = f"daily:{h['id']}"
+            ev = live.check(acct, list(strat.markets), a.source, fetch=fetch, desk=desk, strategy=strat,
+                            journal_on=a.runner != "computer" or a.journal)
+            acct.record(ev)
+            acct.save(path)
+            paths += [path, journal.folder(desk)]
+            for e in ev:
+                print(f"  [{h['id']}] {e}")
+        except SystemExit as e:
+            print(f"  [{h['id']}] skipped: {e}")
+        except Exception:
+            traceback.print_exc()
+    return paths
+
+
+def _code_stamp() -> float:
+    """Newest modification time of the bot's code: changes when a git pull brings an update."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent
+    return max((f.stat().st_mtime for f in root.rglob("*.py")), default=0.0)
 
 
 def publish(*account_paths: str) -> bool:
@@ -291,7 +363,7 @@ def cmd_dashboard(a):
     if not os.path.exists(a.account):
         raise SystemExit("  no paper account yet. start one with: python -m jev_bot live")
     acct = live.Account.load(a.account)
-    path = dashboard.write(acct, a.out, (acct.config or {}).get("source", "yahoo"))
+    path = dashboard.write(acct, a.out, (acct.config or {}).get("source", "yahoo"), account_path=a.account)
     print(f"  dashboard written to {path}. open it in a browser.")
 
 
@@ -373,6 +445,8 @@ def build_parser():
                     help="shown on the dashboard: where the bot is running")
     lv.add_argument("--publish-every", type=int, default=0, metavar="MIN",
                     help="server mode: git commit + push the account every MIN minutes")
+    lv.add_argument("--journal", action="store_true",
+                    help="write the decision journal on your own computer too (always on for github/server)")
     lv.add_argument("--dashboard", default="", metavar="HTML",
                     help="also rewrite this dashboard page after each check, e.g. docs/index.html")
     lv.set_defaults(func=cmd_live)
@@ -419,6 +493,9 @@ def build_parser():
     hb.add_argument("--account", default="paper_account.json")
     hb.add_argument("--max-age", type=int, default=45, metavar="MIN")
     hb.set_defaults(func=cmd_heartbeat)
+
+    from .research import cli as research_cli
+    research_cli.add_parser(sub)
 
     db = sub.add_parser("dashboard", help="build the dashboard page from the paper account")
     db.add_argument("--account", default="paper_account.json")

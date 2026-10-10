@@ -16,7 +16,8 @@ on:
   workflow_dispatch:               # "Run workflow" button on the Actions tab
   push:
     branches: [main]
-    paths: ["state/paper_account.json", "state/runner.txt", "state/scalper_account.json", "state/scalper_orb.json"]   # the servers' pushes
+    paths: ["state/paper_account.json", "state/runner.txt", "state/scalper_account.json", "state/scalper_orb.json",   # the servers' pushes
+            "state/ledger.json", "state/reviews/**", "config/risk.json", "state/strategies/**"]   # research loop
 
 permissions:
   contents: write
@@ -64,6 +65,8 @@ jobs:
           git config user.name  "paper-trade-bot"
           git config user.email "paper-trade-bot@users.noreply.github.com"
           git add state/paper_account.json
+          git add journal 2>/dev/null || true
+          git add state/strategies 2>/dev/null || true
           git diff --cached --quiet || git commit -m "paper check $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 

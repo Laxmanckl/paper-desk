@@ -10,6 +10,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
+from .. import killswitch
 from . import instruments
 from .strategy import ScalpConfig
 
@@ -46,6 +47,26 @@ class ScalpBook:
     spreads: dict = field(default_factory=dict)        # symbol -> spread at each of the last 60 candle closes
     last_tick: float = 0.0
     config: dict = field(default_factory=dict)
+    peak_equity: float = 0.0                           # kill switch: highest equity seen
+    killswitch: dict = field(default_factory=dict)     # kill switch bookkeeping (recent blocks)
+
+    # Which desk's limits in config/risk.json apply. Set by the live runner only, so
+    # backtests (which replay through this same book) are never stopped by live limits.
+    ks_desk = None
+
+    def history_peak(self) -> float:
+        """Highest equity the stored history shows (closed trades and the equity log)."""
+        run = peak = self.start_equity
+        for tr in self.trades:
+            run += tr["pnl"]
+            peak = max(peak, run)
+        return max([peak] + [e[1] for e in self.equity_log])
+
+    def risk_numbers(self, t: float) -> dict:
+        eq = self.equity()
+        killswitch.track(self.ks_desk, self, eq)
+        return {"equity": eq, "peak": self.peak_equity,
+                "day_start": self.day_start.get(_day(t), eq), "open_positions": len(self.positions)}
 
     # --- persistence --------------------------------------------------------
     @classmethod
@@ -197,6 +218,13 @@ class ScalpBook:
         eq = self.equity()
         units = eq * cfg.risk_frac / (stop_dist * conv)
         units = min(units, eq * spec.max_leverage / (entry * conv))
+        if self.ks_desk:
+            # the kill switch: hard limits from config/risk.json, in code, before every trade
+            ok, why = killswitch.check_order(self.ks_desk, {"notional": units * entry * conv},
+                                             self.risk_numbers(t))
+            if not ok:
+                killswitch.note_block(self, f"{sym} {side}: {why}", datetime.fromtimestamp(t, timezone.utc))
+                return why
         fee = self._fee_per_unit(spec, entry, conv, cfg) * units * conv
         d = 1 if side == "BUY" else -1
         pos = {"symbol": sym, "side": side, "entry": entry, "units": units,
@@ -239,6 +267,8 @@ class ScalpBook:
               "pnl": round(net, 2), "r": round(net / risk, 2) if risk else 0.0,
               "pips": round((price - p["entry"]) * d / spec.pip, 1) if spec.kind != "crypto" else None,
               "move_pct": round((price / p["entry"] - 1) * d * 100, 3)}
+        if p.get("conditions"):
+            tr["conditions"] = p["conditions"]
         self.trades.append(tr)
         self.trades = self.trades[-MAX_TRADES:]
         for key in ("_all", sym):
@@ -257,6 +287,11 @@ class ScalpBook:
 
     def mark(self, t: float) -> None:
         """One equity point per minute for the chart."""
+        if self.ks_desk:
+            try:
+                killswitch.track(self.ks_desk, self, self.equity())
+            except Exception:
+                pass
         minute = _iso(int(t // 60) * 60)
         if not self.equity_log or self.equity_log[-1][0] != minute:
             self.equity_log.append([minute, self.equity()])

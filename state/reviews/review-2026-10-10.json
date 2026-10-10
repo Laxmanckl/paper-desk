@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-10",
+  "at": "2026-10-10T13:01:45+00:00",
+  "window_days": 7,
+  "desks": {
+    "daily": {
+      "name": "Daily bot",
+      "hypothesis": "H1",
+      "week": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate_pct": 0.0,
+        "net": 0,
+        "avg_r": null
+      },
+      "lifetime": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate_pct": 0.0,
+        "net": 0,
+        "avg_r": null
+      },
+      "paper": {
+        "return_pct": 0.21,
+        "trades": 0,
+        "win_rate_pct": 0.0,
+        "max_drawdown_pct": 1.67,
+        "avg_r": null,
+        "since": "2026-10-02",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy"
+      },
+      "compare": [
+        "no honest backtest yet: nothing to compare paper results against",
+        "no written prediction yet"
+      ],
+      "findings": [
+        "no closed trades yet: nothing to judge"
+      ],
+      "recommend": "keep",
+      "recommend_why": [],
+      "regime": "XAUUSD choppy, EURUSD choppy"
+    },
+    "scalper_a": {
+      "name": "Scalper A · Pullback",
+      "hypothesis": "H2",
+      "week": {
+        "trades": 42,
+        "wins": 13,
+        "win_rate_pct": 31.0,
+        "net": -406.14,
+        "avg_r": -0.39
+      },
+      "lifetime": {
+        "trades": 42,
+        "wins": 13,
+        "win_rate_pct": 31.0,
+        "net": -406.14,
+        "avg_r": -0.39
+      },
+      "paper": {
+        "return_pct": -4.06,
+        "trades": 42,
+        "win_rate_pct": 31.0,
+        "max_drawdown_pct": 4.78,
+        "avg_r": -0.39,
+        "since": "2026-10-06",
+        "open": 0,
+        "regime": "XAUUSD choppy, EURUSD choppy"
+      },
+      "compare": [
+        "no honest backtest yet: nothing to compare paper results against",
+        "no written prediction yet"
+      ],
+      "findings": [
+        "a run of 7 losing trades in a row (latest on XAUUSD)"
+      ],
+      "recommend": "watch",
+      "recommend_why": [
+        "42 trades on paper and still losing on average (-0.39R per trade)"
+      ],
+      "regime": "XAUUSD choppy, EURUSD choppy"
+    },
+    "scalper_orb": {
+      "name": "Scalper B · Breakout",
+      "hypothesis": "H3",
+      "week": {
+        "trades": 16,
+        "wins": 2,
+        "win_rate_pct": 12.5,
+        "net": -276.86,
+        "avg_r": -0.7
+      },
+      "lifetime": {
+        "trades": 16,
+        "wins": 2,
+        "win_rate_pct": 12.5,
+        "net": -276.86,
+        "avg_r": -0.7
+      },
+      "paper": {
+        "return_pct": -2.57,
+        "trades": 16,
+        "win_rate_pct": 12.5,
+        "max_drawdown_pct": 3.25,
+        "avg_r": -0.7,
+        "since": "2026-10-08",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy"
+      },
+      "compare": [
+        "no honest backtest yet: nothing to compare paper results against",
+        "no written prediction yet"
+      ],
+      "findings": [
+        "a run of 13 losing trades in a row (latest on USDJPY)"
+      ],
+      "recommend": "watch",
+      "recommend_why": [],
+      "regime": "XAUUSD choppy, EURUSD choppy"
+    }
+  }
+}

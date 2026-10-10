@@ -1,0 +1,359 @@
+{
+  "version": 1,
+  "hypotheses": [
+    {
+      "id": "H1",
+      "idea": "Daily trend signal on gold and EUR/USD: the offline JEV engine's momentum (EMA10 vs EMA30 over ATR) and SMA50 regime, traded with a 1.5 ATR stop, 3 ATR target, 20-day max hold and 1% risk per trade",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD"
+      ],
+      "source": "jev-bot (original)",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/jev.py (offline engine) + backtest.Settings",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 30+ paper trades, or failing the honest backtest (walk-forward, 2x costs, DSR 0.95)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": 0.21,
+        "trades": 0,
+        "win_rate_pct": 0.0,
+        "max_drawdown_pct": 1.67,
+        "avg_r": null,
+        "since": "2026-10-02",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "no closed trades yet: nothing to judge"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    },
+    {
+      "id": "H2",
+      "idea": "1-minute pullback scalp: buy RSI(7) dips that turn back up through 40 inside an EMA20/50 uptrend the 15-minute trend agrees with (mirror for shorts); stop 1.2 ATR, target 1.5x the stop, 30-minute limit, costs at most 25% of risk",
+      "desk": "scalper_a",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP",
+        "XAUUSD"
+      ],
+      "source": "jev-bot scalper A",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/scalp/strategy.py (pullback)",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 200+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": -4.06,
+        "trades": 42,
+        "win_rate_pct": 31.0,
+        "max_drawdown_pct": 4.78,
+        "avg_r": -0.39,
+        "since": "2026-10-06",
+        "open": 0,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "a run of 7 losing trades in a row (latest on XAUUSD)"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    },
+    {
+      "id": "H3",
+      "idea": "Opening-range breakout: trade the first close beyond the 06:00-07:00 UTC range (by 10% of its height) between 07:00 and 12:00 UTC, stop at the middle of the range, target 1.5x the stop, out by 16:00 UTC, once per instrument per day",
+      "desk": "scalper_orb",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP",
+        "XAUUSD"
+      ],
+      "source": "jev-bot scalper B",
+      "created": "2026-10-10T12:55:32+00:00",
+      "strategy": "jev_bot/scalp/orb.py",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 100+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
+      "prediction": null,
+      "regime": "XAUUSD choppy, EURUSD choppy",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": {
+        "return_pct": -2.57,
+        "trades": 16,
+        "win_rate_pct": 12.5,
+        "max_drawdown_pct": 3.25,
+        "avg_r": -0.7,
+        "since": "2026-10-08",
+        "open": 2,
+        "regime": "XAUUSD choppy, EURUSD choppy",
+        "at": "2026-10-10T13:01:45+00:00"
+      },
+      "status": "paper",
+      "lessons": [
+        {
+          "at": "2026-10-10T12:58:37+00:00",
+          "source": "critic 2026-10-10",
+          "text": "a run of 13 losing trades in a row (latest on USDJPY)"
+        }
+      ],
+      "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
+    },
+    {
+      "id": "H4",
+      "idea": "XAUUSD post-shock box breakout: after a day moving >=3x ATR(20), once >=5 subsequent closes sit inside a band <=2.5 ATR wide, trade the first close beyond the box by 0.25 ATR (test both directions and shock-direction-only), stop at the opposite box edge capped at 2 ATR, target 2R, max hold 15 days.",
+      "desk": "idea",
+      "markets": [
+        "XAUUSD"
+      ],
+      "source": "Price Analyst",
+      "created": "2026-10-10T15:06:04+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "On >=30 historical setups, expectancy <=0R after costs, or win rate <35% at a 2R target, or the shock-direction-only variant performs no better than both-directions (meaning the shock filter adds nothing).",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Too rare to test honestly: 3x-ATR gold shocks followed by a tight 5-close box and a breakout give maybe 1-3 setups a year, split again into two variants. The shock inflates ATR(20), so the box width drifts on its own. Seven free parameters on about 30 trades means any result is noise."
+        }
+      ],
+      "notes": "why: Shocks are often followed by volatility compression, and the breakout that ends the compression tends to carry because positioning has reset; gold now matches this exactly: a -3.54% day (~4.7x avg move) followed by 9 closes in a 1.48% (~2 avg moves) box at 4140.7-4202.3. | needs: Shock day with abs move >=3x 20d ATR; next >=5 closes all within a band <=2.5 ATR; entry only on a daily close beyond the box +/-0.25 ATR; one trade per box; void if no breakout within 15 days of box formation. | kind: daily | memo: research/price-2026-10-10.md",
+      "module": "",
+      "conditions": "Shock day with abs move >=3x 20d ATR; next >=5 closes all within a band <=2.5 ATR; entry only on a daily close beyond the box +/-0.25 ATR; one trade per box; void if no breakout within 15 days of box formation.",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Too rare to test honestly: 3x-ATR gold shocks followed by a tight 5-close box and a breakout give maybe 1-3 setups a year, split again into two variants. The shock inflates ATR(20), so the box width drifts on its own. Seven free parameters on about 30 trades means any result is noise."
+      }
+    },
+    {
+      "id": "H5",
+      "idea": "EURUSD over-extension snap-back: when close is >=2.5% below the 50-day SMA, 20-day change <=-3%, and a 20-day closing low was set within the last 3 bars, buy the first daily close above the prior day's high; stop 1 ATR below the stretch low, target the 20-day EMA or 2R (whichever is nearer), max hold 10 days (mirror for upside stretches).",
+      "desk": "idea",
+      "markets": [
+        "EURUSD"
+      ],
+      "source": "Price Analyst",
+      "created": "2026-10-10T15:06:04+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "On >=25 historical setups, expectancy <=0R after costs, or >50% of trades stopped within 3 days (the stretch keeps extending), or no edge over random entries taken inside the same stretched condition.",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Only fires in strong dollar trends (2008, 2014-15, 2022), the regimes where counter-trend entries get run over. Signals cluster into about 6-10 independent episodes. The stop sits below the stretch low but the target is the nearer of EMA20 or 2R, so realised reward:risk is likely under 1."
+        }
+      ],
+      "notes": "why: EURUSD's -3.72% 20-day move is about 3.5x the typical 20-day dispersion implied by its 0.24% average daily move; such stretches in a low-volatility pair tend to partially revert toward the mean once selling pauses, and the confirmation bar avoids buying into a continuing slide. | needs: Close >=2.5% below SMA50; 20d change <=-3% (or >=+3% for the short mirror); 20-day closing extreme within the last 3 bars; entry only after a close beyond the prior day's high (low for shorts). | kind: daily | memo: research/price-2026-10-10.md",
+      "module": "",
+      "conditions": "Close >=2.5% below SMA50; 20d change <=-3% (or >=+3% for the short mirror); 20-day closing extreme within the last 3 bars; entry only after a close beyond the prior day's high (low for shorts).",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Only fires in strong dollar trends (2008, 2014-15, 2022), the regimes where counter-trend entries get run over. Signals cluster into about 6-10 independent episodes. The stop sits below the stretch low but the target is the nearer of EMA20 or 2R, so realised reward:risk is likely under 1."
+      }
+    },
+    {
+      "id": "H6",
+      "idea": "Buy XAUUSD at the next daily open when gold closes >=4% below its SMA50 and within 1 ATR(14) of its 20-day low close, AND EURUSD on the same day closes at a 5-day closing high (dollar easing); stop 1.5 ATR, target 2.5 ATR, max hold 15 days.",
+      "desk": "idea",
+      "markets": [
+        "XAUUSD"
+      ],
+      "source": "Macro Watcher",
+      "created": "2026-10-10T15:06:04+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Over 10+ years: fewer than 15 signals, or profit factor below 1.2, or win rate below 40% at a 2.5:1.5 reward:risk. Or the same rule without the EURUSD filter does as well or better, which would mean the dollar confirmation adds nothing.",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (drop): Rule written to fit today's chart. Stacking three conditions (gold >=4% under SMA50, near its 20d low, EURUSD at a 5-day high on the same day) likely gives under 15 signals in 10 years, so it fails its own sample test. The gold/dollar link broke in 2022-24, and the post-2019 gold bull run flatters any dip-buy."
+        }
+      ],
+      "notes": "why: The current gold selloff is rate/dollar driven and came from leveraged futures liquidation while ETF inflows stayed positive (>70t in September, per WGC via USAGOLD). Once the dollar stops rising, a stretched gold price should snap back toward trend. Requiring EURUSD to turn up adds the macro trigger and avoids buying a falling knife on gold's own noise. | needs: Gold in a deep pullback (>=4% below SMA50) during a period of rising US yields and a strong dollar, as now (gold about -5% vs SMA50, DXY near an 18-month high, 10y about 5.2-5.3%). The trigger needs EURUSD to print a 5-day closing high on the same bar. It does not fire while EURUSD is still making lows. Test on at least 10 years of daily data for both markets. | kind: daily | memo: research/macro-2026-10-10.md",
+      "module": "",
+      "conditions": "Gold in a deep pullback (>=4% below SMA50) during a period of rising US yields and a strong dollar, as now (gold about -5% vs SMA50, DXY near an 18-month high, 10y about 5.2-5.3%). The trigger needs EURUSD to print a 5-day closing high on the same bar. It does not fire while EURUSD is still making lows. Test on at least 10 years of daily data for both markets.",
+      "skeptic": {
+        "verdict": "drop",
+        "objection": "Rule written to fit today's chart. Stacking three conditions (gold >=4% under SMA50, near its 20d low, EURUSD at a 5-day high on the same day) likely gives under 15 signals in 10 years, so it fails its own sample test. The gold/dollar link broke in 2022-24, and the post-2019 gold bull run flatters any dip-buy."
+      }
+    },
+    {
+      "id": "H7",
+      "idea": "On US CPI and NFP release days, if the daily close-to-close move is >=1.0 ATR(14), enter at the next daily open in the direction of that move; stop 1.0 ATR, target 1.5 ATR, max hold 5 days. Test the fade (opposite direction) version alongside it.",
+      "desk": "idea",
+      "markets": [
+        "EURUSD",
+        "XAUUSD"
+      ],
+      "source": "Macro Watcher",
+      "created": "2026-10-10T15:06:04+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Over 2015 onward (about 100+ qualifying events across both markets): neither the follow-through nor the fade version reaches profit factor 1.15 after costs. Or the result flips sign between the 2015-2020 and 2021-2026 halves, showing no stable edge.",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): By the next open the surprise is priced in. A >=1 ATR daily move on release days is mostly noise. Testing follow-through and fade gives two shots at a coin flip. NFP-Friday entries face weekend gap risk against a tight 1-ATR stop. Still the cleanest and largest-sample idea here, so require the same sign in both halves and both markets."
+        }
+      ],
+      "notes": "why: In a hiking cycle with yields near 2002 highs, data surprises reprice the Fed path. Large release-day moves may either keep going (repricing continues) or be faded (the September NFP: EURUSD +0.4% on release, gone within days as the dollar returned to its highs). A fixed event calendar turns this into a clean, repeatable test, and the next live events are CPI on 14 Oct and NFP on about 6 Nov. | needs: Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December. | kind: daily | memo: research/macro-2026-10-10.md",
+      "module": "",
+      "conditions": "Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December.",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "By the next open the surprise is priced in. A >=1 ATR daily move on release days is mostly noise. Testing follow-through and fade gives two shots at a coin flip. NFP-Friday entries face weekend gap risk against a tight 1-ATR stop. Still the cleanest and largest-sample idea here, so require the same sign in both halves and both markets."
+      }
+    },
+    {
+      "id": "H8",
+      "idea": "Gold post-FOMC rebound: on a scheduled FOMC decision day, if XAUUSD's close on the day before the decision is at least 1% below its close 5 trading days earlier, buy at the close of the decision-day daily bar; stop 1.5 ATR(14), target 2.5 ATR(14), exit after 10 trading days if neither is hit.",
+      "desk": "idea",
+      "markets": [
+        "XAUUSD"
+      ],
+      "source": "Central-Bank Reader",
+      "created": "2026-10-10T15:06:05+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Across all qualifying FOMC meetings 2008-2026 (expect roughly 40-60 trades), expectancy after costs is at or below zero, or not better than the same entry, stop and target applied to non-FOMC days with the same at-least-1% 5-day drop; or the 2020-2026 subsample is negative while the earlier one is positive (edge decayed).",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Post-FOMC drift in gold is widely published and probably arbitraged away. The 2008-13 QE meetings dominate about 40-60 trades, and the 2019-26 gold bull run flatters any long-only rule. Only the comparison against non-FOMC days with the same 1% drop should count."
+        }
+      ],
+      "notes": "why: Gold tends to be de-risked into a feared hawkish FOMC and then recovers once the uncertainty is gone; in July 2026 gold slid toward $4,000 into the meeting and rebounded above $4,100 after the hold. Record central-bank buying (PBoC 23 straight months, 21t in September; Q2 2026 a record 289t) gives dips a structural buyer, so a long-only rebound rule fits the current backdrop. | needs: Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008. | kind: daily | memo: research/central-2026-10-10.md",
+      "module": "",
+      "conditions": "Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008.",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Post-FOMC drift in gold is widely published and probably arbitraged away. The 2008-13 QE meetings dominate about 40-60 trades, and the 2019-26 gold bull run flatters any long-only rule. Only the comparison against non-FOMC days with the same 1% drop should count."
+      }
+    },
+    {
+      "id": "H9",
+      "idea": "EUR/USD ECB-day follow-through: on a scheduled ECB decision day, if EURUSD's close-to-close move is at least 0.6 ATR(14) and the close is in the outer 30% of the day's range in that direction, enter in that direction at the close; stop 1.5 ATR(14), target 2 ATR(14), exit after 7 trading days.",
+      "desk": "idea",
+      "markets": [
+        "EURUSD"
+      ],
+      "source": "Central-Bank Reader",
+      "created": "2026-10-10T15:06:05+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Over ECB decision days 2010-2026, expectancy after costs is at or below zero, or no better than the same filter and exits on random non-event days; or the result is positive only on meetings adjacent to FOMC decisions (meaning it is a Fed effect, not an ECB one).",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-10T15:07:02+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): The ECB-day daily bar is contaminated by US data released the same Thursday (claims, sometimes CPI), so the filter picks up US surprises as often as ECB ones. About 40-50 trades dominated by the 2014-15 QE era. Structurally a duplicate of H7. Exclude days with tier-1 US data, not just those next to an FOMC decision."
+        }
+      ],
+      "notes": "why: A decisive, well-located ECB-day bar reflects a repricing of the expected policy path (e.g. Lagarde's 'measured' pushback on 29 Sep drove EUR/USD to 1.1350), and FX tends to keep drifting for days as rate expectations and positioning adjust; with the ECB split between a possible October hike and waiting for December projections, the 29 Oct meeting can produce exactly that kind of signal. | needs: Only the scheduled ECB monetary-policy decision days (about 8 per year; next: 2026-10-29, one day after the 28 Oct FOMC); the move and close-location filter must both pass, otherwise no trade; one trade per meeting. Backtest on all ECB decision days since 2010, and flag the meetings held within 2 days of an FOMC decision for a separate check. | kind: daily | memo: research/central-2026-10-10.md",
+      "module": "",
+      "conditions": "Only the scheduled ECB monetary-policy decision days (about 8 per year; next: 2026-10-29, one day after the 28 Oct FOMC); the move and close-location filter must both pass, otherwise no trade; one trade per meeting. Backtest on all ECB decision days since 2010, and flag the meetings held within 2 days of an FOMC decision for a separate check.",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "The ECB-day daily bar is contaminated by US data released the same Thursday (claims, sometimes CPI), so the filter picks up US surprises as often as ECB ones. About 40-50 trades dominated by the 2014-15 QE era. Structurally a duplicate of H7. Exclude days with tier-1 US data, not just those next to an FOMC decision."
+      }
+    }
+  ]
+}

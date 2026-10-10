@@ -466,5 +466,218 @@ ok("dashboard data cannot break out of its script tag",
 blank = dashboard.build(live.Account(created="2026-01-01T00:00:00+00:00"))
 ok("dashboard builds for a brand-new empty account", '"closed":[]' in blank)
 
+# --- kill switch (config/risk.json, enforced in code) --------------------------
+from jev_bot import killswitch as ks
+CFG = {"kill_all": False, "desks": {"daily": {"max_daily_loss_pct": 2, "max_drawdown_pct": 8,
+                                              "max_open_positions": 2, "max_order_leverage": 5}}}
+fine = {"equity": 10_000, "peak": 10_000, "day_start": 10_000, "open_positions": 0}
+ok("kill switch: a normal order passes", ks.check_order("daily", {"notional": 20_000}, fine, CFG)[0])
+ok("kill switch: daily loss limit blocks", not ks.check_order("daily", {"notional": 1}, {**fine, "equity": 9_790}, CFG)[0])
+ok("kill switch: drawdown limit blocks",
+   not ks.check_order("daily", {"notional": 1}, {**fine, "equity": 9_150, "day_start": 9_150}, CFG)[0])
+ok("kill switch: position cap blocks", not ks.check_order("daily", {"notional": 1}, {**fine, "open_positions": 2}, CFG)[0])
+ok("kill switch: oversized order blocks", not ks.check_order("daily", {"notional": 60_000}, fine, CFG)[0])
+ok("kill switch: kill_all blocks everything", not ks.check_order("daily", {"notional": 1}, fine, {**CFG, "kill_all": True})[0])
+ok("kill switch: a paused desk opens nothing",
+   not ks.check_order("daily", {"notional": 1}, fine, {"desks": {"daily": {"enabled": False}}})[0])
+bad = os.path.join(tempfile.mkdtemp(), "risk.json")
+open(bad, "w").write("{ not json")
+ok("kill switch: an unreadable config fails closed", not ks.check_order("daily", {"notional": 1}, fine, ks.load(bad))[0])
+ok("kill switch: a missing config falls back to limits, not to none",
+   not ks.check_order("daily", {"notional": 1}, {**fine, "equity": 9_000, "day_start": 9_000},
+                      ks.load(bad + ".missing"))[0])
+
+halted = live.Account.load(os.path.join(tempfile.mkdtemp(), "h.json"))
+blocked_ev = []
+for day in range(200, 215):
+    now = T0 + timedelta(days=day, hours=15)
+    blocked_ev += live.check(halted, ["EURUSD"], now=now, risk_cfg={"kill_all": True},
+                             fetch=lambda s, d=day, n=now: feeds.parse_yahoo(s, yahoo(hist[:d + 1], n)))
+ok("kill switch: the live daily bot opens nothing while halted, and says why",
+   halted.positions == {} and any("BLOCKED by kill switch" in e for e in blocked_ev)
+   and halted.killswitch.get("blocks"))
+
+from jev_bot.scalp.book import ScalpBook as _SB
+from jev_bot.scalp.strategy import ScalpConfig as _SC
+kb = _SB(created="x")
+kb.on_tick("EURUSD", 1.1000, 1.1001, 1_000)
+kb.spreads["EURUSD"] = [0.0001] * 20
+kb.ks_desk = "scalper_a"
+ks._cache.clear()
+_orig = ks.load
+ks.load = lambda path=None: {"kill_all": True}
+res_blocked = kb.open("EURUSD", "BUY", 0.0005, 1_000, _SC())
+kb.ks_desk = None                                         # backtests: no live limits
+res_open = kb.open("EURUSD", "BUY", 0.0005, 1_000, _SC())
+ks.load = _orig
+ok("kill switch: the scalper book is stopped by it live, and backtests are not",
+   isinstance(res_blocked, str) and "kill switch" in res_blocked and isinstance(res_open, dict))
+
+# --- research loop: ledger, locked predictions, honest testing, weekly critic ----
+from jev_bot.research import ledger as L, stats as RS, honest, review as RV, panel as RP
+led = {"hypotheses": []}
+hh = L.add(led, "test idea", "daily", ["EURUSD"], "Skeptic", "loses money")
+pred = L.predict(hh, 5, 45, 8, 20, {"return_below": 0})
+try:
+    L.predict(hh, 50, 90, 1, 1, {})
+    ok("ledger: a prediction can never be rewritten", False)
+except L.LedgerError:
+    ok("ledger: a prediction can never be rewritten", True)
+ok("ledger: the locked prediction verifies", L.prediction_intact(hh) is True)
+hh["prediction"]["return_pct"] = 50
+ok("ledger: an edited prediction is detected", L.prediction_intact(hh) is False)
+hh["prediction"]["return_pct"] = 5
+for i in range(4):
+    L.record_attempt(hh, {"return_pct": -1, "trades": 30, "sharpe": -0.01, "passed": False})
+    L.revise(hh, f"change {i}")
+L.record_attempt(hh, {"return_pct": -1, "trades": 30, "sharpe": -0.01, "passed": False})
+try:
+    L.revise(hh, "one more")
+    ok("ledger: rewrites are capped at 5 and the idea is marked failed", False)
+except L.LedgerError:
+    ok("ledger: rewrites are capped at 5 and the idea is marked failed", hh["status"] == "failed")
+L.record_sealed(hh, {"return_pct": 1})
+try:
+    L.record_sealed(hh, {"return_pct": 2})
+    ok("ledger: the sealed test is used once", False)
+except L.LedgerError:
+    ok("ledger: the sealed test is used once", True)
+ok("ledger: search finds past failures by market and status",
+   L.search(led, market="eurusd", status="failed") == [hh] and not L.search(led, market="XAUUSD"))
+
+import random as _r
+rg = _r.Random(3)
+noise = [rg.gauss(0.0005, 0.01) for _ in range(500)]
+ok("deflated Sharpe: more attempts make the same result less convincing",
+   RS.deflated_sharpe(noise, 1) > RS.deflated_sharpe(noise, 50) > RS.deflated_sharpe(noise, 500))
+ok("regime labels a steady climb as trending up",
+   RS.regime([100 * 1.004 ** i * (1 + 0.003 * (-1) ** i) for i in range(120)]) == "trending up")
+
+h2 = L.add(led, "daily rules", "daily", ["EURUSD"], "you")
+L.predict(h2, 5, 40, 15, 10, {"return_below": -100})
+simb = {"EURUSD": fx.simulate("EURUSD", 1200, 5)}
+dev = honest.daily(h2, simb, 1, [])
+cut_date = simb["EURUSD"][int(1200 * (1 - honest.HOLDOUT))].date
+ok("honest backtest: development runs never see the sealed period",
+   dev["last"] < cut_date and dev["sealed_from"] == cut_date)
+ok("honest backtest: walk-forward, double costs, delayed fills and worst stretches all run",
+   len(dev["walk_forward"]) == 4 and "return_pct" in dev["costs_2x"] and "return_pct" in dev["breaker"]
+   and len(dev["worst_stretches"]) == 5 and dev["checks"])
+sealed = honest.daily_sealed(h2, simb)
+ok("honest backtest: the sealed run covers only the sealed period", sealed["first"] >= cut_date)
+
+rv = RV.run(apath, {}, write=False, now=T0 + timedelta(days=240))
+ok("weekly critic: reviews the daily desk and recommends keep / watch / pause",
+   rv["desks"]["daily"]["recommend"] in ("keep", "watch", "pause") and "lifetime" in rv["desks"]["daily"])
+page2 = dashboard.build(live.Account.load(apath))
+ok("dashboard: carries the research loop (kill switch, ledger) and its renderer",
+   '"research":' in page2 and '"killswitch":' in page2 and "window.renderResearch" in page2
+   and "<!--__RESEARCH__-->" not in page2)
+from jev_bot.scalp import runner as _run
+_sp = os.path.join(tempfile.mkdtemp(), "scalper.html")
+_run.build_static(kb, _sp, "note", "a")
+_html = open(_sp, encoding="utf-8").read()
+ok("scalper dashboard: carries the research loop for its own desk",
+   '"desk":"scalper_a"' in _html and "window.renderResearch" in _html)
+
+# --- decision journal ---------------------------------------------------------------
+from jev_bot import journal as J
+J.ROOT = tempfile.mkdtemp()                       # never write the real journal from tests
+jacct = live.Account.load(os.path.join(tempfile.mkdtemp(), "j.json"))
+for day in range(200, 230):
+    now = T0 + timedelta(days=day, hours=15)
+    live.check(jacct, ["EURUSD"], now=now, journal_on=True,
+               fetch=lambda s, d=day, n=now: feeds.parse_yahoo(s, yahoo(hist[:d + 1], n)))
+je = J.read_since("daily", T0)
+ok("journal: one entry per daily decision, each with conditions and reasoning",
+   len([e for e in je if e["decision"] != "CLOSE"]) == 30
+   and all(e.get("reasoning") and "conditions" in e and e.get("strategy") for e in je))
+ok("journal: trades opened and closed are both recorded",
+   any(e["decision"] in ("OPEN", "REVERSE") for e in je) == bool(jacct.closed or jacct.positions))
+ok("journal: tail returns the newest entries first", J.tail("daily", 3)[0]["t"] >= J.tail("daily", 3)[-1]["t"])
+quiet = live.Account()
+live.check(quiet, ["EURUSD"], now=T0 + timedelta(days=231, hours=15),
+           fetch=lambda s: feeds.parse_yahoo(s, yahoo(hist[:232], T0 + timedelta(days=231, hours=15))))
+ok("journal: off unless the live runner turns it on (tests and backtests write nothing)",
+   len(J.read_since("daily", T0)) == len(je))
+
+# --- strategy template (Step 3) --------------------------------------------------------
+from jev_bot import strategies as STR
+tmpl = STR.load("_template")
+ok("strategies: the template passes its own unit tests and safety checks", STR.check(tmpl) == [])
+
+
+class _Bad(STR.DailyStrategy):
+    def signal(self, history):
+        return "LONG"
+
+
+bad_fails = STR.check(_Bad(name="bad", hypothesis="x"))
+ok("strategies: a strategy returning anything but BUY/SELL/None fails its checks",
+   any("only 'BUY', 'SELL' or None" in f for f in bad_fails) and any("tests() is empty" in f for f in bad_fails))
+r_t = backtest.run("XAUUSD", fx.simulate("XAUUSD", 600, 3), strategy=tmpl)
+ok("strategies: the backtester runs a template strategy with its own exits",
+   r_t.trades and set(r_t.decisions) <= {"BUY", "SELL", "HOLD"})
+h_t = L.add({"hypotheses": []}, "breakout", "daily", ["XAUUSD"])
+dev_t = honest.daily(h_t, {"XAUUSD": fx.simulate("XAUUSD", 1200, 6)}, 1, [], strategy=tmpl)
+ok("strategies: the honest backtest runs a template strategy", dev_t["trades"] > 0 and dev_t["checks"])
+sacct = live.Account()
+ev_s = []
+for day in range(200, 240):
+    now = T0 + timedelta(days=day, hours=15)
+    ev_s += live.check(sacct, ["EURUSD"], now=now, desk="daily:H9", strategy=tmpl,
+                       fetch=lambda s, d=day, n=now: feeds.parse_yahoo(s, yahoo(hist[:d + 1], n)))
+ok("strategies: a promoted strategy paper-trades live on its own account",
+   any("breakout" in e or "_template" in e for e in ev_s) or sacct.closed or sacct.positions)
+ok("kill switch: a promoted strategy's desk inherits the daily limits",
+   ks.limits("daily:H9", {"desks": {"daily": {"max_open_positions": 1}}})["max_open_positions"] == 1)
+
+# --- research agents (fake Claude API, temporary ledger) -------------------------------
+from jev_bot.research import agents as AG
+_real_ledger = L.PATH
+L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
+L.save({"hypotheses": [{"id": "H1", "idea": "Gold trends after a breakout above the 20-day high", "status": "failed",
+                        "markets": ["XAUUSD"], "lessons": [], "desk": "daily"}]})
+seen_prompts = []
+
+
+def _fake_api(body, key):
+    seen_prompts.append(body)
+    if "Skeptic" in body["system"]:
+        txt = '```json\n{"reviews": [{"id": "H2", "objection": "costs", "verdict": "drop"}]}\n```'
+    elif "Price" in body["system"]:
+        txt = 'memo\n```json\n{"ideas": [{"idea": "EUR/USD fades a 2% weekly move", "falsify": "f", "markets": ["EURUSD"]}]}\n```'
+    else:
+        txt = 'memo\n```json\n{"ideas": [{"idea": "Gold trends after a breakout above the 20-day high", "markets": ["XAUUSD"]}]}\n```'
+    return {"content": [{"type": "text", "text": txt}], "stop_reason": "end_turn"}
+
+
+rep_ag = AG.run(post=_fake_api, fetch=lambda s: (_ for _ in ()).throw(RuntimeError("offline")),
+                out_dir=tempfile.mkdtemp())
+led_ag = L.load()
+L.PATH = _real_ledger
+ok("agents: each specialist sees the ledger but never another agent's memo",
+   all("Gold trends after a breakout" in b["messages"][0]["content"] for b in seen_prompts[:3])
+   and not any("EUR/USD fades" in b["messages"][0]["content"] for b in seen_prompts[1:3]))
+ok("agents: a repeat of a failed ledger idea is dropped, a new one is added as untested",
+   rep_ag["added"] == ["H2"] and len(rep_ag["skipped"]) == 2
+   and led_ag["hypotheses"][-1]["status"] == "untested" and led_ag["hypotheses"][-1]["desk"] == "idea")
+ok("agents: the Skeptic's verdict is written into the ledger",
+   led_ag["hypotheses"][-1].get("skeptic", {}).get("verdict") == "drop")
+ok("agents: only the macro and central-bank agents get web search",
+   ["tools" in b for b in seen_prompts] == [False, True, True, False])
+
+_real_ledger = L.PATH
+L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
+L.save({"hypotheses": []})
+_od = tempfile.mkdtemp()
+_r1 = AG.import_reply("price", 'memo\n```json\n{"ideas": [{"idea": "EUR/USD snaps back after a 3% stretch", "markets": ["EURUSD"]}]}\n```', _od)
+_brief = AG.prompt_for("skeptic")
+_r2 = AG.import_reply("skeptic", '```json\n{"reviews": [{"id": "H1", "objection": "few trades", "verdict": "test"}]}\n```', _od)
+_led = L.load()
+L.PATH = _real_ledger
+ok("agents without an API key: a pasted reply goes into the ledger, then the Skeptic's brief and verdict",
+   _r1["added"] == ["H1"] and "EUR/USD snaps back" in _brief and _led["hypotheses"][0]["skeptic"]["verdict"] == "test")
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
