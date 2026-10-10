@@ -16,7 +16,18 @@
       "variations": 0,
       "max_variations": 5,
       "falsify": "Net loss after costs over 30+ paper trades, or failing the honest backtest (walk-forward, 2x costs, DSR 0.95)",
-      "prediction": null,
+      "prediction": {
+        "return_pct": 31.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 20,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-10T20:17:06+00:00",
+        "scope": "forward paper trading from the date written (this strategy reached paper before predictions existed)",
+        "sha256": "c2cd4227a8576c24339f1be2c0dfd9719e3944ab02ec31b95cb8542441fd2682"
+      },
       "regime": "XAUUSD choppy, EURUSD choppy",
       "backtest": null,
       "attempts": [],
@@ -64,7 +75,18 @@
       "variations": 0,
       "max_variations": 5,
       "falsify": "Net loss after costs over 200+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
-      "prediction": null,
+      "prediction": {
+        "return_pct": 59.0,
+        "win_rate_pct": 87.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 200,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-10T20:17:06+00:00",
+        "scope": "forward paper trading from the date written (this strategy reached paper before predictions existed)",
+        "sha256": "91eec685b4cb6ca5617d66b852539e36f7e0922176ff7673c18d4210e253c923"
+      },
       "regime": "XAUUSD choppy, EURUSD choppy",
       "backtest": null,
       "attempts": [],
@@ -112,7 +134,18 @@
       "variations": 0,
       "max_variations": 5,
       "falsify": "Net loss after costs over 100+ trades (with a 1.5R target the break-even win rate is 40% before costs)",
-      "prediction": null,
+      "prediction": {
+        "return_pct": 29.0,
+        "win_rate_pct": 87.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-10T20:17:06+00:00",
+        "scope": "forward paper trading from the date written (this strategy reached paper before predictions existed)",
+        "sha256": "ee35af65ff2fa797526833ed495ad576f2662aae22d9a71cbb3ee4e7e1d651dd"
+      },
       "regime": "XAUUSD choppy, EURUSD choppy",
       "backtest": null,
       "attempts": [],
@@ -354,6 +387,81 @@
         "verdict": "test",
         "objection": "The ECB-day daily bar is contaminated by US data released the same Thursday (claims, sometimes CPI), so the filter picks up US surprises as often as ECB ones. About 40-50 trades dominated by the 2014-15 QE era. Structurally a duplicate of H7. Exclude days with tier-1 US data, not just those next to an FOMC decision."
       }
+    },
+    {
+      "id": "H10",
+      "idea": "Buy 3-day dips (sell 3-day rallies) inside a rising (falling) 50-day trend with a 0.5 ATR target and a 2 ATR stop, out after 5 days: built to win 85%+ of trades",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD"
+      ],
+      "source": "you (85% win-rate goal)",
+      "created": "2026-10-10T20:18:35+00:00",
+      "strategy": "jev_bot/strategies/hiwin_dip.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Win rate below 85%, or a net loss after costs: a win is worth 0.25 of a loss, so break-even needs about 80% wins",
+      "prediction": {
+        "return_pct": 3.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 50,
+        "fail_if": {
+          "return_below": 0.0,
+          "win_rate_below": 85.0
+        },
+        "written": "2026-10-10T20:18:36+00:00",
+        "sha256": "2de90e1cf4d0ac110bd9812146c66640b5036ac592aac51f30374df7f493ff5d"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [],
+      "notes": "",
+      "module": "hiwin_dip"
+    },
+    {
+      "id": "H11",
+      "idea": "Scalper C: Scalper A's pullback entries with a target of 0.4x the stop, a 2.5 ATR stop, 60-minute limit and costs under 10% of the risk: built to win 85%+ of trades",
+      "desk": "scalper_hiwin",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "XAUUSD"
+      ],
+      "source": "you (85% win-rate goal)",
+      "created": "2026-10-10T20:18:36+00:00",
+      "strategy": "jev_bot/scalp/strategy.py hiwin_config v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Win rate below 85%, or a net loss after costs: a win is worth 0.4 of a loss, so break-even needs about 71% wins plus costs",
+      "prediction": {
+        "return_pct": 9.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 200,
+        "fail_if": {
+          "return_below": 0.0,
+          "win_rate_below": 85.0
+        },
+        "written": "2026-10-10T20:18:36+00:00",
+        "sha256": "a47e3fbed2d5718ec5838e5d91c06513a69634956e204ff52727dc93edc78567"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [],
+      "notes": "",
+      "module": ""
     }
   ]
 }

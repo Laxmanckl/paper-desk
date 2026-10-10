@@ -29,7 +29,8 @@ from pathlib import Path
 
 PATH = Path(__file__).resolve().parent.parent / "config" / "risk.json"
 
-DESKS = {"daily": "Daily bot", "scalper_a": "Scalper A · Pullback", "scalper_orb": "Scalper B · Breakout"}
+DESKS = {"daily": "Daily bot", "scalper_a": "Scalper A · Pullback", "scalper_orb": "Scalper B · Breakout",
+         "scalper_hiwin": "Scalper C · High win rate"}
 
 DEFAULTS = {
     "enabled": True,

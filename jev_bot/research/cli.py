@@ -116,6 +116,9 @@ def _scalp_series(h, a):
 
 def _scalp_cfg(desk):
     from ..scalp.strategy import ScalpConfig
+    if desk == "scalper_hiwin":
+        from ..scalp.strategy import hiwin_config
+        return hiwin_config()
     if desk == "scalper_orb":
         from ..scalp.runner import orb_config
         return orb_config(SimpleNamespace(crypto_fee=0.0005, fx_commission=0.0))

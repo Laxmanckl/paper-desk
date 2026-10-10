@@ -45,7 +45,7 @@ STATUSES = {
     "retired": "Retired",
 }
 REGIMES = ("trending up", "trending down", "choppy", "high volatility")
-DESKS = ("daily", "scalper_a", "scalper_orb", "idea")
+DESKS = ("daily", "scalper_a", "scalper_orb", "scalper_hiwin", "idea")
 MAX_ATTEMPTS_KEPT = 200
 
 

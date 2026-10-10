@@ -75,6 +75,16 @@ class ScalpConfig:
         return cls(**{k: v for k, v in (d or {}).items() if k in known})
 
 
+def hiwin_config(**kw) -> ScalpConfig:
+    """Scalper C, built for a high win rate: the same pullback entries as A, but a
+    small target (0.4 x the stop) and a wide stop (2.5 x ATR), up to 60 minutes.
+    A win is worth 0.4 of a loss, so it must win over ~71% just to break even,
+    and costs must stay under 10% of the risk (else the tiny target cannot pay them)."""
+    base = dict(reward_risk=0.4, stop_atr=2.5, max_stop_atr=6.0, max_cost_frac=0.10, max_minutes=60)
+    base.update(kw)
+    return ScalpConfig(**base)
+
+
 @dataclass
 class Signal:
     action: str | None     # "BUY", "SELL" or None
