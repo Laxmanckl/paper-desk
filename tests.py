@@ -667,5 +667,17 @@ ok("agents: the Skeptic's verdict is written into the ledger",
 ok("agents: only the macro and central-bank agents get web search",
    ["tools" in b for b in seen_prompts] == [False, True, True, False])
 
+_real_ledger = L.PATH
+L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
+L.save({"hypotheses": []})
+_od = tempfile.mkdtemp()
+_r1 = AG.import_reply("price", 'memo\n```json\n{"ideas": [{"idea": "EUR/USD snaps back after a 3% stretch", "markets": ["EURUSD"]}]}\n```', _od)
+_brief = AG.prompt_for("skeptic")
+_r2 = AG.import_reply("skeptic", '```json\n{"reviews": [{"id": "H1", "objection": "few trades", "verdict": "test"}]}\n```', _od)
+_led = L.load()
+L.PATH = _real_ledger
+ok("agents without an API key: a pasted reply goes into the ledger, then the Skeptic's brief and verdict",
+   _r1["added"] == ["H1"] and "EUR/USD snaps back" in _brief and _led["hypotheses"][0]["skeptic"]["verdict"] == "test")
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

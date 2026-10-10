@@ -91,6 +91,14 @@ H1 (daily), H2 (scalper A) and H3 (scalper B) reached paper trading before this 
 2. Run the honest backtest (`backtest H1` on GitHub; H2 and H3 on the MT5 PC).
 3. Let the Sunday critic compare paper results against both.
 
+## Research agents on Claude Pro (no API key)
+
+Open Claude Code (or a claude.ai session with this repo) and paste:
+
+> Run this week's research agents for paper-desk. For each role in price, macro, central: run `python -m jev_bot research agents --prompt <role> > /tmp/<role>-prompt.md`, then start a SEPARATE subagent per role that reads only its own prompt file (macro and central may use web search; price may not), writes its full reply to /tmp/<role>-reply.md, and never sees the other roles' files. Then import each with `python -m jev_bot research agents --import <role> /tmp/<role>-reply.md`. Then do the same for the Skeptic (`--prompt skeptic`, `--import skeptic`). Commit research/ and state/ledger.json and push.
+
+That is the same run the Saturday workflow does with an API key: same briefs, same ledger checks, same duplicate filter.
+
 ## Research agents by hand (Claude Code prompts)
 
 The Saturday run does this automatically. To run one yourself, keep each agent separate so they do not anchor on each other; each one checks the ledger first.

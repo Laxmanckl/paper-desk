@@ -90,7 +90,7 @@ def market_brief(fetch=None) -> str:
             bars, quote = (fetch or (lambda s: feeds.fetch(s, "yahoo", "2y", save_dir=None)))(sym)
             bars = live.completed_bars(bars, quote)
         except Exception as e:
-            lines.append(f"{sym}: no data ({e})")
+            lines.append(_closes_brief(sym) or f"{sym}: no data ({e})")
             continue
         c = [b.close for b in bars]
         if len(c) < 130:
@@ -107,6 +107,26 @@ def market_brief(fetch=None) -> str:
             f"20-day range {lo20:g}-{hi20:g}; regime {stats.regime(c)}; "
             f"up days in last 120: {sum(r > 0 for r in rets)}; last 10 closes {', '.join(f'{x:g}' for x in c[-10:])}")
     return "\n".join(lines)
+
+
+def _closes_brief(sym: str) -> str | None:
+    """Fallback when price history cannot be downloaded: the last ~90 daily closes the
+    live bot keeps in state/paper_account.json."""
+    path = OUT.parent / "state" / "paper_account.json"
+    try:
+        closes = json.loads(path.read_text(encoding="utf-8")).get("closes", {}).get(sym) or []
+    except (OSError, ValueError):
+        return None
+    c = [x[1] for x in closes]
+    if len(c) < 61:
+        return None
+    moves = [abs(c[i] / c[i - 1] - 1) for i in range(len(c) - 20, len(c))]
+    sma50 = sum(c[-50:]) / 50
+    return (f"{sym} ({closes[-1][0]}, daily closes only): close {c[-1]:g}; change 5d {(c[-1] / c[-6] - 1) * 100:+.2f}%, "
+            f"20d {(c[-1] / c[-21] - 1) * 100:+.2f}%, 60d {(c[-1] / c[-61] - 1) * 100:+.2f}%; "
+            f"average daily move (20d) {sum(moves) / len(moves) * 100:.2f}%; {(c[-1] / sma50 - 1) * 100:+.2f}% vs "
+            f"50-day average; 20-day closing range {min(c[-20:]):g}-{max(c[-20:]):g}; regime {stats.regime(c)}; "
+            f"last 10 closes {', '.join(f'{x:g}' for x in c[-10:])}")
 
 
 def specialist_prompt(role: str, data: dict, market: str, today: str) -> tuple[str, str]:
@@ -212,6 +232,82 @@ def near_duplicate(idea: str, data: dict, threshold: float = 0.7) -> str | None:
     return None
 
 
+# --- applying a reply (from the API, or pasted from a Claude Code / claude.ai session) -----
+
+def apply_specialist(role: str, text: str, data: dict, out: Path, today: str, report: dict) -> list[dict]:
+    """Save the memo, add the new ideas to the ledger (dropping repeats). Returns the new entries."""
+    ideas = (last_json(text).get("ideas") or [])[:3]
+    out.mkdir(parents=True, exist_ok=True)
+    memo = out / f"{role}-{today}.md"
+    memo.write_text(f"# {ROLES[role]['name']} · {today}\n\n{text.strip()}\n", encoding="utf-8")
+    report["memos"].append(memo.name)
+    new = []
+    for i in ideas:
+        idea = str(i.get("idea", "")).strip()
+        if not idea:
+            continue
+        dup = near_duplicate(idea, data)
+        if dup:
+            report["skipped"].append(f"{ROLES[role]['name']}: '{idea[:80]}' looks like {dup}")
+            continue
+        markets = [m.upper() for m in i.get("markets") or [] if m.upper() in MARKETS] or list(MARKETS)
+        h = ledger.add(data, idea, "idea", markets, ROLES[role]["name"], str(i.get("falsify", "")),
+                       note=f"why: {i.get('why', '')} | needs: {i.get('conditions', '')} | "
+                            f"kind: {i.get('kind', '')} | memo: research/{memo.name}")
+        h["conditions"] = str(i.get("conditions", ""))
+        new.append(h)
+        report["added"].append(h["id"])
+    return new
+
+
+def apply_skeptic(text: str, data: dict, out: Path, today: str, report: dict) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"skeptic-{today}.md").write_text(f"# Skeptic · {today}\n\n{text.strip()}\n", encoding="utf-8")
+    report["memos"].append(f"skeptic-{today}.md")
+    for rv in last_json(text).get("reviews") or []:
+        try:
+            h = ledger.get(data, str(rv.get("id", "")))
+        except ledger.LedgerError:
+            continue
+        verdict = "drop" if str(rv.get("verdict", "")).lower().startswith("drop") else "test"
+        h["skeptic"] = {"verdict": verdict, "objection": str(rv.get("objection", ""))}
+        ledger.add_lesson(h, f"Skeptic ({verdict}): {rv.get('objection', '')}", "Skeptic")
+
+
+def awaiting_skeptic(data: dict) -> list[dict]:
+    """Ideas the specialists added that the Skeptic has not attacked yet."""
+    return [h for h in data["hypotheses"] if h.get("desk") == "idea" and h.get("status") == "untested"
+            and not h.get("skeptic")]
+
+
+def prompt_for(role: str, fetch=None, now: datetime | None = None) -> str:
+    """The full brief for one agent, to paste into a Claude Code or claude.ai session (no API key needed)."""
+    today = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+    data = ledger.load()
+    if role == "skeptic":
+        ideas = awaiting_skeptic(data)
+        if not ideas:
+            raise AgentError("no new ideas are waiting for the Skeptic")
+        system, user = skeptic_prompt(ideas, data, today)
+    else:
+        if role not in ROLES:
+            raise AgentError(f"role must be one of {', '.join(ROLES)} or skeptic")
+        system, user = specialist_prompt(role, data, market_brief(fetch), today)
+    return f"{system}\n\n---\n\n{user}"
+
+
+def import_reply(role: str, text: str, out_dir=None, now: datetime | None = None) -> dict:
+    today = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+    data = ledger.load()
+    report: dict = {"date": today, "added": [], "skipped": [], "errors": [], "memos": []}
+    if role == "skeptic":
+        apply_skeptic(text, data, Path(out_dir or OUT), today, report)
+    else:
+        apply_specialist(role, text, data, Path(out_dir or OUT), today, report)
+    ledger.save(data)
+    return report
+
+
 # --- the weekly run ---------------------------------------------------------------------
 
 def run(roles: list[str] | None = None, dry_run: bool = False, post=None, fetch=None,
@@ -235,44 +331,14 @@ def run(roles: list[str] | None = None, dry_run: bool = False, post=None, fetch=
             continue
         try:
             text = call(system, user, ROLES[role]["web"], post=post)
-            ideas = (last_json(text).get("ideas") or [])[:3]
+            new += apply_specialist(role, text, data, out, today, report)
         except AgentError as e:
             report["errors"].append(f"{ROLES[role]['name']}: {e}")
-            continue
-        out.mkdir(parents=True, exist_ok=True)
-        memo = out / f"{role}-{today}.md"
-        memo.write_text(f"# {ROLES[role]['name']} · {today}\n\n{text.strip()}\n", encoding="utf-8")
-        report["memos"].append(str(memo.name))
-        for i in ideas:
-            idea = str(i.get("idea", "")).strip()
-            if not idea:
-                continue
-            dup = near_duplicate(idea, data)
-            if dup:
-                report["skipped"].append(f"{ROLES[role]['name']}: '{idea[:80]}' looks like {dup}")
-                continue
-            markets = [m.upper() for m in i.get("markets") or [] if m.upper() in MARKETS] or list(MARKETS)
-            h = ledger.add(data, idea, "idea", markets, ROLES[role]["name"], str(i.get("falsify", "")),
-                           note=f"why: {i.get('why', '')} | needs: {i.get('conditions', '')} | "
-                                f"kind: {i.get('kind', '')} | memo: research/{memo.name}")
-            h["conditions"] = str(i.get("conditions", ""))
-            new.append(h)
-            report["added"].append(h["id"])
 
     if "skeptic" in roles and new and not dry_run:
         system, user = skeptic_prompt(new, data, today)
         try:
-            text = call(system, user, False, post=post)
-            (out / f"skeptic-{today}.md").write_text(f"# Skeptic · {today}\n\n{text.strip()}\n", encoding="utf-8")
-            report["memos"].append(f"skeptic-{today}.md")
-            for rv in last_json(text).get("reviews") or []:
-                try:
-                    h = ledger.get(data, str(rv.get("id", "")))
-                except ledger.LedgerError:
-                    continue
-                verdict = "drop" if str(rv.get("verdict", "")).lower().startswith("drop") else "test"
-                h["skeptic"] = {"verdict": verdict, "objection": str(rv.get("objection", ""))}
-                ledger.add_lesson(h, f"Skeptic ({verdict}): {rv.get('objection', '')}", "Skeptic")
+            apply_skeptic(call(system, user, False, post=post), data, out, today, report)
         except AgentError as e:
             report["errors"].append(f"Skeptic: {e}")
     if not dry_run:

@@ -316,6 +316,24 @@ def cmd_lesson(a):
 
 def cmd_agents(a):
     from . import agents
+    if a.prompt:                                   # no API key: paste this into Claude Code / claude.ai
+        try:
+            print(agents.prompt_for(a.prompt))
+        except agents.AgentError as e:
+            _fail(str(e))
+        return
+    if a.import_reply:
+        role, path = a.import_reply
+        text = open(path, encoding="utf-8").read() if path != "-" else __import__("sys").stdin.read()
+        try:
+            r = agents.import_reply(role, text)
+        except agents.AgentError as e:
+            _fail(str(e))
+        print(f"  memo saved: research/{r['memos'][0]}")
+        print(f"  new ideas in the ledger: {', '.join(r['added']) or 'none'}")
+        for x in r["skipped"]:
+            print(f"  skipped (already in the ledger): {x}")
+        return
     roles = [r.strip() for r in a.roles.split(",")] if a.roles else None
     if not a.dry_run and not os.environ.get("ANTHROPIC_API_KEY"):
         print("  ANTHROPIC_API_KEY is not set: the research agents need it (GitHub: Settings -> Secrets ->"
@@ -455,6 +473,10 @@ def add_parser(sub) -> None:
     x = rs.add_parser("agents", help="the research agents propose new ideas (needs ANTHROPIC_API_KEY)")
     x.add_argument("--roles", default="", help="price,macro,central,skeptic (default: all)")
     x.add_argument("--dry-run", action="store_true", help="print what each agent would be given; no API calls")
+    x.add_argument("--prompt", metavar="ROLE", help="print one agent's full brief to paste into Claude Code "
+                   "(price, macro, central, skeptic): no API key needed")
+    x.add_argument("--import", dest="import_reply", nargs=2, metavar=("ROLE", "FILE"),
+                   help="add a pasted agent reply (saved to FILE, or - for stdin) to research/ and the ledger")
     x.set_defaults(func=cmd_agents)
 
     x = rs.add_parser("review", help="the weekly critic: paper vs backtest vs prediction")
