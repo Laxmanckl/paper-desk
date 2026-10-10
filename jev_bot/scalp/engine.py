@@ -6,6 +6,9 @@ engine does the rest. One engine trades every instrument into one account.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from .. import journal
 from . import instruments
 from .bars import Bar, BarBuilder
 from .book import ScalpBook
@@ -32,6 +35,7 @@ class Engine:
         tr = self.book.on_tick(sym, bid, ask, t)
         if tr:
             self.closed_trades.append(tr)
+            self._note_close(tr, t)
         done = self.builders[sym].update(t, (bid + ask) / 2)
         if done is not None:
             self.on_bar(sym, t)
@@ -45,14 +49,46 @@ class Engine:
         if sig.action:
             res = self.book.open(sym, sig.action, sig.atr, t, self.cfg,
                                  stop_price=sig.stop, deadline=sig.deadline)
+            cond = self._conditions(sym, sig)
             if isinstance(res, dict):
                 self.opened.append(res)
                 self.state[sym]["traded"] = int(t // 86_400) * 86_400
                 info["reason"] = f"{sig.action}: {sig.reason}"
+                res["conditions"] = cond
+                self._note(t, {"symbol": sym, "decision": "OPEN", "side": sig.action, "price": res["entry"],
+                               "conditions": cond, "reasoning": f"{sig.reason}; passed every check",
+                               "order": {k: res[k] for k in ("entry", "stop", "target", "units")}})
             else:
                 info["reason"] = f"{sig.action} signal skipped: {res}"
+                px = self.book.prices.get(sym) or {}
+                self._note(t, {"symbol": sym, "side": sig.action, "price": px.get("ask" if sig.action == "BUY" else "bid"),
+                               "decision": "BLOCKED" if "kill switch" in res else "SKIP",
+                               "conditions": cond, "reasoning": f"{sig.reason}; not traded: {res}"})
         self.book.signals[sym] = info
         self.book.mark(t)
+
+    # --- the decision journal (live desks only: backtests have no ks_desk) ---------
+    def _conditions(self, sym: str, sig) -> dict:
+        px = self.book.prices.get(sym) or {}
+        spread = (px["ask"] - px["bid"]) if px else None
+        normal = self.book.normal_spread(sym)
+        hour = datetime.fromtimestamp(self.book.last_tick or 0, timezone.utc).hour
+        return {"trend": sig.trend or None, "rsi": round(sig.rsi, 1) if sig.rsi is not None else None,
+                "atr": sig.atr, "spread_x_normal": round(spread / normal, 2) if spread and normal else None,
+                "hour_utc": hour, "strategy": self.cfg.strategy}
+
+    def _note(self, t: float, entry: dict) -> None:
+        if self.book.ks_desk:
+            journal.write(self.book.ks_desk, entry, t)
+
+    def _note_close(self, tr: dict, t: float) -> None:
+        if not self.book.ks_desk:
+            return
+        cond = tr.get("conditions") or {}
+        self._note(t, {"symbol": tr["symbol"], "decision": "CLOSE", "side": tr["side"], "price": tr["exit"],
+                       "conditions": cond, "reasoning": f"closed by {tr['reason']} after {tr['secs']}s",
+                       "result": {"pnl": tr["pnl"], "r": tr["r"], "reason": tr["reason"], "fees": tr["fees"],
+                                  "opened": tr["opened"]}})
 
     def drain(self) -> tuple[list, list]:
         """Trades opened and closed since the last call (for alerts)."""

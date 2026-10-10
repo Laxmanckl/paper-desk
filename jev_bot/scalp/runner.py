@@ -284,7 +284,8 @@ async def main(a) -> None:
                 if now - last_save >= 5:
                     last_save = now
                 if a.publish_every and now - last_pub >= a.publish_every * 60:
-                    paths = [p for p, _, _ in desks.values()]
+                    from .. import journal
+                    paths = [p for p, _, _ in desks.values()] + [journal.folder(KS_DESK[k]) for k in desks]
                     ok = await asyncio.get_running_loop().run_in_executor(None, publish, *paths)
                     if ok:
                         last_pub = now

@@ -20,7 +20,7 @@ import os
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
-from .. import killswitch
+from .. import journal, killswitch
 from . import ledger, panel, stats
 
 WINDOW_DAYS = 7
@@ -40,6 +40,21 @@ def _metrics(trades: list) -> dict:
             "avg_r": round(sum(rs) / len(rs), 2) if rs else None}
 
 
+def _zones(cond: dict | None) -> dict:
+    """Entry conditions as buckets the critic can group losing trades by."""
+    c = cond or {}
+    z = {}
+    if c.get("trend"):
+        z["trend"] = c["trend"]
+    if c.get("rsi") is not None:
+        z["rsi_zone"] = "RSI under 30" if c["rsi"] < 30 else "RSI 30-50" if c["rsi"] < 50 else "RSI 50-70" if c["rsi"] < 70 else "RSI over 70"
+    if c.get("spread_x_normal") is not None:
+        z["spread_zone"] = "a wider than normal spread" if c["spread_x_normal"] > 1.2 else "a normal spread"
+    if c.get("momentum") is not None:
+        z["momentum_zone"] = "strong momentum" if abs(c["momentum"]) > 0.5 else "weak momentum"
+    return z
+
+
 def _norm_daily(acct) -> list[dict]:
     out = []
     for t in acct.closed or []:
@@ -47,14 +62,15 @@ def _norm_daily(acct) -> list[dict]:
         out.append({"symbol": t["symbol"], "side": t["side"], "pnl": t["pnl"], "reason": t.get("reason", ""),
                     "opened": t["opened_at"], "closed": t.get("closed_at", t["opened_at"]),
                     "r": round(t["pnl"] / risk, 2) if risk else None, "regime": t.get("regime") or "",
-                    "secs": (_ts(t.get("closed_at", t["opened_at"])) - _ts(t["opened_at"])).total_seconds()})
+                    "secs": (_ts(t.get("closed_at", t["opened_at"])) - _ts(t["opened_at"])).total_seconds(),
+                    **_zones(t.get("conditions"))})
     return out
 
 
 def _norm_scalp(book) -> list[dict]:
     return [{"symbol": t["symbol"], "side": t["side"], "pnl": t["pnl"], "reason": t.get("reason", ""),
              "opened": t["opened"], "closed": t["closed"], "r": t.get("r"), "secs": t.get("secs", 0),
-             "hour": _ts(t["opened"]).hour} for t in book.trades]
+             "hour": _ts(t["opened"]).hour, **_zones(t.get("conditions"))} for t in book.trades]
 
 
 REASON = {"stop": "stop-loss", "target": "target", "time": "time limit", "reverse": "signal flip", "end": "end"}
@@ -68,6 +84,8 @@ def _common_ground(week: list, intraday: bool) -> list[str]:
     found = []
     keys = [("symbol", "on {}"), ("side", "{} trades"), ("reason", "closed by {}")]
     keys += [("hour", "opened {:02d}:00-{:02d}:59 UTC")] if intraday else [("regime", "opened in a {} market")]
+    keys += [("trend", "opened when the 1-minute trend was {}"), ("rsi_zone", "entered with {}"),
+             ("spread_zone", "entered with {}"), ("momentum_zone", "entered on {}")]
     for key, fmt in keys:
         c_all = Counter(t.get(key) for t in week if t.get(key) not in (None, ""))
         c_los = Counter(t.get(key) for t in losers if t.get(key) not in (None, ""))
@@ -110,8 +128,19 @@ def _repeats(trades: list, week: list, intraday: bool) -> list[str]:
     return out
 
 
+def _journal_findings(entries: list) -> list[str]:
+    """What the decision journal says about the signals that did NOT become trades."""
+    out = []
+    skipped = [e for e in entries if e.get("decision") in ("SKIP", "BLOCKED") and e.get("side")]
+    if len(skipped) >= 3:
+        why = Counter((e.get("reasoning") or "").split("not traded: ")[-1].split(";")[0][:70] for e in skipped)
+        top, k = why.most_common(1)[0]
+        out.append(f"{len(skipped)} signals were not traded this week; the most common reason ({k}x): {top}")
+    return out
+
+
 def desk_review(desk: str, trades: list, paper: dict, ks: dict, h: dict | None, now: datetime,
-                intraday: bool) -> dict:
+                intraday: bool, entries: list | None = None) -> dict:
     since = now - timedelta(days=WINDOW_DAYS)
     week = [t for t in trades if _ts(t["closed"]) >= since]
     wk, life = _metrics(week), _metrics(trades)
@@ -141,6 +170,7 @@ def desk_review(desk: str, trades: list, paper: dict, ks: dict, h: dict | None, 
         cmp.append("no written prediction yet")
     findings += _common_ground(week, intraday)
     findings += _repeats(trades, week, intraday)
+    findings += _journal_findings(entries or [])
     week_blocks = [b for b in ks.get("blocks", []) if _ts(b[0]) >= since]
     if week_blocks:
         findings.append(f"the kill switch blocked {len(week_blocks)} trade(s) this week: latest '{week_blocks[-1][1]}'")
@@ -159,7 +189,7 @@ def desk_review(desk: str, trades: list, paper: dict, ks: dict, h: dict | None, 
         "watch" if pause_why or findings else "keep")
     if not trades:
         recommend, findings = "keep", ["no closed trades yet: nothing to judge"]
-    return {"name": killswitch.DESKS.get(desk, desk), "hypothesis": (h or {}).get("id"),
+    return {"name": killswitch.name(desk), "hypothesis": (h or {}).get("id"),
             "week": wk, "lifetime": life, "paper": paper, "compare": cmp, "findings": findings,
             "recommend": recommend, "recommend_why": pause_why,
             "regime": paper.get("regime", "")}
@@ -182,7 +212,19 @@ def run(daily_account: str | None, scalp_accounts: dict, out_dir: str | None = N
         paper = panel.paper_daily(acct)
         paper["regime"] = ", ".join(f"{s} {r}" for s, r in regimes.items())
         ks = killswitch.status("daily", acct.risk_numbers(now), (acct.killswitch or {}).get("blocks", []))
-        desks["daily"] = desk_review("daily", _norm_daily(acct), paper, ks, panel.primary(data, "daily"), now, False)
+        since = now - timedelta(days=WINDOW_DAYS)
+        desks["daily"] = desk_review("daily", _norm_daily(acct), paper, ks, panel.primary(data, "daily"), now, False,
+                                     journal.read_since("daily", since))
+        # strategies promoted to paper, each on its own account
+        for h in data["hypotheses"]:
+            p = os.path.join(os.path.dirname(daily_account) or ".", "strategies", f"{h['id']}.json")
+            if h.get("status") != "paper" or not h.get("module") or not os.path.exists(p):
+                continue
+            sa = live.Account.load(p)
+            desk = f"daily:{h['id']}"
+            sp = panel.paper_daily(sa)
+            sks = killswitch.status(desk, sa.risk_numbers(now, desk=desk), (sa.killswitch or {}).get("blocks", []))
+            desks[desk] = desk_review(desk, _norm_daily(sa), sp, sks, h, now, False, journal.read_since(desk, since))
     for key, path in scalp_accounts.items():
         if not path or not os.path.exists(path):
             continue
@@ -195,14 +237,15 @@ def run(daily_account: str | None, scalp_accounts: dict, out_dir: str | None = N
                                       "day_start": book.day_start.get(day, book.equity()),
                                       "open_positions": len(book.positions)},
                                (book.killswitch or {}).get("blocks", []))
-        desks[desk] = desk_review(desk, _norm_scalp(book), paper, ks, panel.primary(data, desk), now, True)
+        desks[desk] = desk_review(desk, _norm_scalp(book), paper, ks, panel.primary(data, desk), now, True,
+                                  journal.read_since(desk, now - timedelta(days=WINDOW_DAYS)))
     review = {"date": now.strftime("%Y-%m-%d"), "at": now.isoformat(timespec="seconds"),
               "window_days": WINDOW_DAYS, "desks": desks}
     if not write:
         return review
     stamp = f"critic {review['date']}"
     for desk, r in desks.items():
-        h = panel.primary(data, desk)
+        h = ledger.get(data, desk.split(":", 1)[1]) if ":" in desk else panel.primary(data, desk)
         if not h:
             continue
         h["paper"] = {**r["paper"], "at": review["at"]}

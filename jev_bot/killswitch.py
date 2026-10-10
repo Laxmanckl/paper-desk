@@ -66,8 +66,12 @@ def load(path: str | os.PathLike | None = None) -> dict:
 
 
 def limits(desk: str, cfg: dict | None = None) -> dict:
+    """A promoted strategy's desk ("daily:H4") uses its own section if there is one,
+    else its parent desk's ("daily")."""
     cfg = load() if cfg is None else cfg
-    return {**DEFAULTS, **((cfg.get("desks") or {}).get(desk) or {})}
+    desks = cfg.get("desks") or {}
+    parent = desks.get(desk.split(":")[0]) or {} if ":" in desk else {}
+    return {**DEFAULTS, **parent, **(desks.get(desk) or {})}
 
 
 def _numbers(acct: dict) -> dict:
@@ -90,7 +94,7 @@ def check_order(desk: str, order: dict, acct: dict, cfg: dict | None = None) -> 
         return False, "kill switch: kill_all is on in config/risk.json"
     lim, n = limits(desk, cfg), _numbers(acct)
     if not lim["enabled"]:
-        return False, f"kill switch: {DESKS.get(desk, desk)} is paused (enabled: false)"
+        return False, f"kill switch: {name(desk)} is paused (enabled: false)"
     if n["daily_loss_pct"] >= lim["max_daily_loss_pct"]:
         return False, (f"kill switch: down {n['daily_loss_pct']:.2f}% today, limit "
                        f"{lim['max_daily_loss_pct']:g}%; trading stopped until 00:00 UTC")
@@ -132,6 +136,12 @@ def note_block(holder, reason: str, now: datetime | None = None) -> None:
     del blocks[:-MAX_BLOCKS]
 
 
+def name(desk: str) -> str:
+    if ":" in desk:
+        return f"{DESKS.get(desk.split(':')[0], desk)} · {desk.split(':', 1)[1]}"
+    return DESKS.get(desk, desk)
+
+
 def status(desk: str, acct: dict, blocks: list | None = None, cfg: dict | None = None) -> dict:
     """Everything the dashboards show about the kill switch for one desk."""
     cfg = load() if cfg is None else cfg
@@ -148,7 +158,7 @@ def status(desk: str, acct: dict, blocks: list | None = None, cfg: dict | None =
     for m in meters:
         m["frac"] = round(min(1.0, m["value"] / m["limit"]), 3) if m["limit"] else 0.0
     state = "halted" if not ok else ("warning" if any(m["frac"] >= 0.75 and m["key"] != "open" for m in meters) else "ok")
-    return {"desk": desk, "name": DESKS.get(desk, desk), "state": state, "reason": "" if ok else reason,
+    return {"desk": desk, "name": name(desk), "state": state, "reason": "" if ok else reason,
             "meters": meters, "max_order_leverage": lim["max_order_leverage"], "enabled": lim["enabled"],
             "kill_all": bool(cfg.get("kill_all")), "peak": round(n["peak"], 2),
             "config_missing": bool(cfg.get("_missing")), "blocks": (blocks or [])[-5:]}

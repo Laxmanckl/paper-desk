@@ -267,6 +267,8 @@ class ScalpBook:
               "pnl": round(net, 2), "r": round(net / risk, 2) if risk else 0.0,
               "pips": round((price - p["entry"]) * d / spec.pip, 1) if spec.kind != "crypto" else None,
               "move_pct": round((price / p["entry"] - 1) * d * 100, 3)}
+        if p.get("conditions"):
+            tr["conditions"] = p["conditions"]
         self.trades.append(tr)
         self.trades = self.trades[-MAX_TRADES:]
         for key in ("_all", sym):

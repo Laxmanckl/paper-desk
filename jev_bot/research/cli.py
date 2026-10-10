@@ -8,8 +8,11 @@
     research sealed H4 --source yahoo                    the one-time holdout run
     research revise H4 "tightened the stop to 1.2 ATR"   counts as another attempt (cap 5)
     research status H4 retired
-    research wire H4 daily --strategy "jev_bot/meanrev.py v1"
+    research check breakout                         a strategy's unit tests (jev_bot/strategies/)
+    research wire H4 daily --strategy breakout
+    research promote H4                             after a passed sealed test: start paper trading
     research lesson H4 "only works when gold trends"
+    research agents                                      the research agents propose ideas (Claude API)
     research review                                      the weekly critic
     research export-mt5 EURUSD XAUUSD --days 60          1-minute history for scalper tests (Windows + MT5)
 """
@@ -143,6 +146,49 @@ def _print_result(h, r, dry):
     print(f"  => {'PASSED' if r.get('passed') else 'FAILED'}" + ("   (dry run on simulated data: nothing written)" if dry else ""))
 
 
+def _checked_strategy(h):
+    """The strategy module wired to h (None = the original JEV engine), after its unit tests."""
+    from .. import strategies
+    strat = strategies.for_hypothesis(h)
+    if strat is not None:
+        fails = strategies.check(strat)
+        if fails:
+            _fail(f"{strat.label} fails its checks, fix these before any backtest:\n    " + "\n    ".join(fails))
+    return strat
+
+
+def cmd_check(a):
+    from .. import strategies
+    strat = strategies.load(a.name)
+    fails = strategies.check(strat)
+    print(f"  {strat.label}: {strat.hypothesis}")
+    for desc, _, want in strat.tests():
+        print(f"    test: {desc} -> {want}")
+    if fails:
+        print("  FAILED:\n    " + "\n    ".join(fails))
+        raise SystemExit(1)
+    print("  passed: entry tests, signal values, determinism, sane exits and sizing")
+
+
+def cmd_promote(a):
+    """Step 5's gate: only a strategy that passed the backtest AND its one sealed run goes to paper."""
+    from .. import strategies
+    data = _load()
+    h = ledger.get(data, a.id)
+    if h.get("status") != "passed_sealed":
+        _fail(f"{h['id']} is '{ledger.STATUSES.get(h.get('status'), h.get('status'))}'. Only a strategy that "
+              "passed the development backtest and its sealed test goes to paper trading.")
+    if not h.get("module"):
+        _fail(f"{h['id']} is not wired to a strategy in jev_bot/strategies/")
+    strategies.load(h["module"])
+    h["status"] = "paper"
+    h["paper_since"] = ledger._now()
+    ledger.add_lesson(h, "promoted to paper trading after passing the backtest and the sealed test", "promote")
+    ledger.save(data)
+    print(f"  {h['id']} is on paper. The always-on server starts trading it on its own paper account "
+          f"(state/strategies/{h['id']}.json) after its next update.")
+
+
 def cmd_backtest(a):
     data = _load()
     h = ledger.get(data, a.id)
@@ -150,8 +196,9 @@ def cmd_backtest(a):
     trials = h.get("variations", 0) + 1                     # this run counts
     sharpes = [x["sharpe"] for x in h.get("attempts", []) if x.get("sharpe") is not None]
     if h["desk"] == "daily":
+        strat = _checked_strategy(h)
         bars, label = _daily_bars(h, a)
-        r = honest.daily(h, bars, trials, sharpes, a.windows)
+        r = honest.daily(h, bars, trials, sharpes, a.windows, strategy=strat)
     else:
         series, label = _scalp_series(h, a)
         r = honest.scalper(h, series, _scalp_cfg(h["desk"]), trials, sharpes, a.windows)
@@ -190,8 +237,9 @@ def cmd_sealed(a):
     if h["status"] in PAPERISH and not h.get("backtest"):
         _fail(f"run the development backtest first: python -m jev_bot research backtest {h['id']}")
     if h["desk"] == "daily":
+        strat = _checked_strategy(h)
         bars, label = _daily_bars(h, a)
-        r = honest.daily_sealed(h, bars)
+        r = honest.daily_sealed(h, bars, strategy=strat)
     else:
         series, label = _scalp_series(h, a)
         r = honest.scalper_sealed(h, series, _scalp_cfg(h["desk"]))
@@ -236,9 +284,22 @@ def cmd_status(a):
 
 
 def cmd_wire(a):
+    from .. import strategies
     data = _load()
     h = ledger.get(data, a.id)
-    h["desk"], h["strategy"] = a.desk, a.strategy
+    if a.desk == "daily" and a.strategy in strategies.available():
+        strat = strategies.load(a.strategy)
+        fails = strategies.check(strat)
+        if fails:
+            _fail("the strategy does not pass its checks yet:\n    " + "\n    ".join(fails))
+        h["module"], h["strategy"] = a.strategy, strat.label
+        h["markets"] = h.get("markets") or list(strat.markets)
+        h["desk"] = "daily"
+    elif a.desk == "daily":
+        _fail(f"daily strategies live in jev_bot/strategies/ (have: {', '.join(strategies.available()) or 'none yet'}). "
+              "Copy _template.py, then wire it by its file name.")
+    else:
+        h["desk"], h["strategy"] = a.desk, a.strategy
     if h["status"] == "untested":
         h["status"] = "testing"
     ledger.save(data)
@@ -251,6 +312,26 @@ def cmd_lesson(a):
     ledger.add_lesson(h, a.text, a.source)
     ledger.save(data)
     print(f"  noted on {h['id']}")
+
+
+def cmd_agents(a):
+    from . import agents
+    roles = [r.strip() for r in a.roles.split(",")] if a.roles else None
+    if not a.dry_run and not os.environ.get("ANTHROPIC_API_KEY"):
+        print("  ANTHROPIC_API_KEY is not set: the research agents need it (GitHub: Settings -> Secrets ->"
+              " Actions -> ANTHROPIC_API_KEY). Nothing was run.")
+        return
+    r = agents.run(roles, dry_run=a.dry_run)
+    if a.dry_run:
+        return
+    print(f"  memos: {', '.join(r['memos']) or 'none'}")
+    print(f"  new ideas in the ledger: {', '.join(r['added']) or 'none'}")
+    for x in r["skipped"]:
+        print(f"  skipped (already in the ledger): {x}")
+    for x in r["errors"]:
+        print(f"  error: {x}")
+    if r["errors"] and not r["memos"]:
+        raise SystemExit(1)
 
 
 def cmd_review(a):
@@ -350,10 +431,19 @@ def add_parser(sub) -> None:
     x.add_argument("--note", default="")
     x.set_defaults(func=cmd_status)
 
+    x = rs.add_parser("check", help="run a strategy's unit tests and safety checks")
+    x.add_argument("name", help="file name in jev_bot/strategies/, e.g. breakout")
+    x.set_defaults(func=cmd_check)
+
+    x = rs.add_parser("promote", help="move a strategy that passed its sealed test to paper trading")
+    x.add_argument("id")
+    x.set_defaults(func=cmd_promote)
+
     x = rs.add_parser("wire", help="attach an idea to the strategy code that runs it")
     x.add_argument("id")
     x.add_argument("desk", choices=[d for d in ledger.DESKS if d != "idea"])
-    x.add_argument("--strategy", required=True, help="file and version, e.g. jev_bot/scalp/meanrev.py v1")
+    x.add_argument("--strategy", required=True,
+                   help="daily: the file name in jev_bot/strategies/ (e.g. breakout); scalper: a description")
     x.set_defaults(func=cmd_wire)
 
     x = rs.add_parser("lesson", help="write a lesson into the ledger")
@@ -361,6 +451,11 @@ def add_parser(sub) -> None:
     x.add_argument("text")
     x.add_argument("--source", default="you")
     x.set_defaults(func=cmd_lesson)
+
+    x = rs.add_parser("agents", help="the research agents propose new ideas (needs ANTHROPIC_API_KEY)")
+    x.add_argument("--roles", default="", help="price,macro,central,skeptic (default: all)")
+    x.add_argument("--dry-run", action="store_true", help="print what each agent would be given; no API calls")
+    x.set_defaults(func=cmd_agents)
 
     x = rs.add_parser("review", help="the weekly critic: paper vs backtest vs prediction")
     x.add_argument("--account", default="state/paper_account.json")

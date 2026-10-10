@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from .. import killswitch
+from .. import journal, killswitch
 from . import ledger, stats
 
 HTML = Path(__file__).with_name("panel.html")
@@ -98,6 +98,8 @@ def _compact(h: dict) -> dict:
 
 def primary(data: dict, desk: str) -> dict | None:
     hs = ledger.for_desk(data, desk)
+    if desk == "daily":                   # strategies wired to jev_bot/strategies/ run on their own accounts
+        hs = [h for h in hs if not h.get("module")]
     live = [h for h in hs if h.get("status") in ("paper", "passed_paper", "paused")]
     return (live or hs or [None])[-1]
 
@@ -107,7 +109,8 @@ def ledger_rows(data: dict) -> list[dict]:
              "source": h.get("source", ""), "regime": h.get("regime", ""), "status": h.get("status"),
              "status_label": ledger.STATUSES.get(h.get("status"), h.get("status")),
              "variations": h.get("variations", 0), "max_variations": h.get("max_variations", 5),
-             "lesson": ((h.get("lessons") or [{}])[-1]).get("text", ""), "created": (h.get("created") or "")[:10]}
+             "lesson": ((h.get("lessons") or [{}])[-1]).get("text", ""), "created": (h.get("created") or "")[:10],
+             "skeptic": (h.get("skeptic") or {}).get("verdict", "")}
             for h in reversed(data.get("hypotheses", []))]
 
 
@@ -122,19 +125,55 @@ def for_desk(desk: str, risk_numbers: dict, blocks: list, paper: dict, full_ledg
            "review": {"date": rv.get("date"), **((rv.get("desks") or {}).get(desk) or {})} if rv else None,
            "counts": {k: sum(1 for x in data.get("hypotheses", []) if x.get("status") == k)
                       for k in ledger.STATUSES},
-           "total": len(data.get("hypotheses", []))}
+           "total": len(data.get("hypotheses", [])),
+           "journal": journal_rows(desk)}
     if full_ledger:
         out["ledger"] = ledger_rows(data)
     return out
 
 
-def daily_panel(acct) -> dict:
+def journal_rows(desk: str, n: int = 8) -> list[dict]:
+    rows = []
+    for e in journal.tail(desk, n):
+        res = e.get("result") or {}
+        rows.append({"t": e.get("t", ""), "symbol": e.get("symbol", ""), "decision": e.get("decision", ""),
+                     "side": e.get("side"), "reasoning": (e.get("reasoning") or "")[:220],
+                     "pnl": res.get("pnl"), "strategy": e.get("strategy", "")})
+    return rows
+
+
+def promoted(acct_path: str) -> list[dict]:
+    """Strategies the ledger promoted to paper, each with its own account (daily desk)."""
+    from .. import live
+    out = []
+    for h in ledger_data().get("hypotheses", []):
+        if h.get("status") != "paper" or not h.get("module"):
+            continue
+        p = Path(os.path.dirname(acct_path) or ".") / "strategies" / f"{h['id']}.json"
+        row = {"id": h["id"], "idea": h.get("idea", ""), "strategy": h.get("strategy", ""),
+               "since": (h.get("paper_since") or "")[:10], "started": p.exists()}
+        if p.exists():
+            a = live.Account.load(str(p))
+            row.update(paper_daily(a))
+            desk = f"daily:{h['id']}"
+            try:
+                row["kill"] = killswitch.status(desk, a.risk_numbers(desk=desk),
+                                                (a.killswitch or {}).get("blocks", []))["state"]
+            except Exception:
+                row["kill"] = "?"
+        out.append(row)
+    return out
+
+
+def daily_panel(acct, acct_path: str = "state/paper_account.json") -> dict:
     """For the daily dashboard (it also carries the whole ledger)."""
     try:
         nums = acct.risk_numbers()
     except Exception:
         nums = {"equity": acct.equity(), "peak": acct.peak_equity, "day_start": 0, "open_positions": len(acct.positions)}
-    return for_desk("daily", nums, (acct.killswitch or {}).get("blocks", []), paper_daily(acct), full_ledger=True)
+    out = for_desk("daily", nums, (acct.killswitch or {}).get("blocks", []), paper_daily(acct), full_ledger=True)
+    out["promoted"] = promoted(acct_path)
+    return out
 
 
 def scalp_panel(book, key: str) -> dict:

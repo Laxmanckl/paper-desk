@@ -144,26 +144,26 @@ def _worst_stretches(bars: list, lo: int, hi: int, n: int = 5, size: int = 60) -
 
 
 def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows: int = 4,
-          engine: str = "offline") -> dict:
+          engine: str = "offline", strategy=None) -> dict:
     """Development-period test of a daily-bot hypothesis. Never touches the sealed part."""
     n = min(len(b) for b in bars_by_sym.values())
     bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}        # same span for every instrument
     cut = int(n * (1 - HOLDOUT))
     if cut - fx.WARMUP < 120:
         raise SystemExit(f"  only {n} daily bars: need at least ~{int((fx.WARMUP + 120) / (1 - HOLDOUT))}")
-    dev = _run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine)
+    dev = _run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy)
     step = (cut - fx.WARMUP) // windows
     wf = []
     for i in range(windows):
         a, b = fx.WARMUP + i * step, (cut if i == windows - 1 else fx.WARMUP + (i + 1) * step)
-        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine))
+        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
         wf.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "win_rate_pct", "max_drawdown_pct")})
-    costs2 = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, cost_mult=2.0))
-    breaker = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, cost_mult=2.0, late_fill=True))
+    costs2 = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy, cost_mult=2.0))
+    breaker = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy, cost_mult=2.0, late_fill=True))
     ref = next(iter(bars_by_sym.values()))
     worst = []
     for a, b in _worst_stretches(ref, fx.WARMUP, cut):
-        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine))
+        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
         worst.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "max_drawdown_pct")})
     v = _verdict(h, dev, wf, costs2, worst, trials, trial_sharpes, breaker)
     closes = [b.close for b in ref[fx.WARMUP:cut]]
@@ -172,11 +172,11 @@ def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows:
             "breaker": breaker, "worst_stretches": worst, "regime": stats.regime(closes), **v}
 
 
-def daily_sealed(h: dict, bars_by_sym: dict, engine: str = "offline") -> dict:
+def daily_sealed(h: dict, bars_by_sym: dict, engine: str = "offline", strategy=None) -> dict:
     n = min(len(b) for b in bars_by_sym.values())
     bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}
     cut = int(n * (1 - HOLDOUT))
-    res = _clean(_run_daily(bars_by_sym, cut, None, engine=engine))
+    res = _clean(_run_daily(bars_by_sym, cut, None, engine=engine, strategy=strategy))
     from . import ledger
     ok, why = ledger.judge(h, res) if h.get("prediction") else (res["return_pct"] > 0, [])
     if res["return_pct"] <= 0:

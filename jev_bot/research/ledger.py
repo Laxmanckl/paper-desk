@@ -96,7 +96,7 @@ def add(data: dict, idea: str, desk: str = "idea", markets: list | None = None, 
     h = {"id": f"H{n}", "idea": idea.strip(), "desk": desk, "markets": markets or [], "source": source,
          "created": _now(), "strategy": strategy, "version": 1, "variations": 0, "max_variations": 5,
          "falsify": falsify, "prediction": None, "regime": "", "backtest": None, "attempts": [],
-         "sealed": None, "paper": None, "status": status, "lessons": [], "notes": note}
+         "sealed": None, "paper": None, "status": status, "lessons": [], "notes": note, "module": ""}
     data["hypotheses"].append(h)
     return h
 

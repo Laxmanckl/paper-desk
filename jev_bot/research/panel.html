@@ -162,6 +162,29 @@ window.renderResearch = (function () {
       ((rv.compare || []).length ? "<div class='rl-small'>" + esc(rv.compare.join(" · ")) + "</div>" : "") + "</div>";
   }
 
+  var DEC = { OPEN: "p", REVERSE: "p", CLOSE: "", SKIP: "", HOLDING: "", BLOCKED: "f" };
+  function journalBox(R) {
+    var rows = R.journal || [];
+    var body = rows.length ? "<ul class='rl-checks'>" + rows.map(function (e) {
+      var pnl = e.pnl != null ? " <span class='" + (e.pnl > 0 ? "pos" : e.pnl < 0 ? "neg" : "") + "'>" + (e.pnl < 0 ? "−$" : "+$") + Math.abs(e.pnl).toFixed(2) + "</span>" : "";
+      return "<li><span class='rl-tag " + (DEC[e.decision] || "") + "'>" + esc((e.decision || "").toLowerCase()) + "</span><span>" +
+        esc(e.symbol) + (e.side ? " " + esc(e.side) : "") + pnl + "<em>" + esc(e.t.replace("T", " ").slice(0, 16)) + " UTC · " + esc(e.reasoning) + "</em></span></li>";
+    }).join("") + "</ul>" : "<div class='rl-small'>Every decision is written here the moment the bot makes it: what it saw, what it did and why. The first entries appear after the next signal.</div>";
+    return "<div class='rl-box'><div class='rl-head'><h3>Decision journal</h3><span class='rl-small'>newest first · kept in journal/</span></div>" + body + "</div>";
+  }
+
+  function promotedBox(R) {
+    var rows = R.promoted || [];
+    if (!rows.length) return "";
+    return "<div class='rl-box'><div class='rl-head'><h3>Promoted strategies on paper</h3><span class='rl-small'>passed the backtest and the sealed test</span></div>" +
+      "<div class='table-wrap'><table><thead><tr><th class='t'>Id</th><th class='t'>Strategy</th><th class='r'>Return</th><th class='r'>Trades</th><th class='r'>Win rate</th><th class='r'>Max DD</th><th class='t'>Kill switch</th></tr></thead><tbody>" +
+      rows.map(function (p) {
+        return "<tr><td>" + esc(p.id) + "</td><td class='wrap'>" + esc(p.strategy) + "<span class='rl-small' style='display:block'>" + esc(p.idea) + "</span></td>" +
+          (p.started ? "<td class='r'>" + pctc(p.return_pct) + "</td><td class='r'>" + p.trades + "</td><td class='r'>" + (p.trades ? p.win_rate_pct + "%" : "—") + "</td><td class='r'>" + p.max_drawdown_pct + "%</td><td class='t'><span class='rl-state " + esc(p.kill) + "'>" + esc(p.kill) + "</span></td>"
+            : "<td colspan='5' class='t rl-small'>starts on the server's next update</td>") + "</tr>";
+      }).join("") + "</tbody></table></div></div>";
+  }
+
   function ledgerBox(R) {
     var rows = R.ledger || [], DESK = { daily: "Daily", scalper_a: "Scalper A", scalper_orb: "Scalper B", idea: "Idea" };
     var failed = (R.counts || {}).failed || 0;
@@ -170,7 +193,8 @@ window.renderResearch = (function () {
       "<div class='table-wrap'><table><thead><tr><th class='t'>Id</th><th class='t'>Idea</th><th class='t'>Desk</th><th class='t'>Regime</th><th class='r'>Attempts</th><th class='t'>Status</th><th class='t'>Latest lesson</th></tr></thead><tbody>" +
       rows.map(function (h) {
         return "<tr><td>" + esc(h.id) + "</td><td class='wrap'>" + esc(h.idea) + "</td><td class='t'>" + esc(DESK[h.desk] || h.desk) + "</td><td class='t'>" + esc(h.regime || "—") + "</td>" +
-          "<td class='r'>" + h.variations + "/" + h.max_variations + "</td><td class='t'><span class='rl-st " + esc(h.status) + "'>" + esc(h.status_label) + "</span></td><td class='wrap'>" + esc(h.lesson || "—") + "</td></tr>";
+          "<td class='r'>" + h.variations + "/" + h.max_variations + "</td><td class='t'><span class='rl-st " + esc(h.status) + "'>" + esc(h.status_label) + "</span>" +
+          (h.skeptic ? "<span class='rl-small' style='display:block;margin-top:3px'>Skeptic: " + esc(h.skeptic) + "</span>" : "") + "</td><td class='wrap'>" + esc(h.lesson || "—") + "</td></tr>";
       }).join("") + "</tbody></table></div></div>";
   }
 
@@ -184,7 +208,8 @@ window.renderResearch = (function () {
     var h = R.hypothesis;
     box.innerHTML = "<div class='rl'>" + loop(h, R.review) +
       "<div class='rl-grid'>" + killBox(R.killswitch) + compareBox(h, R.paper) + "</div>" +
-      criticBox(R.review) + (opts.fullLedger ? ledgerBox(R) : (opts.ledgerLink ? "<div class='rl-small'>The full hypothesis ledger is on the <a href='" + esc(opts.ledgerLink) + "#research' style='color:var(--accent)'>daily dashboard</a>.</div>" : "")) + "</div>";
+      "<div class='rl-grid'>" + criticBox(R.review) + journalBox(R) + "</div>" +
+      (opts.fullLedger ? promotedBox(R) : "") + (opts.fullLedger ? ledgerBox(R) : (opts.ledgerLink ? "<div class='rl-small'>The full hypothesis ledger is on the <a href='" + esc(opts.ledgerLink) + "#research' style='color:var(--accent)'>daily dashboard</a>.</div>" : "")) + "</div>";
   };
 })();
 </script>
