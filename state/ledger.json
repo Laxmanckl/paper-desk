@@ -559,7 +559,7 @@
       "source": "you (85% win-rate goal)",
       "created": "2026-10-10T20:18:35+00:00",
       "strategy": "jev_bot/strategies/hiwin_dip.py v1",
-      "version": 1,
+      "version": 2,
       "variations": 1,
       "max_variations": 5,
       "falsify": "Win rate below 85%, or a net loss after costs: a win is worth 0.25 of a loss, so break-even needs about 80% wins",
@@ -741,6 +741,11 @@
           "at": "2026-10-10T20:19:11+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-10T20:22:01+00:00",
+          "source": "revision",
+          "text": "v2: v2: enter one day after the dip, not on it (the breaker test's delayed fills made +11% where v1 lost 4%)"
         }
       ],
       "notes": "",

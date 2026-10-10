@@ -4,7 +4,8 @@ small profit fast, give the trade a wide stop.
     trend    close above its 50-day average AND the average higher than 10 days ago
              (mirror for a downtrend)
     dip      the close is the lowest of the last 3 days (a rally in a downtrend)
-    entry    BUY the dip in an uptrend / SELL the rally in a downtrend
+    entry    one day after the dip: BUY in an uptrend / SELL in a downtrend (v2;
+             v1 entered on the dip day itself and lost money)
     exits    target 0.5 x ATR(14), stop 2.0 x ATR(14), out after 5 days
 
 The arithmetic it lives or dies by: a win is worth 0.25 of a loss, so it needs
@@ -36,13 +37,18 @@ class HiWinDip(DailyStrategy):
         return "flat"
 
     def signal(self, history):
-        trend = self._trend(history)
+        # v2: act one day AFTER the dip (yesterday's close was the 3-day low), so the
+        # entry does not catch a dip that is still falling (the breaker test's clue)
+        if len(history) < 2:
+            return None
+        trend = self._trend(history[:-1])
         if trend in (None, "flat"):
             return None
-        recent = [b.close for b in history[-self.dip_days:]]
-        if trend == "up" and history[-1].close <= min(recent):
+        recent = [b.close for b in history[-self.dip_days - 1:-1]]
+        y = history[-2].close
+        if trend == "up" and y <= min(recent):
             return "BUY"
-        if trend == "down" and history[-1].close >= max(recent):
+        if trend == "down" and y >= max(recent):
             return "SELL"
         return None
 
@@ -58,9 +64,9 @@ class HiWinDip(DailyStrategy):
 
     def tests(self):
         up = [Bar(f"d{i:03d}", 100 + i * 0.5, 101 + i * 0.5, 99 + i * 0.5, 100 + i * 0.5) for i in range(70)]
-        dip = up + [Bar("d070", 134, 134.5, 132, 132.5)]          # a down close inside the uptrend
+        dip = up + [Bar("d070", 134, 134.5, 132, 132.5), Bar("d071", 132.5, 133.5, 132, 133)]   # dip, then the next day
         down = [Bar(f"d{i:03d}", 200 - i * 0.5, 201 - i * 0.5, 199 - i * 0.5, 200 - i * 0.5) for i in range(70)]
-        rally = down + [Bar("d070", 166, 168, 165.5, 167.5)]      # an up close inside the downtrend
+        rally = down + [Bar("d070", 166, 168, 165.5, 167.5), Bar("d071", 167.5, 168, 166.5, 167)]
         flat = [Bar(f"d{i:03d}", 100, 101, 99, 100 + (0.3 if i % 2 else -0.3)) for i in range(70)]
         return [("a dip in an uptrend buys", dip, "BUY"),
                 ("a rally in a downtrend sells", rally, "SELL"),
@@ -70,6 +76,6 @@ class HiWinDip(DailyStrategy):
 
 
 STRATEGY = HiWinDip(
-    name="hiwin_dip", version=1,
+    name="hiwin_dip", version=2,
     hypothesis="Buying 3-day dips inside a rising 50-day trend, with a 0.5 ATR target and a 2 ATR stop, wins 85%+ of trades",
     markets=("XAUUSD", "EURUSD"), risk_pct=0.01, sl_atr=2.0, tp_atr=0.5, max_hold=5)
