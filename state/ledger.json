@@ -993,7 +993,7 @@
       "created": "2026-10-10T15:06:05+00:00",
       "strategy": "jev_bot/strategies/fomc_rebound.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "Across all qualifying FOMC meetings 2008-2026 (expect roughly 40-60 trades), expectancy after costs is at or below zero, or not better than the same entry, stop and target applied to non-FOMC days with the same at-least-1% 5-day drop; or the 2020-2026 subsample is negative while the earlier one is positive (edge decayed).",
       "prediction": {
@@ -1007,9 +1007,164 @@
         "written": "2026-10-11T18:38:46+00:00",
         "sha256": "180999c59a8750593b92855cd85e0a6c949ef8678a31e60cbb196002a69bd1f2"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "trending up",
+      "backtest": {
+        "return_pct": 0.58,
+        "max_drawdown_pct": 5.75,
+        "trades": 16,
+        "win_rate_pct": 43.8,
+        "sharpe": 0.0036,
+        "sharpe_ann": 0.06,
+        "first": "2016-12-22",
+        "last": "2024-04-09",
+        "dsr": 0.562,
+        "period": "2016-12-22 → 2024-04-09",
+        "sealed_from": "2024-04-10",
+        "bars": 2513,
+        "walk_forward": [
+          {
+            "first": "2016-12-22",
+            "last": "2018-10-18",
+            "return_pct": 2.29,
+            "trades": 6,
+            "win_rate_pct": 50.0,
+            "max_drawdown_pct": 2.01
+          },
+          {
+            "first": "2018-10-19",
+            "last": "2020-08-14",
+            "return_pct": 1.91,
+            "trades": 1,
+            "win_rate_pct": 100.0,
+            "max_drawdown_pct": 0.56
+          },
+          {
+            "first": "2020-08-17",
+            "last": "2022-06-09",
+            "return_pct": -1.09,
+            "trades": 5,
+            "win_rate_pct": 40.0,
+            "max_drawdown_pct": 2.71
+          },
+          {
+            "first": "2022-06-10",
+            "last": "2024-04-09",
+            "return_pct": -2.45,
+            "trades": 4,
+            "win_rate_pct": 25.0,
+            "max_drawdown_pct": 3.45
+          }
+        ],
+        "costs_2x": {
+          "return_pct": 0.45,
+          "max_drawdown_pct": 5.78,
+          "trades": 16,
+          "win_rate_pct": 43.8,
+          "sharpe": 0.003,
+          "sharpe_ann": 0.05,
+          "first": "2016-12-22",
+          "last": "2024-04-09"
+        },
+        "breaker": {
+          "return_pct": 2.17,
+          "max_drawdown_pct": 4.32,
+          "trades": 16,
+          "win_rate_pct": 56.2,
+          "sharpe": 0.0127,
+          "sharpe_ann": 0.2,
+          "first": "2016-12-22",
+          "last": "2024-04-09"
+        },
+        "worst_stretches": [
+          {
+            "first": "2019-05-16",
+            "last": "2019-08-09",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2020-02-25",
+            "last": "2020-05-19",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2020-05-20",
+            "last": "2020-08-13",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2020-12-22",
+            "last": "2021-03-19",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2022-10-27",
+            "last": "2023-01-24",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          }
+        ],
+        "regime": "trending up",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": true,
+            "detail": "inside every line it drew"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.56 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": false,
+            "detail": "2 of 4 windows with trades were profitable"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": true,
+            "detail": "+0.45% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": true,
+            "detail": "+2.17%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches +0.00% (prediction allowed -6.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "yahoo",
+        "at": "2026-10-11T18:39:15+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-11T18:39:15+00:00",
+          "version": 1,
+          "return_pct": 0.58,
+          "win_rate_pct": 43.8,
+          "max_drawdown_pct": 5.75,
+          "trades": 16,
+          "sharpe_ann": 0.06,
+          "sharpe": 0.0036,
+          "dsr": 0.562,
+          "data": "yahoo",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -1023,6 +1178,11 @@
           "at": "2026-10-11T18:38:46+00:00",
           "source": "prediction note",
           "text": "prediction written by Claude from the Central-Bank Reader's memo (break-even 37.5% wins at 2.5:1.5); the 85% goal is not applied. Expect few trades: only FOMC days after a 1% drop qualify"
+        },
+        {
+          "at": "2026-10-11T18:39:15+00:00",
+          "source": "backtest",
+          "text": "v1 failed: deflated sharpe (luck-adjusted), walk-forward windows"
         }
       ],
       "notes": "why: Gold tends to be de-risked into a feared hawkish FOMC and then recovers once the uncertainty is gone; in July 2026 gold slid toward $4,000 into the meeting and rebounded above $4,100 after the hold. Record central-bank buying (PBoC 23 straight months, 21t in September; Q2 2026 a record 289t) gives dips a structural buyer, so a long-only rebound rule fits the current backdrop. | needs: Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008. | kind: daily | memo: research/central-2026-10-10.md",
