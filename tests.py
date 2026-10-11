@@ -698,5 +698,12 @@ ok("strategies: H7 (data days) and H8 (FOMC rebound) pass its checks and only fi
    STR.check(STR.load("data_day")) == [] and STR.check(STR.load("fomc_rebound")) == []
    and STR.load("data_day").signal(fx.simulate("EURUSD", 300, 2)) is None)
 
+_sb = STR.load("shock_box")
+_ss = STR.load("stretch_snap")
+ok("strategies: H4 (shock box) and H5 (stretch snap) pass their checks", STR.check(_sb) == [] and STR.check(_ss) == [])
+_r5 = backtest.run("EURUSD", fx.simulate("EURUSD", 2500, 1), strategy=_ss)
+ok("strategies: a strategy's own stop/target levels are used by the backtester",
+   _r5.trades and len({round(abs(t.entry - t.stop) / max(abs(t.target - t.entry), 1e-9), 2) for t in _r5.trades}) > 1)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

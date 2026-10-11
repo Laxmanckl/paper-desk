@@ -155,13 +155,15 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
             a = fx.atr(bars, t - 1)
             px_in = b.close if late_fill else b.open
             entry = px_in + half if pending == "BUY" else px_in - half
-            stop_dist = s.sl_atr * a
+            lv = strategy.levels(bars[:t], pending, entry, a) if strategy is not None else None
+            stop_dist = lv[0] if lv else s.sl_atr * a
+            tgt_dist = lv[1] if lv else s.tp_atr * a
             units = (equity * s.risk_pct) / stop_dist if stop_dist > 0 else 0
             units = min(units, equity * s.max_leverage / entry)
             sign = 1 if pending == "BUY" else -1
             pos = Trade(side=pending, entry_date=b.date, entry=entry,
                         stop=entry - sign * stop_dist,
-                        target=entry + sign * s.tp_atr * a, units=units)
+                        target=entry + sign * tgt_dist, units=units)
             t_open = t
         pending = None
 

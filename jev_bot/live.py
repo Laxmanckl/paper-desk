@@ -195,10 +195,11 @@ def _close(acct: Account, sym: str, price: float, reason: str, now: datetime) ->
 
 
 def _size(acct: Account, sym: str, side: str, price: float, a: float,
-          settings: backtest.Settings) -> tuple[float, float, float]:
-    """(entry, stop distance, units) for a new position, before it is opened."""
+          settings: backtest.Settings, dists=None) -> tuple[float, float, float]:
+    """(entry, stop distance, units) for a new position, before it is opened.
+    dists: a strategy's own (stop distance, target distance), else the ATR rule."""
     entry = price + _half_spread(sym) if side == "BUY" else price - _half_spread(sym)
-    stop_dist = settings.sl_atr * a
+    stop_dist = dists[0] if dists else settings.sl_atr * a
     equity = acct.equity()
     units = (equity * settings.risk_pct) / stop_dist if stop_dist > 0 else 0
     units = min(units, equity * settings.max_leverage / entry)
@@ -206,11 +207,11 @@ def _size(acct: Account, sym: str, side: str, price: float, a: float,
 
 
 def _open(acct: Account, sym: str, side: str, price: float, a: float, bar_date: str,
-          d, settings: backtest.Settings, now: datetime, regime: str = "") -> dict:
-    entry, stop_dist, units = _size(acct, sym, side, price, a, settings)
+          d, settings: backtest.Settings, now: datetime, regime: str = "", dists=None) -> dict:
+    entry, stop_dist, units = _size(acct, sym, side, price, a, settings, dists)
     sign = 1 if side == "BUY" else -1
     p = Position(sym, side, entry, entry - sign * stop_dist,
-                 entry + sign * settings.tp_atr * a, round(units, 6),
+                 entry + sign * (dists[1] if dists else settings.tp_atr * a), round(units, 6),
                  now.isoformat(timespec="seconds"), bar_date,
                  d.probability, d.confidence, regime)
     acct.positions[sym] = asdict(p)
@@ -359,7 +360,11 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
         # 3. the kill switch: hard limits from config/risk.json, checked in code before
         #    every new trade. If it says no, nothing changes: an open position keeps its stops.
         a = fx.atr(done, len(done) - 1)
-        entry, _, units = _size(acct, sym, d.action, px, a, s)
+        dists = None
+        if strategy is not None:
+            e0 = px + _half_spread(sym) if d.action == "BUY" else px - _half_spread(sym)
+            dists = strategy.levels(done, d.action, e0, a)
+        entry, _, units = _size(acct, sym, d.action, px, a, s, dists)
         nums = acct.risk_numbers(t_now, risk_cfg, desk)
         nums["open_positions"] -= 1 if p else 0           # a reversal replaces a position
         allowed, why = killswitch.check_order(desk, {"notional": units * entry}, nums, risk_cfg)
@@ -375,7 +380,7 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
             events.append(f"{sym}: CLOSED {tr['side']} at {tr['exit']:,.{d_px}f} (reverse)  "
                           f"{tr['pips']:+.1f} pips  ${tr['pnl']:+,.2f}")
             note(_close_entry(tr), t_now)
-        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now, state.regime)
+        np_ = _open(acct, sym, d.action, px, a, last, d, s, t_now, state.regime, dists)
         np_["conditions"] = cond
         note({**base, "decision": "REVERSE" if p else "OPEN",
               "reasoning": f"{why_signal}; passed the gate and the kill switch",

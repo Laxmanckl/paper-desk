@@ -35,10 +35,18 @@ class DailyStrategy:
     max_hold: int = 20
     max_leverage: float = 10.0
     needs_real_dates: bool = False    # trades on calendar events: simulated data has no event days
+    rare: bool = False                # set-ups so rare that simulated data may never show one
 
     # --- entry rules --------------------------------------------------------
     def signal(self, history: list) -> str | None:
         raise NotImplementedError
+
+    # --- exit levels (optional) ----------------------------------------------
+    def levels(self, history: list, side: str, entry: float, atr: float):
+        """Exact (stop distance, target distance) in price units for this trade, or None
+        to use sl_atr / tp_atr. For rules like "stop 1 ATR below the swing low". Uses only
+        `history` (completed bars up to the signal), never the future."""
+        return None
 
     # --- for the journal ----------------------------------------------------
     def conditions(self, history: list) -> dict:

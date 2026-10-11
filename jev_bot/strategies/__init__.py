@@ -87,7 +87,7 @@ def check(strat: DailyStrategy, sim_bars: int = 400) -> list[str]:
                 fails.append(f"{sym} bar {t}: same history gave {a} then {b} (hidden state or randomness)")
                 break
             seen.add(a)
-        if not ({"BUY", "SELL"} & seen) and not strat.needs_real_dates:
+        if not ({"BUY", "SELL"} & seen) and not (strat.needs_real_dates or strat.rare):
             fails.append(f"{sym}: never signalled in {sim_bars} simulated days")
     if not (0 < strat.risk_pct <= 0.03):
         fails.append(f"risk_pct {strat.risk_pct} outside 0-3% per trade")
