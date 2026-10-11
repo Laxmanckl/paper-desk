@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-10",
-  "at": "2026-10-10T13:01:45+00:00",
+  "date": "2026-10-11",
+  "at": "2026-10-11T14:22:37+00:00",
   "window_days": 7,
   "desks": {
     "daily": {
@@ -31,8 +31,7 @@
         "regime": "XAUUSD choppy, EURUSD choppy"
       },
       "compare": [
-        "no honest backtest yet: nothing to compare paper results against",
-        "no written prediction yet"
+        "forward prediction: missing it: only 0 trades, prediction needed 20"
       ],
       "findings": [
         "no closed trades yet: nothing to judge"
@@ -45,39 +44,39 @@
       "name": "Scalper A · Pullback",
       "hypothesis": "H2",
       "week": {
-        "trades": 42,
+        "trades": 43,
         "wins": 13,
-        "win_rate_pct": 31.0,
-        "net": -406.14,
-        "avg_r": -0.39
+        "win_rate_pct": 30.2,
+        "net": -431.59,
+        "avg_r": -0.41
       },
       "lifetime": {
-        "trades": 42,
+        "trades": 43,
         "wins": 13,
-        "win_rate_pct": 31.0,
-        "net": -406.14,
-        "avg_r": -0.39
+        "win_rate_pct": 30.2,
+        "net": -431.59,
+        "avg_r": -0.41
       },
       "paper": {
-        "return_pct": -4.06,
-        "trades": 42,
-        "win_rate_pct": 31.0,
-        "max_drawdown_pct": 4.78,
-        "avg_r": -0.39,
+        "return_pct": -4.32,
+        "trades": 43,
+        "win_rate_pct": 30.2,
+        "max_drawdown_pct": 5.16,
+        "avg_r": -0.41,
         "since": "2026-10-06",
         "open": 0,
         "regime": "XAUUSD choppy, EURUSD choppy"
       },
       "compare": [
         "no honest backtest yet: nothing to compare paper results against",
-        "no written prediction yet"
+        "forward prediction: missing it: return -4.32% < 0.0%; only 43 trades, prediction needed 200"
       ],
       "findings": [
         "a run of 7 losing trades in a row (latest on XAUUSD)"
       ],
       "recommend": "watch",
       "recommend_why": [
-        "42 trades on paper and still losing on average (-0.39R per trade)"
+        "43 trades on paper and still losing on average (-0.41R per trade)"
       ],
       "regime": "XAUUSD choppy, EURUSD choppy"
     },
@@ -85,35 +84,36 @@
       "name": "Scalper B · Breakout",
       "hypothesis": "H3",
       "week": {
-        "trades": 16,
-        "wins": 2,
-        "win_rate_pct": 12.5,
-        "net": -276.86,
-        "avg_r": -0.7
+        "trades": 18,
+        "wins": 3,
+        "win_rate_pct": 16.7,
+        "net": -257.69,
+        "avg_r": -0.58
       },
       "lifetime": {
-        "trades": 16,
-        "wins": 2,
-        "win_rate_pct": 12.5,
-        "net": -276.86,
-        "avg_r": -0.7
+        "trades": 18,
+        "wins": 3,
+        "win_rate_pct": 16.7,
+        "net": -257.69,
+        "avg_r": -0.58
       },
       "paper": {
-        "return_pct": -2.57,
-        "trades": 16,
-        "win_rate_pct": 12.5,
+        "return_pct": -2.58,
+        "trades": 18,
+        "win_rate_pct": 16.7,
         "max_drawdown_pct": 3.25,
-        "avg_r": -0.7,
+        "avg_r": -0.58,
         "since": "2026-10-08",
-        "open": 2,
+        "open": 0,
         "regime": "XAUUSD choppy, EURUSD choppy"
       },
       "compare": [
         "no honest backtest yet: nothing to compare paper results against",
-        "no written prediction yet"
+        "forward prediction: missing it: return -2.58% < 0.0%; only 18 trades, prediction needed 100"
       ],
       "findings": [
-        "a run of 13 losing trades in a row (latest on USDJPY)"
+        "a run of 13 losing trades in a row (latest on USDJPY)",
+        "6 signals were not traded this week; the most common reason (1x): spread 2.1x its normal level"
       ],
       "recommend": "watch",
       "recommend_why": [],

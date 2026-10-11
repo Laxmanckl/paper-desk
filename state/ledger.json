@@ -28,7 +28,7 @@
         "scope": "forward paper trading from the date written (this strategy reached paper before predictions existed)",
         "sha256": "c2cd4227a8576c24339f1be2c0dfd9719e3944ab02ec31b95cb8542441fd2682"
       },
-      "regime": "trending up",
+      "regime": "XAUUSD choppy, EURUSD choppy",
       "backtest": {
         "return_pct": 0.68,
         "max_drawdown_pct": 9.56,
@@ -196,7 +196,7 @@
         "since": "2026-10-02",
         "open": 2,
         "regime": "XAUUSD choppy, EURUSD choppy",
-        "at": "2026-10-10T13:01:45+00:00"
+        "at": "2026-10-11T14:22:37+00:00"
       },
       "status": "paper",
       "lessons": [
@@ -257,15 +257,15 @@
       "attempts": [],
       "sealed": null,
       "paper": {
-        "return_pct": -4.06,
-        "trades": 42,
-        "win_rate_pct": 31.0,
-        "max_drawdown_pct": 4.78,
-        "avg_r": -0.39,
+        "return_pct": -4.32,
+        "trades": 43,
+        "win_rate_pct": 30.2,
+        "max_drawdown_pct": 5.16,
+        "avg_r": -0.41,
         "since": "2026-10-06",
         "open": 0,
         "regime": "XAUUSD choppy, EURUSD choppy",
-        "at": "2026-10-10T13:01:45+00:00"
+        "at": "2026-10-11T14:22:37+00:00"
       },
       "status": "paper",
       "lessons": [
@@ -316,15 +316,15 @@
       "attempts": [],
       "sealed": null,
       "paper": {
-        "return_pct": -2.57,
-        "trades": 16,
-        "win_rate_pct": 12.5,
+        "return_pct": -2.58,
+        "trades": 18,
+        "win_rate_pct": 16.7,
         "max_drawdown_pct": 3.25,
-        "avg_r": -0.7,
+        "avg_r": -0.58,
         "since": "2026-10-08",
-        "open": 2,
+        "open": 0,
         "regime": "XAUUSD choppy, EURUSD choppy",
-        "at": "2026-10-10T13:01:45+00:00"
+        "at": "2026-10-11T14:22:37+00:00"
       },
       "status": "paper",
       "lessons": [
@@ -332,6 +332,11 @@
           "at": "2026-10-10T12:58:37+00:00",
           "source": "critic 2026-10-10",
           "text": "a run of 13 losing trades in a row (latest on USDJPY)"
+        },
+        {
+          "at": "2026-10-11T14:22:37+00:00",
+          "source": "critic 2026-10-11",
+          "text": "6 signals were not traded this week; the most common reason (1x): spread 2.1x its normal level"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
