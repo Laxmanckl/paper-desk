@@ -825,7 +825,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T15:07:02+00:00",
@@ -841,6 +841,11 @@
           "at": "2026-10-11T20:05:25+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-11T20:09:11+00:00",
+          "source": "you",
+          "text": "only 7 set-ups in 7.5 years of gold (as the Skeptic warned), -2.6%, 29% wins: too rare to ever test honestly on one market"
         }
       ],
       "notes": "why: Shocks are often followed by volatility compression, and the breakout that ends the compression tends to carry because positioning has reset; gold now matches this exactly: a -3.54% day (~4.7x avg move) followed by 9 closes in a 1.48% (~2 avg moves) box at 4140.7-4202.3. | needs: Shock day with abs move >=3x 20d ATR; next >=5 closes all within a band <=2.5 ATR; entry only on a daily close beyond the box +/-0.25 ATR; one trade per box; void if no breakout within 15 days of box formation. | kind: daily | memo: research/price-2026-10-10.md",
@@ -1036,7 +1041,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T15:07:02+00:00",
@@ -1052,6 +1057,11 @@
           "at": "2026-10-11T20:05:38+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-11T20:09:11+00:00",
+          "source": "you",
+          "text": "14 set-ups, 57% wins but -1.5%: the near EMA target makes wins small; loses at 1x and 2x costs"
         }
       ],
       "notes": "why: EURUSD's -3.72% 20-day move is about 3.5x the typical 20-day dispersion implied by its 0.24% average daily move; such stretches in a low-volatility pair tend to partially revert toward the mean once selling pauses, and the confirmation bar avoids buying into a continuing slide. | needs: Close >=2.5% below SMA50; 20d change <=-3% (or >=+3% for the short mirror); 20-day closing extreme within the last 3 bars; entry only after a close beyond the prior day's high (low for shorts). | kind: daily | memo: research/price-2026-10-10.md",
