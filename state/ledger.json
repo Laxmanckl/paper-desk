@@ -862,7 +862,7 @@
       "created": "2026-10-10T15:06:04+00:00",
       "strategy": "jev_bot/strategies/stretch_snap.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "On >=25 historical setups, expectancy <=0R after costs, or >50% of trades stopped within 3 days (the stretch keeps extending), or no edge over random entries taken inside the same stretched condition.",
       "prediction": {
@@ -876,9 +876,164 @@
         "written": "2026-10-11T20:05:11+00:00",
         "sha256": "6671a87211e7aa196245552edbbd9e2af2d92b30a4a281ece7437ea5baf9a7e8"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "choppy",
+      "backtest": {
+        "return_pct": -1.49,
+        "max_drawdown_pct": 2.58,
+        "trades": 14,
+        "win_rate_pct": 57.1,
+        "sharpe": -0.0135,
+        "sharpe_ann": -0.21,
+        "first": "2016-12-19",
+        "last": "2024-04-03",
+        "dsr": 0.28,
+        "period": "2016-12-19 → 2024-04-03",
+        "sealed_from": "2024-04-04",
+        "bars": 2601,
+        "walk_forward": [
+          {
+            "first": "2016-12-19",
+            "last": "2018-10-16",
+            "return_pct": -1.84,
+            "trades": 4,
+            "win_rate_pct": 25.0,
+            "max_drawdown_pct": 2.57
+          },
+          {
+            "first": "2018-10-17",
+            "last": "2020-08-12",
+            "return_pct": 1.14,
+            "trades": 4,
+            "win_rate_pct": 100.0,
+            "max_drawdown_pct": 0.65
+          },
+          {
+            "first": "2020-08-13",
+            "last": "2022-06-08",
+            "return_pct": 0.52,
+            "trades": 3,
+            "win_rate_pct": 66.7,
+            "max_drawdown_pct": 1.01
+          },
+          {
+            "first": "2022-06-09",
+            "last": "2024-04-03",
+            "return_pct": -0.73,
+            "trades": 3,
+            "win_rate_pct": 66.7,
+            "max_drawdown_pct": 1.0
+          }
+        ],
+        "costs_2x": {
+          "return_pct": -1.55,
+          "max_drawdown_pct": 2.59,
+          "trades": 14,
+          "win_rate_pct": 57.1,
+          "sharpe": -0.0141,
+          "sharpe_ann": -0.22,
+          "first": "2016-12-19",
+          "last": "2024-04-03"
+        },
+        "breaker": {
+          "return_pct": -1.75,
+          "max_drawdown_pct": 2.69,
+          "trades": 14,
+          "win_rate_pct": 57.1,
+          "sharpe": -0.0155,
+          "sharpe_ann": -0.25,
+          "first": "2016-12-19",
+          "last": "2024-04-03"
+        },
+        "worst_stretches": [
+          {
+            "first": "2017-05-15",
+            "last": "2017-08-07",
+            "return_pct": -0.18,
+            "trades": 1,
+            "max_drawdown_pct": 1.11
+          },
+          {
+            "first": "2020-05-14",
+            "last": "2020-08-05",
+            "return_pct": -0.12,
+            "trades": 2,
+            "max_drawdown_pct": 0.53
+          },
+          {
+            "first": "2022-02-24",
+            "last": "2022-05-18",
+            "return_pct": -0.0,
+            "trades": 1,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2022-06-09",
+            "last": "2022-08-31",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2022-11-03",
+            "last": "2023-01-25",
+            "return_pct": -1.0,
+            "trades": 1,
+            "max_drawdown_pct": 1.0
+          }
+        ],
+        "regime": "choppy",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": false,
+            "detail": "return -1.49% < 0.0%; only 14 trades, prediction needed 15"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.28 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": false,
+            "detail": "2 of 4 windows with trades were profitable"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": false,
+            "detail": "-1.55% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": false,
+            "detail": "-1.75%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches -1.00% (prediction allowed -8.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "yahoo",
+        "at": "2026-10-11T20:05:38+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-11T20:05:38+00:00",
+          "version": 1,
+          "return_pct": -1.49,
+          "win_rate_pct": 57.1,
+          "max_drawdown_pct": 2.58,
+          "trades": 14,
+          "sharpe_ann": -0.21,
+          "sharpe": -0.0135,
+          "dsr": 0.28,
+          "data": "yahoo",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -892,6 +1047,11 @@
           "at": "2026-10-11T20:05:11+00:00",
           "source": "prediction note",
           "text": "prediction written by Claude from the Price Analyst's own falsification line, before any test; the 85% win-rate goal is not applied"
+        },
+        {
+          "at": "2026-10-11T20:05:38+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
         }
       ],
       "notes": "why: EURUSD's -3.72% 20-day move is about 3.5x the typical 20-day dispersion implied by its 0.24% average daily move; such stretches in a low-volatility pair tend to partially revert toward the mean once selling pauses, and the confirmation bar avoids buying into a continuing slide. | needs: Close >=2.5% below SMA50; 20d change <=-3% (or >=+3% for the short mirror); 20-day closing extreme within the last 3 bars; entry only after a close beyond the prior day's high (low for shorts). | kind: daily | memo: research/price-2026-10-10.md",
