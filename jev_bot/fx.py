@@ -47,6 +47,30 @@ ALIASES = {"GOLD": "XAUUSD", "XAU": "XAUUSD", "XAU/USD": "XAUUSD",
            "EUR/USD": "EURUSD", "USD/EUR": "EURUSD", "USDEUR": "EURUSD", "EUR": "EURUSD"}
 
 
+# more markets for RESEARCH backtests only (MT5 daily history). The live daily bot
+# trades INSTRUMENTS above; these are never traded by it.
+RESEARCH_INSTRUMENTS = {
+    "GBPUSD": dict(name="British Pound / US Dollar", asset_class="forex", pip=0.0001, spread=0.00015, digits=5),
+    "USDJPY": dict(name="US Dollar / Japanese Yen", asset_class="forex", pip=0.01, spread=0.015, digits=3),
+    "USDCHF": dict(name="US Dollar / Swiss Franc", asset_class="forex", pip=0.0001, spread=0.00015, digits=5),
+    "AUDUSD": dict(name="Australian Dollar / US Dollar", asset_class="forex", pip=0.0001, spread=0.00012, digits=5),
+    "USDCAD": dict(name="US Dollar / Canadian Dollar", asset_class="forex", pip=0.0001, spread=0.00018, digits=5),
+    "NZDUSD": dict(name="New Zealand Dollar / US Dollar", asset_class="forex", pip=0.0001, spread=0.00018, digits=5),
+    "EURGBP": dict(name="Euro / British Pound", asset_class="forex", pip=0.0001, spread=0.00015, digits=5),
+}
+
+
+def resolve_any(symbol: str) -> str:
+    """Like resolve(), but also accepts the research-only markets."""
+    s = ALIASES.get(symbol.upper().strip(), symbol.upper().strip().replace("/", ""))
+    return s if s in RESEARCH_INSTRUMENTS else resolve(s)
+
+
+def spec(symbol: str) -> dict:
+    s = resolve_any(symbol)
+    return INSTRUMENTS.get(s) or RESEARCH_INSTRUMENTS[s]
+
+
 def resolve(symbol: str) -> str:
     s = symbol.upper().strip()
     s = ALIASES.get(s, s)

@@ -128,12 +128,12 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
         strategy=None) -> Result:
     """cost_mult multiplies the spread (stress test: 2.0 = double costs).
     late_fill fills signals at the next bar's CLOSE instead of its open (a delayed fill)."""
-    symbol = fx.resolve(symbol)
+    symbol = fx.resolve_any(symbol)
     if strategy is not None:                 # a jev_bot.strategies strategy brings its own rules
         settings = strategy.settings()
     s = settings or Settings()
     lim = limits or risk.Limits()
-    spec = dict(fx.INSTRUMENTS[symbol])
+    spec = dict(fx.spec(symbol))
     spec["spread"] *= cost_mult
     half = spec["spread"] / 2
 

@@ -705,5 +705,13 @@ _r5 = backtest.run("EURUSD", fx.simulate("EURUSD", 2500, 1), strategy=_ss)
 ok("strategies: a strategy's own stop/target levels are used by the backtester",
    _r5.trades and len({round(abs(t.entry - t.stop) / max(abs(t.target - t.entry), 1e-9), 2) for t in _r5.trades}) > 1)
 
+_gb = [fx.Bar(b.date, b.open * 1.15, b.high * 1.15, b.low * 1.15, b.close * 1.15) for b in fx.simulate("EURUSD", 600, 4)]
+_rg = backtest.run("GBPUSD", _gb, strategy=tmpl)
+ok("backtest: research-only markets (MT5 daily history) run, without joining the live daily bot",
+   _rg.symbol == "GBPUSD" and _rg.trades and "GBPUSD" not in fx.INSTRUMENTS)
+from jev_bot.strategies import fomc_dates as _fd
+ok("FOMC dates cover 2005-2027 with 8 scheduled meetings in a normal year",
+   sum(d.startswith("2007") for d in _fd.DECISIONS) == 8 and min(_fd.DECISIONS) < "2005-03")
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

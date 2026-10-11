@@ -80,14 +80,36 @@ def cmd_predict(a):
 
 # --- data ------------------------------------------------------------------------------
 
+MT5_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "mt5")
+
+
+def _test_markets(h, a):
+    """The markets a backtest runs on: --markets if given (and remembered for the sealed
+    test, so both use the same set), else what an earlier backtest used, else the idea's own."""
+    from .. import fx
+    raw = getattr(a, "markets", "") or ""
+    if raw:
+        names = list(fx.INSTRUMENTS) + list(fx.RESEARCH_INSTRUMENTS) if raw.lower() == "all" else raw.split(",")
+        return [fx.resolve_any(m) for m in names if m.strip()], True
+    return [fx.resolve_any(m) for m in (h.get("test_markets") or h.get("markets") or list(fx.INSTRUMENTS))], False
+
+
 def _daily_bars(h, a):
     from .. import feeds, fx, live
-    syms = [fx.resolve(m) for m in (h.get("markets") or list(fx.INSTRUMENTS))]
+    syms, overridden = _test_markets(h, a)
+    if overridden:
+        h["test_markets"] = syms
     csvs = dict(c.split("=", 1) for c in a.csv)
     out = {}
     for s in syms:
         if s in csvs:
             out[s] = fx.load_csv(csvs[s])
+        elif a.source == "mt5":
+            f = os.path.join(MT5_DIR, f"{s}_D1.csv")
+            if not os.path.exists(f):
+                _fail(f"no MT5 daily history for {s}. On the Windows PC with MT5 open, run:\n"
+                      f"    python -m jev_bot research export-mt5 {' '.join(syms)} --daily")
+            out[s] = fx.load_csv(f)
         elif a.source == "sim":
             out[s] = fx.simulate(s, a.bars, a.seed)
         else:
@@ -96,7 +118,10 @@ def _daily_bars(h, a):
             except feeds.FeedError as e:
                 _fail(f"{s}: {e}")
             out[s] = live.completed_bars(bars, quote)
-    label = "sim" if a.source == "sim" and not csvs else ("csv" if csvs else a.source)
+    label = "sim" if a.source == "sim" and not csvs else ("csv" if csvs else
+                                                          "MT5 daily" if a.source == "mt5" else a.source)
+    first = min(b[0].date for b in out.values())
+    label += f" · {len(out)} market{'s' if len(out) > 1 else ''} · from {first}"
     return out, label
 
 
@@ -367,7 +392,8 @@ def cmd_review(a):
 
 
 def cmd_export_mt5(a):
-    """1-minute candles from the logged-in MT5 terminal, for scalper research backtests."""
+    """1-minute candles (scalper tests) or, with --daily, all the daily history the broker
+    has (daily-strategy tests), from the logged-in MT5 terminal."""
     import time
     from ..scalp import feeds as sf, instruments
     try:
@@ -386,6 +412,24 @@ def cmd_export_mt5(a):
             print(f"  {s}: not offered by this broker, skipped")
             continue
         mt5.symbol_select(theirs, True)
+        if a.daily:
+            rates = mt5.copy_rates_from_pos(theirs, mt5.TIMEFRAME_D1, 1, 9999)   # 1 = skip today's forming bar
+            if rates is None or not len(rates):
+                print(f"  {s}: no daily history returned ({mt5.last_error()})")
+                continue
+            from datetime import datetime as _dt, timezone as _tz
+            path = os.path.join(a.out, f"{s}_D1.csv")
+            kept = 0
+            with open(path, "w") as fh:
+                fh.write("date,open,high,low,close\n")
+                for r in rates:
+                    d = _dt.fromtimestamp(int(r["time"]), _tz.utc)
+                    if d.weekday() >= 5:                    # brokers' small weekend bars
+                        continue
+                    fh.write(f"{d:%Y-%m-%d},{r['open']},{r['high']},{r['low']},{r['close']}\n")
+                    kept += 1
+            print(f"  {s}: {kept} daily bars ({_dt.fromtimestamp(int(rates[0]['time']), _tz.utc):%Y-%m-%d} onward) → {path}")
+            continue
         rates = mt5.copy_rates_range(theirs, mt5.TIMEFRAME_M1, end - a.days * 86400, end)
         if rates is None or not len(rates):
             print(f"  {s}: no history returned ({mt5.last_error()})")
@@ -438,7 +482,10 @@ def add_parser(sub) -> None:
                           ("sealed", cmd_sealed, "the ONE run on the sealed newest 25%% of history")):
         x = rs.add_parser(name, help=hlp)
         x.add_argument("id")
-        x.add_argument("--source", default="yahoo", choices=["yahoo", "twelvedata", "sim", "csv"])
+        x.add_argument("--source", default="yahoo", choices=["yahoo", "twelvedata", "mt5", "sim", "csv"],
+                       help="mt5 = the daily history saved by `export-mt5 --daily` (longest history)")
+        x.add_argument("--markets", default="",
+                       help="test on these markets instead of the idea's own, e.g. XAUUSD,EURUSD,GBPUSD or all")
         x.add_argument("--range", default="10y")
         x.add_argument("--csv", action="append", default=[], metavar="SYMBOL=PATH")
         x.add_argument("--bars", type=int, default=2500, help="simulated daily bars (sim)")
@@ -497,5 +544,6 @@ def add_parser(sub) -> None:
     x = rs.add_parser("export-mt5", help="save 1-minute history from MT5 for scalper tests (Windows)")
     x.add_argument("symbols", nargs="+")
     x.add_argument("--days", type=int, default=60)
+    x.add_argument("--daily", action="store_true", help="all daily history instead of 60 days of 1-minute")
     x.add_argument("--out", default="data/mt5")
     x.set_defaults(func=cmd_export_mt5)
