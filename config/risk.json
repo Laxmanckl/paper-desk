@@ -11,7 +11,7 @@
       "peak_reset": ""
     },
     "scalper_a": {
-      "enabled": true,
+      "enabled": false,
       "max_daily_loss_pct": 2.0,
       "max_drawdown_pct": 8.0,
       "max_open_positions": 5,
@@ -19,7 +19,7 @@
       "peak_reset": ""
     },
     "scalper_orb": {
-      "enabled": true,
+      "enabled": false,
       "max_daily_loss_pct": 2.0,
       "max_drawdown_pct": 8.0,
       "max_open_positions": 5,

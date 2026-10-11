@@ -406,7 +406,7 @@
         "regime": "XAUUSD choppy, EURUSD choppy",
         "at": "2026-10-11T14:22:37+00:00"
       },
-      "status": "paper",
+      "status": "paused",
       "lessons": [
         {
           "at": "2026-10-10T12:58:37+00:00",
@@ -417,6 +417,11 @@
           "at": "2026-10-11T14:45:06+00:00",
           "source": "backtest",
           "text": "honest backtest v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-11T16:44:10+00:00",
+          "source": "you",
+          "text": "paused 2026-10-11: honest backtest on 6 weeks of MT5 1-minute data lost 47% (35% wins, 0 of 4 windows profitable); paper results agree (31% wins)"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -609,7 +614,7 @@
         "regime": "XAUUSD choppy, EURUSD choppy",
         "at": "2026-10-11T14:22:37+00:00"
       },
-      "status": "paper",
+      "status": "paused",
       "lessons": [
         {
           "at": "2026-10-10T12:58:37+00:00",
@@ -625,6 +630,11 @@
           "at": "2026-10-11T14:46:36+00:00",
           "source": "backtest",
           "text": "honest backtest v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-11T16:44:10+00:00",
+          "source": "you",
+          "text": "paused 2026-10-11: honest backtest on 6 weeks of MT5 1-minute data lost 15% (32% wins, 0 of 4 windows profitable)"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -1244,12 +1254,17 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-11T14:49:47+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-11T16:44:10+00:00",
+          "source": "you",
+          "text": "failed its first honest backtest: 65% wins but -7% (needs 71%+ to break even); not taken to paper"
         }
       ],
       "notes": "",
