@@ -946,7 +946,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T15:07:02+00:00",
@@ -972,6 +972,11 @@
           "at": "2026-10-11T18:39:04+00:00",
           "source": "backtest",
           "text": "v2 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-11T18:42:44+00:00",
+          "source": "you",
+          "text": "both directions tested on 55 trades: follow -0.49%, fade -2.10%; no stable edge on CPI/jobs-report days at daily resolution"
         }
       ],
       "notes": "why: In a hiking cycle with yields near 2002 highs, data surprises reprice the Fed path. Large release-day moves may either keep going (repricing continues) or be faded (the September NFP: EURUSD +0.4% on release, gone within days as the dollar returned to its highs). A fixed event calendar turns this into a clean, repeatable test, and the next live events are CPI on 14 Oct and NFP on about 6 Nov. | needs: Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December. | kind: daily | memo: research/macro-2026-10-10.md",
@@ -1183,6 +1188,11 @@
           "at": "2026-10-11T18:39:15+00:00",
           "source": "backtest",
           "text": "v1 failed: deflated sharpe (luck-adjusted), walk-forward windows"
+        },
+        {
+          "at": "2026-10-11T18:42:44+00:00",
+          "source": "review",
+          "text": "16 trades in 7.5 years: too few to judge. +0.58% and survives double costs, but the last two windows lost (-1.1%, -2.5%) and DSR 0.56. Left in testing, not revised: tweaking a 16-trade sample would be fitting noise"
         }
       ],
       "notes": "why: Gold tends to be de-risked into a feared hawkish FOMC and then recovers once the uncertainty is gone; in July 2026 gold slid toward $4,000 into the meeting and rebounded above $4,100 after the hold. Record central-bank buying (PBoC 23 straight months, 21t in September; Q2 2026 a record 289t) gives dips a structural buyer, so a long-only rebound rule fits the current backdrop. | needs: Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008. | kind: daily | memo: research/central-2026-10-10.md",
