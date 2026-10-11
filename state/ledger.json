@@ -759,7 +759,7 @@
       "created": "2026-10-10T15:06:04+00:00",
       "strategy": "jev_bot/strategies/data_day.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "Over 2015 onward (about 100+ qualifying events across both markets): neither the follow-through nor the fade version reaches profit factor 1.15 after costs. Or the result flips sign between the 2015-2020 and 2021-2026 halves, showing no stable edge.",
       "prediction": {
@@ -773,9 +773,164 @@
         "written": "2026-10-11T16:45:57+00:00",
         "sha256": "598734322ba5327da61c7824302d285b3ab6b15d0ebb7d9b963d7cac461d6ce0"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "choppy",
+      "backtest": {
+        "return_pct": -0.49,
+        "max_drawdown_pct": 3.58,
+        "trades": 55,
+        "win_rate_pct": 47.3,
+        "sharpe": -0.0021,
+        "sharpe_ann": -0.03,
+        "first": "2016-12-22",
+        "last": "2024-05-03",
+        "dsr": 0.463,
+        "period": "2016-12-22 → 2024-05-03",
+        "sealed_from": "2024-05-06",
+        "bars": 2513,
+        "walk_forward": [
+          {
+            "first": "2016-12-22",
+            "last": "2019-01-23",
+            "return_pct": -2.97,
+            "trades": 15,
+            "win_rate_pct": 33.3,
+            "max_drawdown_pct": 3.2
+          },
+          {
+            "first": "2018-10-19",
+            "last": "2020-10-27",
+            "return_pct": 0.48,
+            "trades": 11,
+            "win_rate_pct": 45.5,
+            "max_drawdown_pct": 1.05
+          },
+          {
+            "first": "2020-08-17",
+            "last": "2022-07-29",
+            "return_pct": 0.1,
+            "trades": 11,
+            "win_rate_pct": 45.5,
+            "max_drawdown_pct": 1.05
+          },
+          {
+            "first": "2022-06-10",
+            "last": "2024-05-03",
+            "return_pct": 2.06,
+            "trades": 18,
+            "win_rate_pct": 61.1,
+            "max_drawdown_pct": 1.33
+          }
+        ],
+        "costs_2x": {
+          "return_pct": -0.81,
+          "max_drawdown_pct": 3.68,
+          "trades": 55,
+          "win_rate_pct": 47.3,
+          "sharpe": -0.0039,
+          "sharpe_ann": -0.06,
+          "first": "2016-12-22",
+          "last": "2024-05-03"
+        },
+        "breaker": {
+          "return_pct": -0.92,
+          "max_drawdown_pct": 2.9,
+          "trades": 55,
+          "win_rate_pct": 47.3,
+          "sharpe": -0.0051,
+          "sharpe_ann": -0.08,
+          "first": "2016-12-22",
+          "last": "2024-05-03"
+        },
+        "worst_stretches": [
+          {
+            "first": "2017-01-17",
+            "last": "2017-08-03",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2017-12-06",
+            "last": "2018-06-15",
+            "return_pct": -0.25,
+            "trades": 2,
+            "max_drawdown_pct": 0.72
+          },
+          {
+            "first": "2020-02-25",
+            "last": "2020-08-03",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2021-12-28",
+            "last": "2022-05-16",
+            "return_pct": 0.3,
+            "trades": 1,
+            "max_drawdown_pct": 0.28
+          },
+          {
+            "first": "2022-09-15",
+            "last": "2023-01-23",
+            "return_pct": 0.18,
+            "trades": 3,
+            "max_drawdown_pct": 0.86
+          }
+        ],
+        "regime": "choppy",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": false,
+            "detail": "return -0.49% < 0.0%"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.46 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": true,
+            "detail": "3 of 4 windows with trades were profitable"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": false,
+            "detail": "-0.81% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": false,
+            "detail": "-0.92%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches -0.25% (prediction allowed -10.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "yahoo",
+        "at": "2026-10-11T16:46:08+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-11T16:46:08+00:00",
+          "version": 1,
+          "return_pct": -0.49,
+          "win_rate_pct": 47.3,
+          "max_drawdown_pct": 3.58,
+          "trades": 55,
+          "sharpe_ann": -0.03,
+          "sharpe": -0.0021,
+          "dsr": 0.463,
+          "data": "yahoo",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -789,6 +944,11 @@
           "at": "2026-10-11T16:45:57+00:00",
           "source": "prediction note",
           "text": "prediction written by Claude from the Macro Watcher's own falsification line (needs ~40% wins at 1.5:1); the 85% win-rate goal is not applied because no 1.5:1 rule can reach it. Follow-through is v1; the fade version would be attempt 2"
+        },
+        {
+          "at": "2026-10-11T16:46:08+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), survives double costs, survives delayed fills + double costs"
         }
       ],
       "notes": "why: In a hiking cycle with yields near 2002 highs, data surprises reprice the Fed path. Large release-day moves may either keep going (repricing continues) or be faded (the September NFP: EURUSD +0.4% on release, gone within days as the dollar returned to its highs). A fixed event calendar turns this into a clean, repeatable test, and the next live events are CPI on 14 Oct and NFP on about 6 Nov. | needs: Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December. | kind: daily | memo: research/macro-2026-10-10.md",
