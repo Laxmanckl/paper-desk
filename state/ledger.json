@@ -750,34 +750,49 @@
     {
       "id": "H7",
       "idea": "On US CPI and NFP release days, if the daily close-to-close move is >=1.0 ATR(14), enter at the next daily open in the direction of that move; stop 1.0 ATR, target 1.5 ATR, max hold 5 days. Test the fade (opposite direction) version alongside it.",
-      "desk": "idea",
+      "desk": "daily",
       "markets": [
         "EURUSD",
         "XAUUSD"
       ],
       "source": "Macro Watcher",
       "created": "2026-10-10T15:06:04+00:00",
-      "strategy": "",
+      "strategy": "jev_bot/strategies/data_day.py v1",
       "version": 1,
       "variations": 0,
       "max_variations": 5,
       "falsify": "Over 2015 onward (about 100+ qualifying events across both markets): neither the follow-through nor the fade version reaches profit factor 1.15 after costs. Or the result flips sign between the 2015-2020 and 2021-2026 halves, showing no stable edge.",
-      "prediction": null,
+      "prediction": {
+        "return_pct": 4.0,
+        "win_rate_pct": 45.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 40,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-11T16:45:57+00:00",
+        "sha256": "598734322ba5327da61c7824302d285b3ab6b15d0ebb7d9b963d7cac461d6ce0"
+      },
       "regime": "",
       "backtest": null,
       "attempts": [],
       "sealed": null,
       "paper": null,
-      "status": "untested",
+      "status": "testing",
       "lessons": [
         {
           "at": "2026-10-10T15:07:02+00:00",
           "source": "Skeptic",
           "text": "Skeptic (test): By the next open the surprise is priced in. A >=1 ATR daily move on release days is mostly noise. Testing follow-through and fade gives two shots at a coin flip. NFP-Friday entries face weekend gap risk against a tight 1-ATR stop. Still the cleanest and largest-sample idea here, so require the same sign in both halves and both markets."
+        },
+        {
+          "at": "2026-10-11T16:45:57+00:00",
+          "source": "prediction note",
+          "text": "prediction written by Claude from the Macro Watcher's own falsification line (needs ~40% wins at 1.5:1); the 85% win-rate goal is not applied because no 1.5:1 rule can reach it. Follow-through is v1; the fade version would be attempt 2"
         }
       ],
       "notes": "why: In a hiking cycle with yields near 2002 highs, data surprises reprice the Fed path. Large release-day moves may either keep going (repricing continues) or be faded (the September NFP: EURUSD +0.4% on release, gone within days as the dollar returned to its highs). A fixed event calendar turns this into a clean, repeatable test, and the next live events are CPI on 14 Oct and NFP on about 6 Nov. | needs: Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December. | kind: daily | memo: research/macro-2026-10-10.md",
-      "module": "",
+      "module": "data_day",
       "conditions": "Needs a historical list of BLS CPI and NFP release dates, about 24 events a year. Only bars where the move is at least 1 ATR qualify, filtering for real surprises. Most relevant when the Fed path is live (hikes or cuts priced), as now: about 20% October hike odds, 70-80% by December.",
       "skeptic": {
         "verdict": "test",

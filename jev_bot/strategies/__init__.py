@@ -17,8 +17,14 @@ HERE = Path(__file__).resolve().parent
 
 
 def available() -> list[str]:
-    return sorted(m.name for m in pkgutil.iter_modules([str(HERE)])
-                  if not m.name.startswith("_") and m.name != "base")
+    """Strategy modules: every file here that defines STRATEGY (not the template, not data files)."""
+    out = []
+    for m in pkgutil.iter_modules([str(HERE)]):
+        if m.name.startswith("_") or m.name == "base":
+            continue
+        if "STRATEGY =" in (HERE / f"{m.name}.py").read_text(encoding="utf-8"):
+            out.append(m.name)
+    return sorted(out)
 
 
 def load(name: str) -> DailyStrategy:
@@ -81,7 +87,7 @@ def check(strat: DailyStrategy, sim_bars: int = 400) -> list[str]:
                 fails.append(f"{sym} bar {t}: same history gave {a} then {b} (hidden state or randomness)")
                 break
             seen.add(a)
-        if not ({"BUY", "SELL"} & seen):
+        if not ({"BUY", "SELL"} & seen) and not strat.needs_real_dates:
             fails.append(f"{sym}: never signalled in {sim_bars} simulated days")
     if not (0 < strat.risk_pct <= 0.03):
         fails.append(f"risk_pct {strat.risk_pct} outside 0-3% per trade")

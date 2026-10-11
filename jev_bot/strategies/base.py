@@ -34,6 +34,7 @@ class DailyStrategy:
     tp_atr: float = 3.0
     max_hold: int = 20
     max_leverage: float = 10.0
+    needs_real_dates: bool = False    # trades on calendar events: simulated data has no event days
 
     # --- entry rules --------------------------------------------------------
     def signal(self, history: list) -> str | None:

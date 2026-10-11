@@ -694,5 +694,9 @@ _rl = backtest.run("EURUSD", _late, strategy=_bo, late_fill=True)
 ok("backtest: a late fill at the close is never managed against that same day's high and low",
    not _rl.trades or _rl.trades[0].bars > 0)
 
+ok("strategies: H7 (data-day follow-through) passes its checks and only fires on release days",
+   STR.check(STR.load("data_day")) == []
+   and STR.load("data_day").signal(fx.simulate("EURUSD", 300, 2)) is None)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
