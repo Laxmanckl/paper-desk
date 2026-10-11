@@ -82,8 +82,11 @@ class DataDay(DailyStrategy):
         return follow
 
 
+# v1 "follow" (2026-10-11): -0.49% on 55 trades, 47% wins, DSR 0.46: failed.
+# v2 "fade": the reverse direction the research memo asked to test alongside it.
 STRATEGY = DataDay(
-    name="data_day", version=1,
-    hypothesis="After a CPI or jobs-report day that moves at least 1 ATR, the move continues over the next 5 days",
+    name="data_day", version=2,
+    hypothesis="After a CPI or jobs-report day that moves at least 1 ATR, the move reverses over the next 5 days",
     markets=("XAUUSD", "EURUSD"), risk_pct=0.01, sl_atr=1.0, tp_atr=1.5, max_hold=5,
     needs_real_dates=True)
+STRATEGY.mode = "fade"
