@@ -650,7 +650,7 @@
       "created": "2026-10-10T15:06:04+00:00",
       "strategy": "jev_bot/strategies/shock_box.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "On >=30 historical setups, expectancy <=0R after costs, or win rate <35% at a 2R target, or the shock-direction-only variant performs no better than both-directions (meaning the shock filter adds nothing).",
       "prediction": {
@@ -665,9 +665,164 @@
         "written": "2026-10-11T20:05:11+00:00",
         "sha256": "444a94c08b757c7f80294ee2ffd405cdc16e83dc9564bc4ef6f680c3bd2387a0"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "trending up",
+      "backtest": {
+        "return_pct": -2.59,
+        "max_drawdown_pct": 3.92,
+        "trades": 7,
+        "win_rate_pct": 28.6,
+        "sharpe": -0.0212,
+        "sharpe_ann": -0.34,
+        "first": "2016-12-22",
+        "last": "2024-04-09",
+        "dsr": 0.168,
+        "period": "2016-12-22 → 2024-04-09",
+        "sealed_from": "2024-04-10",
+        "bars": 2513,
+        "walk_forward": [
+          {
+            "first": "2016-12-22",
+            "last": "2018-10-18",
+            "return_pct": 0.96,
+            "trades": 2,
+            "win_rate_pct": 50.0,
+            "max_drawdown_pct": 1.04
+          },
+          {
+            "first": "2018-10-19",
+            "last": "2020-08-14",
+            "return_pct": -3.15,
+            "trades": 3,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 3.19
+          },
+          {
+            "first": "2020-08-17",
+            "last": "2022-06-09",
+            "return_pct": -0.38,
+            "trades": 2,
+            "win_rate_pct": 50.0,
+            "max_drawdown_pct": 1.88
+          },
+          {
+            "first": "2022-06-10",
+            "last": "2024-04-09",
+            "return_pct": 0.0,
+            "trades": 0,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 0.0
+          }
+        ],
+        "costs_2x": {
+          "return_pct": -2.65,
+          "max_drawdown_pct": 3.93,
+          "trades": 7,
+          "win_rate_pct": 28.6,
+          "sharpe": -0.0217,
+          "sharpe_ann": -0.34,
+          "first": "2016-12-22",
+          "last": "2024-04-09"
+        },
+        "breaker": {
+          "return_pct": -2.13,
+          "max_drawdown_pct": 3.61,
+          "trades": 7,
+          "win_rate_pct": 28.6,
+          "sharpe": -0.012,
+          "sharpe_ann": -0.19,
+          "first": "2016-12-22",
+          "last": "2024-04-09"
+        },
+        "worst_stretches": [
+          {
+            "first": "2019-05-16",
+            "last": "2019-08-09",
+            "return_pct": -1.01,
+            "trades": 1,
+            "max_drawdown_pct": 1.01
+          },
+          {
+            "first": "2020-02-25",
+            "last": "2020-05-19",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2020-05-20",
+            "last": "2020-08-13",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2020-12-22",
+            "last": "2021-03-19",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2022-10-27",
+            "last": "2023-01-24",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          }
+        ],
+        "regime": "trending up",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": false,
+            "detail": "return -2.59% < 0.0%; win rate 29% < 35.0%; only 7 trades, prediction needed 15"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.17 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": false,
+            "detail": "1 of 3 windows with trades were profitable"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": false,
+            "detail": "-2.65% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": false,
+            "detail": "-2.13%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches -1.01% (prediction allowed -8.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "yahoo",
+        "at": "2026-10-11T20:05:25+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-11T20:05:25+00:00",
+          "version": 1,
+          "return_pct": -2.59,
+          "win_rate_pct": 28.6,
+          "max_drawdown_pct": 3.92,
+          "trades": 7,
+          "sharpe_ann": -0.34,
+          "sharpe": -0.0212,
+          "dsr": 0.168,
+          "data": "yahoo",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -681,6 +836,11 @@
           "at": "2026-10-11T20:05:11+00:00",
           "source": "prediction note",
           "text": "prediction written by Claude from the Price Analyst's own falsification line, before any test; the 85% win-rate goal is not applied"
+        },
+        {
+          "at": "2026-10-11T20:05:25+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
         }
       ],
       "notes": "why: Shocks are often followed by volatility compression, and the breakout that ends the compression tends to carry because positioning has reset; gold now matches this exactly: a -3.54% day (~4.7x avg move) followed by 9 closes in a 1.48% (~2 avg moves) box at 4140.7-4202.3. | needs: Shock day with abs move >=3x 20d ATR; next >=5 closes all within a band <=2.5 ATR; entry only on a daily close beyond the box +/-0.25 ATR; one trade per box; void if no breakout within 15 days of box formation. | kind: daily | memo: research/price-2026-10-10.md",
