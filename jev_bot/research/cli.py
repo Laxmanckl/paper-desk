@@ -106,11 +106,17 @@ def _scalp_series(h, a):
     csvs = {instruments.get(k).symbol: v for k, v in (c.split("=", 1) for c in a.csv)}
     if a.source == "sim":
         return {s: sb.simulate(s, a.days, a.seed) for s in syms}, "sim"
+    # files saved by `research export-mt5` are picked up automatically: no --csv needed
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    for s_ in syms:
+        f = os.path.join(root, "data", "mt5", f"{s_}_M1.csv")
+        if s_ not in csvs and os.path.exists(f):
+            csvs[s_] = f
     missing = [s for s in syms if s not in csvs]
     if missing:
         _fail("scalper tests need 1-minute history for " + ", ".join(missing) + ". On the Windows PC "
-              "with MT5 run:  python -m jev_bot research export-mt5 " + " ".join(syms) + " --days 60\n"
-              "  then:  --csv " + " --csv ".join(f"{s}=data/mt5/{s}_M1.csv" for s in syms))
+              "with MT5 open, run:\n    python -m jev_bot research export-mt5 " + " ".join(syms) +
+              " --days 60\n  then run this backtest again (it finds the files in data/mt5 by itself)")
     return {s: sb.load_csv(csvs[s]) for s in syms}, "csv (MT5 1-minute)"
 
 
