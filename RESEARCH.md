@@ -83,6 +83,18 @@ python -m jev_bot research backtest H2 --csv EURUSD=data/mt5/EURUSD_M1.csv --csv
 
 Then commit `state/ledger.json` (the scalper's next publish does it for you if you run it inside `C:\paper-scalper`).
 
+### Beating chance, and ideas found in other results
+
+A high win rate can come from the trade's shape alone (a small target and a wide stop).
+Every backtest therefore compares the real wins with (a) the same entries taken the other
+way, same stop/target distances and costs, and (b) the shape's own odds, stop / (stop +
+target). It passes only if it beats both by 2 standard errors.
+
+An idea spotted in another idea's results (`research add ... --found-in H19`) cannot run a
+development backtest (it would only repeat what was seen): it goes straight to its one
+sealed run. `research control <id>` runs a strategy's control trades (e.g. other hours of
+the day) on the development period, as a diagnostic that writes nothing.
+
 ### 1-hour and 4-hour strategies
 
 A strategy in `jev_bot/strategies/` can set `timeframe="H1"` or `"H4"` (and `history_bars`
