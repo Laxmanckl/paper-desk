@@ -3952,14 +3952,43 @@
       "regime": "",
       "backtest": null,
       "attempts": [],
-      "sealed": null,
+      "sealed": {
+        "chance_win_pct": 59.0,
+        "edge_z": -3.62,
+        "return_pct": -9.89,
+        "max_drawdown_pct": 10.79,
+        "trades": 803,
+        "win_rate_pct": 52.7,
+        "sharpe": -0.0538,
+        "sharpe_ann": -4.18,
+        "first": "2026-05-12 08:00",
+        "last": "2026-10-12 12:00",
+        "costs_2x_return_pct": -18.11,
+        "period": "2026-05-12 08:00 → 2026-10-12 12:00",
+        "passed": false,
+        "why": [
+          "return -9.89% < 0.0%",
+          "lost money (-9.89%)",
+          "53% wins vs 59% by chance (z -3.6; needs +2.0)",
+          "loses at double costs (-18.11%)"
+        ],
+        "regime": "trending up",
+        "data": "MT5 1-hour · 9 markets · from 2025-02-03 06:00",
+        "at": "2026-10-12T11:25:46+00:00",
+        "version": 1
+      },
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T11:24:07+00:00",
           "source": "ledger",
           "text": "Found by looking at H19's development-period results, so the development period proves nothing for it: it is judged ONLY on the sealed period, in one run."
+        },
+        {
+          "at": "2026-10-12T11:25:46+00:00",
+          "source": "sealed",
+          "text": "sealed test failed (-9.89% on 2026-05-12 08:00 → 2026-10-12 12:00): return -9.89% < 0.0%; lost money (-9.89%); 53% wins vs 59% by chance (z -3.6; needs +2.0); loses at double costs (-18.11%)"
         }
       ],
       "notes": "",
