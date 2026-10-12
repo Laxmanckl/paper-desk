@@ -67,12 +67,23 @@ class ScalpConfig:
     orb_entry_until: float = 12.0          # breakouts only until 12:00 UTC
     orb_exit_utc: float = 16.0             # anything still open closes at 16:00 UTC
     orb_buffer: float = 0.1                # close must clear the range by 10% of its height
+    # --- D: Lorentzian ML (only used when strategy == "lorentzian") ---
+    lz_minutes: int = 15                   # candle size the model runs on
+    warmup_hours: float = 16.0             # history a backtest window gets before trading
 
     @classmethod
     def from_dict(cls, d: dict) -> "ScalpConfig":
         """Rebuild from a saved account, ignoring settings older versions had."""
         known = cls.__dataclass_fields__
         return cls(**{k: v for k, v in (d or {}).items() if k in known})
+
+
+def lorentz_config(**kw) -> ScalpConfig:
+    """Scalper D: jdehorty's Lorentzian Classification on 15-minute candles."""
+    base = dict(strategy="lorentzian", lz_minutes=15, stop_atr=1.5, reward_risk=1.5, max_minutes=60,
+                htf_slow=0, cooldown_min=0, max_trades_per_day=20, warmup_hours=80.0)
+    base.update(kw)
+    return ScalpConfig(**base)
 
 
 def hiwin_config(**kw) -> ScalpConfig:
@@ -123,6 +134,9 @@ def evaluate(bars: list[Bar], cfg: ScalpConfig, t: float = 0.0, st: dict | None 
     if cfg.strategy == "orb":
         from .orb import evaluate as orb_eval
         return orb_eval(bars, cfg, t, st if st is not None else {})
+    if cfg.strategy == "lorentzian":
+        from .lorentz import evaluate as lz_eval
+        return lz_eval(bars, cfg, t, st if st is not None else {})
     need = cfg.ema_slow + 5
     if len(bars) < need:
         return Signal(None, 0.0, "flat", 50.0, f"warming up ({len(bars)}/{need} candles)")

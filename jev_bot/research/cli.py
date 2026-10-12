@@ -147,6 +147,9 @@ def _scalp_series(h, a):
 
 def _scalp_cfg(desk):
     from ..scalp.strategy import ScalpConfig
+    if desk == "scalper_lz":
+        from ..scalp.strategy import lorentz_config
+        return lorentz_config()
     if desk == "scalper_hiwin":
         from ..scalp.strategy import hiwin_config
         return hiwin_config()
@@ -237,7 +240,7 @@ def cmd_backtest(a):
         series, label = _scalp_series(h, a)
         r = honest.scalper(h, series, _scalp_cfg(h["desk"]), trials, sharpes, a.windows)
     r["data"] = label
-    dry = label == "sim"
+    dry = a.source == "sim" and not a.csv           # simulated data never touches the ledger
     _print_result(h, r, dry)
     if dry:
         return
@@ -281,7 +284,7 @@ def cmd_sealed(a):
     print(f"\n  SEALED TEST · {h['id']} · {r['period']}")
     print(f"  return {r['return_pct']:+.2f}%  drawdown {r['max_drawdown_pct']:.2f}%  trades {r['trades']}  "
           f"win {r['win_rate_pct']:.0f}%  => {'PASSED' if r['passed'] else 'FAILED'} {'; '.join(r['why'])}")
-    if label == "sim":
+    if a.source == "sim" and not a.csv:
         print("  (dry run on simulated data: the sealed test is NOT used up)")
         return
     ledger.record_sealed(h, r)

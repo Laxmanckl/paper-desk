@@ -713,5 +713,53 @@ from jev_bot.strategies import fomc_dates as _fd
 ok("FOMC dates cover 2005-2027 with 8 scheduled meetings in a normal year",
    sum(d.startswith("2007") for d in _fd.DECISIONS) == 8 and min(_fd.DECISIONS) < "2005-03")
 
+# --- Lorentzian Classification port (H12 / H13) ------------------------------------------
+from jev_bot import lorentzian as LZ
+_r = LZ.RSI(14)
+ok("lorentzian: RSI is 100 on a steady climb and the 0..1 scaling holds",
+   [_r.update(float(x)) for x in range(30)][-1] == 100.0 and LZ.rescale(50, 0, 100) == 0.5)
+ok("lorentzian: the kernel of a constant series is that constant",
+   abs(LZ.rational_quadratic([2.5] * 30) - 2.5) < 1e-12)
+_m = LZ.Lorentzian()
+for _p in (1.0, 1.1, 1.2, 1.3, 1.4):
+    _m.update(_p, _p + 0.05, _p - 0.05, _p)
+ok("lorentzian: labels as the original script does (price rose over 4 candles -> -1)", _m.y[-1] == -1)
+_lb = fx.simulate("EURUSD", 700, 9)
+_full = LZ.Lorentzian()
+_a = [_full.update(b.open, b.high, b.low, b.close) for b in _lb]
+_short = LZ.Lorentzian()
+_b = [_short.update(b.open, b.high, b.low, b.close) for b in _lb[:400]]
+ok("lorentzian: no look-ahead (the first 400 outputs are identical with or without later candles)",
+   [(o["prediction"], o["start_long"], o["start_short"]) for o in _a[:400]] ==
+   [(o["prediction"], o["start_long"], o["start_short"]) for o in _b])
+ok("lorentzian: the neighbour vote stays within -8..+8 and signals do fire",
+   all(-8 <= o["prediction"] <= 8 for o in _a) and any(o["start_long"] or o["start_short"] for o in _a))
+_c = LZ.Cached(lambda b: b.date, lambda b: (b.open, b.high, b.low, b.close))
+ok("lorentzian: the incremental cache matches a straight run, candle by candle",
+   all(_c.at(_lb[:t + 1])["prediction"] == _a[t]["prediction"] for t in range(0, 700, 7)))
+ok("strategies: H13 (Lorentzian daily) passes its checks", STR.check(STR.load("lorentzian_daily")) == [])
+from jev_bot.scalp import backtest as _sbt
+from jev_bot.scalp.strategy import lorentz_config as _lzc
+_bk = _sbt.replay({"EURUSD": _sbt.simulate("EURUSD", 10, 3)}, _lzc())
+ok("scalper D: trades only on 15-minute candle closes, out within 60 minutes",
+   len(_bk.trades) >= 3 and all(int(__import__("datetime").datetime.fromisoformat(t["opened"]).timestamp()) % 900 == 0 for t in _bk.trades)
+   and all(t["secs"] <= 3600 + 60 for t in _bk.trades))
+
+_real_ledger = L.PATH
+L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
+_dl = {"hypotheses": []}
+_hh = L.add(_dl, "x", "daily", ["EURUSD"])
+_hh["module"] = "_template"
+L.predict(_hh, 1, 40, 10, 5, {"return_below": 0})
+L.save(_dl)
+_before = open(L.PATH).read()
+from jev_bot.cli import main as _main
+import contextlib, io
+with contextlib.redirect_stdout(io.StringIO()):
+    _main(["research", "backtest", "H1", "--source", "sim", "--bars", "800"])
+_after = open(L.PATH).read()
+L.PATH = _real_ledger
+ok("research: a backtest on simulated data is a dry run and never writes the ledger", _before == _after)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

@@ -103,17 +103,23 @@ def _combine(curves: dict, start: float) -> list[float]:
     return out
 
 
+def _warm(kw) -> int:
+    """Bars of history a strategy needs before its first trade (50 unless it says more)."""
+    return max(fx.WARMUP, getattr(kw.get("strategy"), "warmup", 0) or 0)
+
+
 def _run_daily(bars_by_sym: dict, lo: int | None = None, hi: int | None = None, **kw) -> dict:
     """Run every instrument on bars[lo:hi] (lo counted from where trading starts),
-    with the 50-bar warm-up taken from just before lo."""
+    with the warm-up taken from just before lo."""
     curves, trades = {}, []
+    W = _warm(kw)
     for sym, bars in bars_by_sym.items():
-        a = (lo if lo is not None else fx.WARMUP) - fx.WARMUP
+        a = (lo if lo is not None else W) - W
         seg = bars[max(0, a):hi]
-        if len(seg) <= fx.WARMUP + 1:
+        if len(seg) <= W + 1:
             continue
         res = backtest.run(sym, seg, **kw)
-        curves[sym] = {seg[fx.WARMUP + i].date: e for i, e in enumerate(res.equity_curve)}
+        curves[sym] = {seg[W + i].date: e for i, e in enumerate(res.equity_curve)}
         trades += res.trades
     start = backtest.Settings().start_equity
     curve = _combine(curves, start) if curves else [start]
@@ -149,24 +155,25 @@ def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows:
     n = min(len(b) for b in bars_by_sym.values())
     bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}        # same span for every instrument
     cut = int(n * (1 - HOLDOUT))
-    if cut - fx.WARMUP < 120:
-        raise SystemExit(f"  only {n} daily bars: need at least ~{int((fx.WARMUP + 120) / (1 - HOLDOUT))}")
-    dev = _run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy)
-    step = (cut - fx.WARMUP) // windows
+    W = _warm({"strategy": strategy})
+    if cut - W < 120:
+        raise SystemExit(f"  only {n} daily bars: need at least ~{int((W + 120) / (1 - HOLDOUT))}")
+    dev = _run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy)
+    step = (cut - W) // windows
     wf = []
     for i in range(windows):
-        a, b = fx.WARMUP + i * step, (cut if i == windows - 1 else fx.WARMUP + (i + 1) * step)
+        a, b = W + i * step, (cut if i == windows - 1 else W + (i + 1) * step)
         w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
         wf.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "win_rate_pct", "max_drawdown_pct")})
-    costs2 = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy, cost_mult=2.0))
-    breaker = _clean(_run_daily(bars_by_sym, fx.WARMUP, cut, engine=engine, strategy=strategy, cost_mult=2.0, late_fill=True))
+    costs2 = _clean(_run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy, cost_mult=2.0))
+    breaker = _clean(_run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy, cost_mult=2.0, late_fill=True))
     ref = next(iter(bars_by_sym.values()))
     worst = []
-    for a, b in _worst_stretches(ref, fx.WARMUP, cut):
+    for a, b in _worst_stretches(ref, W, cut):
         w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
         worst.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "max_drawdown_pct")})
     v = _verdict(h, dev, wf, costs2, worst, trials, trial_sharpes, breaker)
-    closes = [b.close for b in ref[fx.WARMUP:cut]]
+    closes = [b.close for b in ref[W:cut]]
     return {**_clean(dev), "period": f"{dev.get('first', '?')} → {dev.get('last', '?')}",
             "sealed_from": ref[cut].date, "bars": n, "walk_forward": wf, "costs_2x": costs2,
             "breaker": breaker, "worst_stretches": worst, "regime": stats.regime(closes), **v}
@@ -204,9 +211,10 @@ def _day(t: float) -> str:
 
 
 def _run_scalp(series: dict, cfg, lo: float, hi: float, spread_mult: float = 1.0) -> dict:
-    """Replay minutes [lo, hi) (unix seconds). The strategy warms up on the 16 h before lo."""
+    """Replay minutes [lo, hi) (unix seconds). The strategy warms up on the hours before lo
+    (16 by default; longer for strategies that say so, e.g. the 15-minute ML model)."""
     from ..scalp import backtest as sb
-    warm = 16 * 3600
+    warm = getattr(cfg, "warmup_hours", 16) * 3600
     seg = {s: [b for b in bars if lo - warm <= b.t < hi] for s, bars in series.items()}
     seg = {s: b for s, b in seg.items() if b}
     if not seg:
@@ -232,7 +240,7 @@ def scalper(h: dict, series: dict, cfg, trials: int, trial_sharpes: list, window
     t0 = max(b[0].t for b in series.values())
     t1 = min(b[-1].t for b in series.values()) + 60
     cut = t0 + (t1 - t0) * (1 - HOLDOUT)
-    lo = t0 + 16 * 3600                                           # first day is warm-up
+    lo = t0 + getattr(cfg, "warmup_hours", 16) * 3600            # warm-up before the first trade
     if (cut - lo) / 86400 < 10:
         raise SystemExit("  need at least ~3 weeks of 1-minute history for an honest scalper test")
     dev = _run_scalp(series, cfg, lo, cut)

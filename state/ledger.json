@@ -2051,6 +2051,97 @@
       ],
       "notes": "",
       "module": ""
+    },
+    {
+      "id": "H12",
+      "idea": "Scalper D: jdehorty's Lorentzian Classification (ML nearest-neighbours on RSI, WaveTrend, CCI, ADX) ported unchanged, on 15-minute candles of the 9 MT5 markets; 60-minute exit, stop 1.5 ATR, target 1.5x the stop",
+      "desk": "scalper_lz",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP",
+        "XAUUSD"
+      ],
+      "source": "you (TradingView script, 'SmartAIML')",
+      "created": "2026-10-12T08:18:01+00:00",
+      "strategy": "jev_bot/scalp/lorentz.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 100+ trades, or under 45% wins at a 1.5:1 payoff",
+      "prediction": {
+        "return_pct": 3.0,
+        "win_rate_pct": 50.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-12T08:18:01+00:00",
+        "sha256": "14df9eee6f8813b20745c7c8765da4954a3c6b250afff8de1beeb6e645cd506b"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T08:18:01+00:00",
+          "source": "prediction note",
+          "text": "the received script is jdehorty's open-source 'Machine Learning: Lorentzian Classification' (MPL-2.0) retitled; ported to Python unchanged with stop/target/sizing added. Its TradingView win-rate table ignores costs and is not a backtest. Prediction written by Claude before testing; the 85% goal is not applied"
+        }
+      ],
+      "notes": "",
+      "module": ""
+    },
+    {
+      "id": "H13",
+      "idea": "jdehorty's Lorentzian Classification ported unchanged, on daily candles across all 9 markets: enter on its signal, exit after 4 days (its horizon), protective stop 2 ATR",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD"
+      ],
+      "source": "you (TradingView script, 'SmartAIML')",
+      "created": "2026-10-12T08:18:01+00:00",
+      "strategy": "jev_bot/strategies/lorentzian_daily.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "Net loss after costs over 100+ trades across the 9 markets, or under 45% wins",
+      "prediction": {
+        "return_pct": 3.0,
+        "win_rate_pct": 50.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0
+        },
+        "written": "2026-10-12T08:18:01+00:00",
+        "sha256": "e31247a582174472f6b2ed829ab5e3880db5f21e0afcb7aaf8e4cdd6058257fe"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T08:18:02+00:00",
+          "source": "prediction note",
+          "text": "the received script is jdehorty's open-source 'Machine Learning: Lorentzian Classification' (MPL-2.0) retitled; ported to Python unchanged with stop/target/sizing added. Its TradingView win-rate table ignores costs and is not a backtest. Prediction written by Claude before testing; the 85% goal is not applied"
+        }
+      ],
+      "notes": "",
+      "module": "lorentzian_daily"
     }
   ]
 }

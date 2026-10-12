@@ -133,21 +133,22 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
         settings = strategy.settings()
     s = settings or Settings()
     lim = limits or risk.Limits()
+    W = max(fx.WARMUP, getattr(strategy, "warmup", 0) or 0)
     spec = dict(fx.spec(symbol))
     spec["spread"] *= cost_mult
     half = spec["spread"] / 2
 
-    res = Result(symbol=symbol, source=source, first_date=bars[fx.WARMUP].date,
-                 last_date=bars[-1].date, bars=len(bars) - fx.WARMUP,
+    res = Result(symbol=symbol, source=source, first_date=bars[W].date,
+                 last_date=bars[-1].date, bars=len(bars) - W,
                  start_equity=s.start_equity)
-    res.buy_hold = bars[-1].close / bars[fx.WARMUP].close - 1
+    res.buy_hold = bars[-1].close / bars[W].close - 1
 
     equity = s.start_equity
     pos: Trade | None = None
     t_open = 0
     pending = None          # side to open at the next bar's open
 
-    for t in range(fx.WARMUP, len(bars)):
+    for t in range(W, len(bars)):
         b = bars[t]
 
         # 1. fill an order signalled on the previous bar, at this bar's open
