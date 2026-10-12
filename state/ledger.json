@@ -427,6 +427,11 @@
           "at": "2026-10-12T08:10:34+00:00",
           "source": "you",
           "text": "switched back on by the user on 2026-10-12 (paper only), after the failed backtest; the Sunday review keeps scoring it"
+        },
+        {
+          "at": "2026-10-12T08:42:13+00:00",
+          "source": "backtest fix",
+          "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -645,6 +650,11 @@
           "at": "2026-10-12T08:10:34+00:00",
           "source": "you",
           "text": "switched back on by the user on 2026-10-12 (paper only), after the failed backtest; the Sunday review keeps scoring it"
+        },
+        {
+          "at": "2026-10-12T08:42:13+00:00",
+          "source": "backtest fix",
+          "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -2047,6 +2057,11 @@
           "at": "2026-10-11T16:44:10+00:00",
           "source": "you",
           "text": "failed its first honest backtest: 65% wins but -7% (needs 71%+ to break even); not taken to paper"
+        },
+        {
+          "at": "2026-10-12T08:42:14+00:00",
+          "source": "backtest fix",
+          "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
         }
       ],
       "notes": "",
@@ -2240,6 +2255,11 @@
           "at": "2026-10-12T08:33:52+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs"
+        },
+        {
+          "at": "2026-10-12T08:42:14+00:00",
+          "source": "backtest fix",
+          "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
         }
       ],
       "notes": "",
@@ -2431,7 +2451,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T08:18:02+00:00",
@@ -2442,6 +2462,11 @@
           "at": "2026-10-12T08:35:16+00:00",
           "source": "backtest",
           "text": "v1 failed: deflated sharpe (luck-adjusted), walk-forward windows, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T08:42:13+00:00",
+          "source": "you",
+          "text": "607 trades across 9 markets 2015-2023: +1.1% in total, 51% wins, only 1 of 4 windows profitable, luck test 0.70, loses with delayed fills: no edge on daily candles"
         }
       ],
       "notes": "",

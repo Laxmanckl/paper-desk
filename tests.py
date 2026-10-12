@@ -761,5 +761,20 @@ _after = open(L.PATH).read()
 L.PATH = _real_ledger
 ok("research: a backtest on simulated data is a dry run and never writes the ledger", _before == _after)
 
+from jev_bot.scalp import engine as _eng
+_seen_t = []
+_orig_tick = _eng.Engine.on_tick
+def _spy(self, sym, bid, ask, t):
+    _seen_t.append(t)
+    return _orig_tick(self, sym, bid, ask, t)
+_eng.Engine.on_tick = _spy
+_ga = _sbt.simulate("EURUSD", 2, 1)
+_gb = [b for i, b in enumerate(_sbt.simulate("XAUUSD", 2, 1)) if i % 10]     # gold with missing minutes
+_sbt.replay({"EURUSD": _ga, "XAUUSD": _gb}, ScalpConfig())
+_eng.Engine.on_tick = _orig_tick
+ok("scalp backtest: instruments with gaps are replayed in true time order (no drifting clocks)",
+   [int(t // 60) for t in _seen_t] == sorted(int(t // 60) for t in _seen_t)
+   and len(_seen_t) == 4 * (len(_ga) + len(_gb)))
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
