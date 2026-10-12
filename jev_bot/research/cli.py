@@ -413,7 +413,14 @@ def cmd_export_mt5(a):
             continue
         mt5.symbol_select(theirs, True)
         if a.daily:
-            rates = mt5.copy_rates_from_pos(theirs, mt5.TIMEFRAME_D1, 1, 9999)   # 1 = skip today's forming bar
+            rates = None
+            # brokers keep different amounts of history; asking for more than the terminal
+            # has loaded fails ("Call failed"), so step down until a request succeeds
+            for count in (9999, 6000, 4000, 3000, 2000, 1000):
+                rates = mt5.copy_rates_from_pos(theirs, mt5.TIMEFRAME_D1, 1, count)   # 1 = skip today's bar
+                if rates is not None and len(rates):
+                    break
+                time.sleep(1)                                   # give the terminal time to load history
             if rates is None or not len(rates):
                 print(f"  {s}: no daily history returned ({mt5.last_error()})")
                 continue
