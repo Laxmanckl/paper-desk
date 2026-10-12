@@ -3643,7 +3643,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T10:45:14+00:00",
@@ -3664,6 +3664,16 @@
           "at": "2026-10-12T11:16:52+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T11:22:00+00:00",
+          "source": "review",
+          "text": "Fair test (2016-2024, 135 trades): -3.0%, 44% wins vs 50% chance (z -1.3), 2 of 4 windows. The month-end re-hedging flow, if it exists, is not visible in daily closes with this rule; banks' flow is spread over the fix and may already be priced by the 3rd-to-last day."
+        },
+        {
+          "at": "2026-10-12T11:22:01+00:00",
+          "source": "you",
+          "text": "Locked line hit: lost money (-3.0%) over 2016-2024 with wins below chance."
         }
       ],
       "notes": "edge: Foreign holders of US equities keep fixed currency-hedge ratios; an equity rally forces them to sell more USD before month-end, a price-insensitive flow banks publish models for | why: forced, scheduled hedge rebalancing | needs: daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month | timeframe: D1 | chance 50% vs expected 58% wins | kind: daily | memo: research/macro-2026-10-12.md",
@@ -3879,7 +3889,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T11:12:04+00:00",
@@ -3890,6 +3900,16 @@
           "at": "2026-10-12T11:21:07+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T11:22:01+00:00",
+          "source": "review",
+          "text": "36% wins vs 42% by chance (z -5.1) over 2,099 trades: London-open breakouts on 1-hour bars went the WRONG way far more often than chance. The break tends to reverse back through the range middle. Found by looking at this data, so a fade idea must be judged only on data not yet seen."
+        },
+        {
+          "at": "2026-10-12T11:22:01+00:00",
+          "source": "you",
+          "text": "Locked line hit: -33.8%, 0 of 4 windows, wins significantly below chance."
         }
       ],
       "notes": "",
