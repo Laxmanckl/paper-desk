@@ -61,6 +61,29 @@ def chance(trades: list) -> dict:
             "edge_z": round((wins - exp) / math.sqrt(var), 2) if var > 0 else 0.0}
 
 
+def versus_flipped(dev: dict, flipped: dict) -> None:
+    """Replace the shape-only chance figure with the control: the same entries taken in the
+    opposite direction, same stop and target distances, same costs and time limits. With no
+    directional skill both win about equally often, so chance = the average of the two, and
+    the edge is how far the real direction wins more often than the flipped one."""
+    n1, n2 = dev.get("trades", 0), flipped.get("trades", 0)
+    if not (n1 and n2):
+        return
+    p1, p2 = dev["win_rate_pct"] / 100, flipped["win_rate_pct"] / 100
+    pbar = (p1 * n1 + p2 * n2) / (n1 + n2)
+    se = math.sqrt(pbar * (1 - pbar) * (1 / n1 + 1 / n2)) if 0 < pbar < 1 else 0
+    dev["shape_chance_pct"] = dev.get("chance_win_pct")
+    dev["shape_edge_z"] = dev.get("edge_z")
+    dev["flipped_win_pct"] = round(100 * p2, 1)
+    dev["chance_win_pct"] = round(100 * (p1 + p2) / 2, 1)
+    dev["flipped_edge_z"] = round((p1 - p2) / se, 2) if se else 0.0
+    # both measures must agree: the flipped control is exact about costs and time limits
+    # but noisier (the two runs take slightly different entries), so pass needs both
+    dev["edge_z"] = min(dev["flipped_edge_z"], dev["shape_edge_z"]) if dev.get("shape_edge_z") is not None \
+        else dev["flipped_edge_z"]
+    dev["chance_method"] = "flipped"
+
+
 def _metrics(curve: list[float], trades: list, start: float, periods_per_year: float) -> dict:
     rets = stats.returns([start] + curve)
     sr = stats.sharpe(rets)
@@ -102,9 +125,14 @@ def _verdict(h: dict, dev: dict, wf: list, costs2: dict, worst: list, trials: in
     checks.append(_check("Walk-forward windows", len(active) >= 3 and good >= WF_MIN_SHARE * len(active),
                          f"{good} of {len(active)} windows with trades were profitable"))
     if dev.get("chance_win_pct") is not None:
-        checks.append(_check("Wins more often than chance", dev["edge_z"] >= MIN_EDGE_Z,
-                             f"{dev['win_rate_pct']:.0f}% wins vs {dev['chance_win_pct']:.0f}% by pure chance for "
-                             f"this stop/target shape (z {dev['edge_z']:+.1f}; needs {MIN_EDGE_Z:+.1f})"))
+        if dev.get("chance_method") == "flipped":
+            detail = (f"{dev['win_rate_pct']:.0f}% wins vs {dev['flipped_win_pct']:.0f}% for the same trades taken the "
+                      f"other way (z {dev['flipped_edge_z']:+.1f}) and {dev['shape_chance_pct']:.0f}% for the "
+                      f"stop/target shape (z {dev['shape_edge_z']:+.1f}); both need {MIN_EDGE_Z:+.1f}")
+        else:
+            detail = (f"{dev['win_rate_pct']:.0f}% wins vs {dev['chance_win_pct']:.0f}% by pure chance for "
+                      f"this stop/target shape (z {dev['edge_z']:+.1f}; needs {MIN_EDGE_Z:+.1f})")
+        checks.append(_check("Wins more often than chance", dev["edge_z"] >= MIN_EDGE_Z, detail))
     checks.append(_check("Survives double costs", costs2["return_pct"] > 0,
                          f"{costs2['return_pct']:+.2f}% with 2x spread"))
     if breaker is not None:
@@ -236,6 +264,7 @@ def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows:
     cut_t, c = _cut(al)
     kw = {"engine": engine, "strategy": strategy}
     dev = _run_daily(al, None, cut_t, **kw)
+    versus_flipped(dev, _run_daily(al, None, cut_t, flip=True, **kw))
     step = c // windows
     wf = []
     for i in range(windows):
@@ -262,6 +291,7 @@ def daily_sealed(h: dict, bars_by_sym: dict, engine: str = "offline", strategy=N
     al = _align(bars_by_sym, _warm({"strategy": strategy}))
     cut_t, _ = _cut(al)
     res = _clean(_run_daily(al, cut_t, None, engine=engine, strategy=strategy))
+    versus_flipped(res, _run_daily(al, cut_t, None, engine=engine, strategy=strategy, flip=True))
     costs2 = _clean(_run_daily(al, cut_t, None, engine=engine, strategy=strategy, cost_mult=2.0))
     res["costs_2x_return_pct"] = costs2["return_pct"]
     from . import ledger

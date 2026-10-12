@@ -23,6 +23,7 @@ Paper only. One account per instrument, starting at $10,000.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 
 from . import fx, jev, risk, types
@@ -125,9 +126,12 @@ def _close(tr: Trade, price: float, date: str, reason: str, t_open: int, t: int,
 def run(symbol: str, bars: list, settings: Settings | None = None,
         limits: risk.Limits | None = None, engine: str = "offline",
         source: str = "sim", cost_mult: float = 1.0, late_fill: bool = False,
-        strategy=None) -> Result:
+        strategy=None, flip: bool = False) -> Result:
     """cost_mult multiplies the spread (stress test: 2.0 = double costs).
-    late_fill fills signals at the next bar's CLOSE instead of its open (a delayed fill)."""
+    late_fill fills signals at the next bar's CLOSE instead of its open (a delayed fill).
+    flip takes every trade in the OPPOSITE direction with the same stop and target
+    distances: the "same trades, either direction" control for the chance check."""
+    FLIP = {"BUY": "SELL", "SELL": "BUY"}
     symbol = fx.resolve_any(symbol)
     if strategy is not None:                 # a jev_bot.strategies strategy brings its own rules
         strategy = strategy.for_symbol(symbol)
@@ -163,7 +167,8 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
             px_in = b.close if late_fill else b.open
             half_in = half * (getattr(strategy, "entry_spread_mult", 1.0) or 1.0)
             entry = px_in + half_in if pending == "BUY" else px_in - half_in
-            lv = strategy.levels(upto(t), pending, entry, a) if strategy is not None else None
+            asked = FLIP[pending] if flip else pending            # the side the strategy chose
+            lv = strategy.levels(upto(t), asked, entry, a) if strategy is not None else None
             stop_dist = lv[0] if lv else s.sl_atr * a
             tgt_dist = lv[1] if lv else s.tp_atr * a
             units = (equity * s.risk_pct) / stop_dist if stop_dist > 0 else 0
@@ -211,6 +216,8 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
             # one position per instrument is enforced here, so the gate's position
             # cap is not the binding rule; confidence, probability and action are
             gate = risk.check(d, 0, lim)
+        if flip and d.action in FLIP:
+            d = dataclasses.replace(d, action=FLIP[d.action])
         res.decisions[d.action] = res.decisions.get(d.action, 0) + 1
         if gate.verdict == "EXECUTE" and t < len(bars) - 1:
             if pos is None:

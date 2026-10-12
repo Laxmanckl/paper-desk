@@ -883,5 +883,17 @@ L.PATH = _real_ledger2
 ok("research: an idea found in another's results skips the development test and goes to the sealed test",
    _blocked and "SEALED TEST" in _out.getvalue() and _h2.get("found_in") == "H1" and not _h2.get("sealed"))
 
+_simw = _fx.simulate("EURUSD", 900, 3)
+_ro = _bt.run("EURUSD", _simw, strategy=_h1)
+_rf = _bt.run("EURUSD", _simw, strategy=_h1, flip=True)
+_pairs = {(a.entry_date): a for a in _ro.trades}
+_same = [(_pairs[b.entry_date], b) for b in _rf.trades if b.entry_date in _pairs]
+ok("backtest flip: same entries the other way, with the same stop and target distances",
+   _same and all(a.side != b.side and abs(abs(a.entry - a.stop) - abs(b.entry - b.stop)) < 1e-9 for a, b in _same[:20]))
+_dv = {"trades": 400, "win_rate_pct": 60.0, "chance_win_pct": 50.0, "edge_z": 4.0}
+_hon.versus_flipped(_dv, {"trades": 400, "win_rate_pct": 58.0})
+ok("chance check: winning about as often as the flipped trades is no edge, whatever the shape says",
+   _dv["edge_z"] < 2 and _dv["chance_method"] == "flipped" and _dv["shape_edge_z"] == 4.0)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
