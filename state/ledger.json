@@ -1546,7 +1546,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T15:07:02+00:00",
@@ -1572,6 +1572,11 @@
           "at": "2026-10-12T05:26:14+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T05:27:48+00:00",
+          "source": "you",
+          "text": "re-tested on 9 years of MT5 gold history (2014-2023, 20 trades): -6.5%, 35% wins, 0 of 3 windows profitable. The small profit on Yahoo data (+0.6%, 16 trades) was luck"
         }
       ],
       "notes": "why: Gold tends to be de-risked into a feared hawkish FOMC and then recovers once the uncertainty is gone; in July 2026 gold slid toward $4,000 into the meeting and rebounded above $4,100 after the hold. Record central-bank buying (PBoC 23 straight months, 21t in September; Q2 2026 a record 289t) gives dips a structural buyer, so a long-only rebound rule fits the current backdrop. | needs: Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008. | kind: daily | memo: research/central-2026-10-10.md",
