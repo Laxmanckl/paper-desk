@@ -2719,12 +2719,22 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T10:38:13+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T10:39:41+00:00",
+          "source": "review",
+          "text": "Win rate 69% is what pure chance gives with this stop/target shape: a random walk reaches +0.8 ATR before -2 ATR 2.0/2.8 = 71% of the time. The RSI(2) dip added no edge; costs made it a loss. A high win rate from a small target is geometry, not skill."
+        },
+        {
+          "at": "2026-10-12T10:39:41+00:00",
+          "source": "you",
+          "text": "Locked falsify line hit: -16.9%, 69% wins (needed 85%), 0 of 4 windows, 2864 trades on MT5 1-hour 2025-26."
         }
       ],
       "notes": "",
@@ -2925,12 +2935,22 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T10:38:22+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T10:39:41+00:00",
+          "source": "review",
+          "text": "Win rate 70% vs 71% from chance alone (target 0.8 ATR vs stop 2 ATR). No edge on 4-hour bars over 2020-2025 either; only the last window broke even."
+        },
+        {
+          "at": "2026-10-12T10:39:42+00:00",
+          "source": "you",
+          "text": "Locked falsify line hit: -9.5%, 70% wins (needed 85%), 1 of 4 windows, 2946 trades on MT5 4-hour 2020-25."
         }
       ],
       "notes": "",
