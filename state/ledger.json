@@ -3444,7 +3444,7 @@
       "created": "2026-10-12T10:45:00+00:00",
       "strategy": "jev_bot/strategies/month_end_flow.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "no better than 50% direction calls over 2010-2026 month-ends, or a loss after costs",
       "prediction": {
@@ -3459,9 +3459,175 @@
         "written": "2026-10-12T11:02:54+00:00",
         "sha256": "a4cb257979725862b84c339f9c1ace443abe5310ca0247d30010971d5f21ac71"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "choppy",
+      "backtest": {
+        "chance_win_pct": 50.0,
+        "edge_z": 0.58,
+        "return_pct": 0.32,
+        "max_drawdown_pct": 0.66,
+        "trades": 12,
+        "win_rate_pct": 58.3,
+        "sharpe": 0.005,
+        "sharpe_ann": 0.08,
+        "first": "1993-07-21",
+        "last": "2017-03-02",
+        "dsr": 0.667,
+        "period": "1993-07-21 → 2017-03-02",
+        "sealed_from": "2017-03-03",
+        "bars": 8639,
+        "walk_forward": [
+          {
+            "first": "1993-07-21",
+            "last": "1999-06-15",
+            "return_pct": 0.0,
+            "trades": 0,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "1999-06-16",
+            "last": "2005-05-05",
+            "return_pct": 0.0,
+            "trades": 0,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2005-05-06",
+            "last": "2011-04-05",
+            "return_pct": 0.0,
+            "trades": 0,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2011-04-06",
+            "last": "2017-03-02",
+            "return_pct": 0.32,
+            "trades": 12,
+            "win_rate_pct": 58.3,
+            "max_drawdown_pct": 0.66
+          }
+        ],
+        "costs_2x": {
+          "chance_win_pct": 50.0,
+          "edge_z": 0.58,
+          "return_pct": 0.29,
+          "max_drawdown_pct": 0.66,
+          "trades": 12,
+          "win_rate_pct": 58.3,
+          "sharpe": 0.0046,
+          "sharpe_ann": 0.07,
+          "first": "1993-07-21",
+          "last": "2017-03-02"
+        },
+        "breaker": {
+          "chance_win_pct": 50.0,
+          "edge_z": -0.58,
+          "return_pct": 0.17,
+          "max_drawdown_pct": 0.57,
+          "trades": 12,
+          "win_rate_pct": 41.7,
+          "sharpe": 0.0027,
+          "sharpe_ann": 0.04,
+          "first": "1993-07-21",
+          "last": "2017-03-02"
+        },
+        "worst_stretches": [
+          {
+            "first": "2000-10-25",
+            "last": "2001-01-16",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2008-08-04",
+            "last": "2008-10-24",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2008-11-17",
+            "last": "2009-02-10",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2010-04-09",
+            "last": "2010-07-01",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2014-12-31",
+            "last": "2015-03-25",
+            "return_pct": 0.0,
+            "trades": 0,
+            "max_drawdown_pct": 0.0
+          }
+        ],
+        "regime": "choppy",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": false,
+            "detail": "only 12 trades, prediction needed 100"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.67 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": false,
+            "detail": "1 of 1 windows with trades were profitable"
+          },
+          {
+            "name": "Wins more often than chance",
+            "passed": false,
+            "detail": "58% wins vs 50% by pure chance for this stop/target shape (z +0.6; needs +2.0)"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": true,
+            "detail": "+0.29% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": true,
+            "detail": "+0.17%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches +0.00% (prediction allowed -6.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "MT5 daily · 3 markets · from 1988-05-06",
+        "at": "2026-10-12T11:11:05+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-12T11:11:05+00:00",
+          "version": 1,
+          "return_pct": 0.32,
+          "win_rate_pct": 58.3,
+          "max_drawdown_pct": 0.66,
+          "trades": 12,
+          "sharpe_ann": 0.08,
+          "sharpe": 0.005,
+          "dsr": 0.667,
+          "data": "MT5 daily · 3 markets · from 1988-05-06",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -3470,6 +3636,11 @@
           "at": "2026-10-12T10:45:14+00:00",
           "source": "Skeptic",
           "text": "Skeptic (test): Untestable until US500 daily history is exported from MT5; only ~12 signals a year per pair."
+        },
+        {
+          "at": "2026-10-12T11:11:05+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance"
         }
       ],
       "notes": "edge: Foreign holders of US equities keep fixed currency-hedge ratios; an equity rally forces them to sell more USD before month-end, a price-insensitive flow banks publish models for | why: forced, scheduled hedge rebalancing | needs: daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month | timeframe: D1 | chance 50% vs expected 58% wins | kind: daily | memo: research/macro-2026-10-12.md",
