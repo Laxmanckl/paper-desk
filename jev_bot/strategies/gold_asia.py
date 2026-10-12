@@ -19,11 +19,30 @@ from .base import DailyStrategy
 
 
 class GoldAsia(DailyStrategy):
+    offset: int = 0          # 0 = Asia; controls start 8 (London) or 16 (New York) bars later
+
     def signal(self, history):
-        if len(history) < 20:
+        k = self.offset
+        if len(history) < 20 + k:
             return None
-        g = gap_hours(history[-2], history[-1])
-        return "BUY" if g is not None and g >= 2 else None
+        # the day's first bar is history[-1-k]: it follows a pause, and no pause since
+        g = gap_hours(history[-2 - k], history[-1 - k])
+        if g is None or g < 2:
+            return None
+        for i in range(k):
+            gi = gap_hours(history[-2 - i], history[-1 - i])
+            if gi is None or gi >= 2:
+                return None
+        return "BUY"
+
+    def controls(self):
+        import copy
+        out = []
+        for k, label in ((8, "same trade in London hours"), (16, "same trade in New York hours")):
+            c = copy.copy(self)
+            c.offset, c.name = k, f"{self.name}+{k}h"
+            out.append((label, c))
+        return out
 
     def explain(self, history):
         return "first bar after gold's daily pause: Asia hours start" if self.signal(history) else "mid-session"
@@ -33,7 +52,8 @@ class GoldAsia(DailyStrategy):
         nxt = day + [Bar("2026-01-07 00:00", 4200, 4205, 4195, 4201)]
         return [("the first bar after the daily pause buys", nxt, "BUY"),
                 ("an ordinary hour does nothing", day, None),
-                ("the first bar after the weekend buys", day + [Bar("2026-01-11 23:00", 4200, 4205, 4195, 4202)], "BUY")]
+                ("the first bar after the weekend buys", day + [Bar("2026-01-11 23:00", 4200, 4205, 4195, 4202)], "BUY"),
+                ("one bar into the day is not the day's first bar", nxt + [Bar("2026-01-07 01:00", 4200, 4205, 4195, 4201)], None)]
 
 
 STRATEGY = GoldAsia(

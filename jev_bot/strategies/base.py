@@ -62,6 +62,13 @@ class DailyStrategy:
         """One plain sentence: why the signal is what it is."""
         return "rule fired" if self.signal(history) else "no rule fired"
 
+    # --- control runs (optional) -----------------------------------------------------
+    def controls(self) -> list:
+        """[(label, strategy), ...]: the same trade where the claimed edge should NOT be
+        (another time of day, say). `research control <id>` runs them on the development
+        period only; if they do as well, the edge is the market's drift, not the idea."""
+        return []
+
     # --- unit tests -----------------------------------------------------------
     def tests(self) -> list:
         """[(description, history, expected signal), ...] checked by `research check`."""

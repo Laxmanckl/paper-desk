@@ -307,6 +307,27 @@ def cmd_sealed(a):
     ledger.save(data)
 
 
+def cmd_control(a):
+    """The idea's trade where its edge should NOT be, on the development period only.
+    Writes nothing: a diagnostic, not an attempt."""
+    data = _load()
+    h = ledger.get(data, a.id)
+    strat = _checked_strategy(h)
+    ctrls = strat.controls() if strat is not None else []
+    if not ctrls:
+        _fail(f"{h['id']}'s strategy defines no control runs (controls() in its file)")
+    bars, label = _daily_bars(h, a, strat)
+    W = honest._warm({"strategy": strat})
+    al = honest._align(bars, W)
+    cut_t, _ = honest._cut(al)
+    print(f"\n  {h['id']} control runs · development period only (sealed part untouched) · {label}")
+    for name, s_ in [("the idea itself", strat)] + ctrls:
+        r = honest._run_daily(al, None, cut_t, strategy=s_)
+        print(f"    {name:32s} return {r['return_pct']:+7.2f}%  trades {r['trades']:4d}  "
+              f"win {r['win_rate_pct']:3.0f}%  Sharpe {r['sharpe_ann']:+.2f}/yr")
+    print("  If the controls do about as well, the result is the market's drift, not the idea.")
+
+
 def cmd_revise(a):
     data = _load()
     h = ledger.get(data, a.id)
@@ -536,6 +557,16 @@ def add_parser(sub) -> None:
         x.add_argument("--seed", type=int, default=7)
         x.add_argument("--windows", type=int, default=4)
         x.set_defaults(func=fn)
+
+    x = rs.add_parser("control", help="run the idea's control trades (e.g. other hours) on the development period")
+    x.add_argument("id")
+    x.add_argument("--source", default="mt5", choices=["yahoo", "twelvedata", "mt5", "sim", "csv"])
+    x.add_argument("--markets", default="")
+    x.add_argument("--range", default="10y")
+    x.add_argument("--csv", action="append", default=[], metavar="SYMBOL=PATH")
+    x.add_argument("--bars", type=int, default=2500)
+    x.add_argument("--seed", type=int, default=7)
+    x.set_defaults(func=cmd_control)
 
     x = rs.add_parser("revise", help="record a rewrite after a failed backtest (capped)")
     x.add_argument("id")

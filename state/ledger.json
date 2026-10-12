@@ -3162,7 +3162,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T10:45:14+00:00",
@@ -3173,6 +3173,16 @@
           "at": "2026-10-12T10:51:09+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance, survives double costs, survives delayed fills + double costs"
+        },
+        {
+          "at": "2026-10-12T10:57:47+00:00",
+          "source": "review",
+          "text": "Wins 77% vs 74% by chance (z +0.8): the weekend gap partly fills about as often as chance says, and the wide reopen spread turns it into a loss at 2x costs. No liquidity edge visible in 1-hour bars 2025-26."
+        },
+        {
+          "at": "2026-10-12T10:57:47+00:00",
+          "source": "you",
+          "text": "Locked falsify line hit: wins within 2 standard errors of the 75% chance rate, and -2.8% after double spreads (252 trades, 9 markets, MT5 1-hour 2025-26)."
         }
       ],
       "notes": "edge: Sunday reopen trades in the week's thinnest liquidity; a few dealers reprice weekend news in one jump, and two-way flow from Tokyo and London takes part of an over-sized jump back. Too small and infrequent for large desks. | why: liquidity-driven overshoot at the weekly reopen, corrected when normal liquidity returns | needs: 1-hour bars; first bar of the week; gap > 0.5 ATR(14); spread at the reopen must be charged in full | timeframe: H1 | chance 75% vs expected 85% wins | kind: daily | memo: research/price-2026-10-12.md",
@@ -3396,6 +3406,11 @@
           "at": "2026-10-12T10:51:10+00:00",
           "source": "backtest",
           "text": "v1 failed: deflated sharpe (luck-adjusted), wins more often than chance"
+        },
+        {
+          "at": "2026-10-12T10:57:47+00:00",
+          "source": "review",
+          "text": "First test: +17.7%, 3 of 4 windows, survives double costs and delayed fills, DSR 0.90 (needs 0.95), 53% wins vs 50% (z +0.9). Open question: gold rose strongly in 2025-26, so any 8 hours long could look good; needs a control run on London and New York hours before it means anything."
         }
       ],
       "notes": "edge: Asian physical demand (Shanghai, India) buys during Asian hours; Western futures and fixing-related selling happens in London/NY hours. A habitual time-of-day flow, documented over years. | why: returns concentrated in Asian hours | needs: 1-hour bars, XAUUSD, every trading night | timeframe: H1 | chance 50% vs expected 55% wins | kind: daily | memo: research/price-2026-10-12.md",

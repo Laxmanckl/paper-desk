@@ -842,5 +842,12 @@ with tempfile.TemporaryDirectory() as _od2:
                                {"hypotheses": []}, __import__("pathlib").Path(_od2), "2026-10-12", _rep)
 ok("agents: an idea that names no edge (mechanism) is not added", not _new and "names no edge" in _rep["skipped"][0])
 
+_ga = _st.load("gold_asia")
+_day = [_fx.Bar(f"2026-01-06 {h:02d}:00", 4200, 4205, 4195, 4200) for h in range(0, 23)]
+_d2 = _day + [_fx.Bar(f"2026-01-07 {h:02d}:00", 4200, 4205, 4195, 4201) for h in range(0, 9)]
+_lon = dict(_ga.controls())["same trade in London hours"]
+ok("gold_asia: the London-hours control buys 8 bars after the day starts, not before or after",
+   _lon.signal(_d2) == "BUY" and _lon.signal(_d2[:-1]) is None and _ga.signal(_d2) is None and _ga.offset == 0)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
