@@ -419,7 +419,7 @@
         "regime": "XAUUSD choppy, EURUSD choppy",
         "at": "2026-10-11T14:22:37+00:00"
       },
-      "status": "paper",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T12:58:37+00:00",
@@ -445,6 +445,11 @@
           "at": "2026-10-12T08:42:13+00:00",
           "source": "backtest fix",
           "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
+        },
+        {
+          "at": "2026-10-12T10:26:31+00:00",
+          "source": "you",
+          "text": "Re-test on the fixed time-ordered replay (MT5 1-minute, 2026-08-13 to 09-25): -39.48%, 550 trades, 34% wins, lost in 0 of 4 windows, DSR 0.00, -24.6% at 2x costs. Paused on paper."
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -650,7 +655,7 @@
         "regime": "XAUUSD choppy, EURUSD choppy",
         "at": "2026-10-11T14:22:37+00:00"
       },
-      "status": "paper",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-10T12:58:37+00:00",
@@ -681,6 +686,11 @@
           "at": "2026-10-12T08:42:13+00:00",
           "source": "backtest fix",
           "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
+        },
+        {
+          "at": "2026-10-12T10:26:31+00:00",
+          "source": "you",
+          "text": "Re-test on the fixed time-ordered replay (MT5 1-minute, 2026-08-13 to 09-25): -16.43%, 279 trades, 33% wins, lost in 0 of 4 windows, DSR 0.00. Paused on paper."
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
