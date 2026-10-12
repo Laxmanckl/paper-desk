@@ -2244,7 +2244,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T08:18:01+00:00",
@@ -2260,6 +2260,11 @@
           "at": "2026-10-12T08:42:14+00:00",
           "source": "backtest fix",
           "text": "the scalper backtester replayed instruments by row number, not by time, so on real MT5 data (gold has gaps) clocks drifted apart and daily-loss halts misfired; fixed 2026-10-12. This result came from the old replay and should be re-run"
+        },
+        {
+          "at": "2026-10-12T09:30:50+00:00",
+          "source": "you",
+          "text": "v1 with the fixed time-ordered replay: -36.04%, 525 trades, 34% wins, lost in 0 of 4 windows, DSR 0.00 on 60 days of MT5 1-minute data. The 15-minute Lorentzian signal has no edge after spreads on these markets."
         }
       ],
       "notes": "",
