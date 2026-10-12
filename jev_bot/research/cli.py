@@ -59,6 +59,11 @@ def cmd_list(a):
 def cmd_add(a):
     data = _load()
     h = ledger.add(data, a.idea, a.desk, [m.upper() for m in a.market], a.source, a.falsify, a.strategy)
+    if a.found_in:
+        src = ledger.get(data, a.found_in)
+        h["found_in"] = src["id"]
+        ledger.add_lesson(h, f"Found by looking at {src['id']}'s development-period results, so the development "
+                             "period proves nothing for it: it is judged ONLY on the sealed period, in one run.", "ledger")
     ledger.save(data)
     print(f"  added {h['id']}. Next: write its prediction BEFORE any test:\n"
           f"  python -m jev_bot research predict {h['id']} --return .. --win-rate .. --max-dd .. --min-trades ..")
@@ -259,6 +264,10 @@ def cmd_backtest(a):
     data = _load()
     h = ledger.get(data, a.id)
     _guard(h)
+    if h.get("found_in"):
+        _fail(f"{h['id']} was found in {h['found_in']}'s development data, so a development backtest would only "
+              f"repeat what was seen. It is judged on the sealed period only:\n"
+              f"  python -m jev_bot research sealed {h['id']} --source mt5")
     trials = h.get("variations", 0) + 1                     # this run counts
     sharpes = [x["sharpe"] for x in h.get("attempts", []) if x.get("sharpe") is not None]
     if h["desk"] == "daily":
@@ -297,7 +306,8 @@ def cmd_sealed(a):
     _guard(h)
     if h.get("sealed"):
         _fail(f"{h['id']} already used its sealed test ({h['sealed']['at'][:10]}). It gets exactly one.")
-    if h["status"] not in ("passed_backtest",) + PAPERISH:
+    found = bool(h.get("found_in")) and h["status"] in ("untested", "testing")
+    if h["status"] not in ("passed_backtest",) + PAPERISH and not found:
         _fail(f"{h['id']} has not passed the development backtest (status {h['status']}). "
               "The sealed period is only for a strategy that already survived everything else.")
     if h["status"] in PAPERISH and not h.get("backtest"):
@@ -317,7 +327,7 @@ def cmd_sealed(a):
         print("  (dry run on simulated data: the sealed test is NOT used up)")
         return
     ledger.record_sealed(h, r)
-    if h["status"] == "passed_backtest":
+    if h["status"] == "passed_backtest" or found:
         h["status"] = "passed_sealed" if r["passed"] else "failed"
     ledger.add_lesson(h, f"sealed test {'passed' if r['passed'] else 'failed'} ({r['return_pct']:+.2f}% on "
                          f"{r['period']})" + (": " + "; ".join(r["why"]) if r["why"] else ""), "sealed")
@@ -545,6 +555,8 @@ def add_parser(sub) -> None:
     x.add_argument("--source", default="you", help="who proposed it, e.g. 'Price Analyst'")
     x.add_argument("--falsify", default="", help="what result would prove it wrong")
     x.add_argument("--strategy", default="", help="file and version that runs it")
+    x.add_argument("--found-in", default="", metavar="ID",
+                   help="the idea was spotted in this hypothesis' results: judged on the sealed period only")
     x.set_defaults(func=cmd_add)
 
     x = rs.add_parser("predict", help="write the prediction BEFORE testing (locked forever)")

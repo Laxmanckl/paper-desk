@@ -262,10 +262,17 @@ def daily_sealed(h: dict, bars_by_sym: dict, engine: str = "offline", strategy=N
     al = _align(bars_by_sym, _warm({"strategy": strategy}))
     cut_t, _ = _cut(al)
     res = _clean(_run_daily(al, cut_t, None, engine=engine, strategy=strategy))
+    costs2 = _clean(_run_daily(al, cut_t, None, engine=engine, strategy=strategy, cost_mult=2.0))
+    res["costs_2x_return_pct"] = costs2["return_pct"]
     from . import ledger
     ok, why = ledger.judge(h, res) if h.get("prediction") else (res["return_pct"] > 0, [])
     if res["return_pct"] <= 0:
         ok, why = False, why + [f"lost money ({res['return_pct']:+.2f}%)"]
+    if res.get("edge_z") is not None and res["edge_z"] < MIN_EDGE_Z:
+        ok, why = False, why + [f"{res['win_rate_pct']:.0f}% wins vs {res['chance_win_pct']:.0f}% by chance "
+                                f"(z {res['edge_z']:+.1f}; needs {MIN_EDGE_Z:+.1f})"]
+    if costs2["return_pct"] <= 0:
+        ok, why = False, why + [f"loses at double costs ({costs2['return_pct']:+.2f}%)"]
     ref, rk = al["bars"][al["ref"]], al["keys"][al["ref"]]
     closes = [b.close for b in ref[bisect_left(rk, cut_t):]]
     return {**res, "period": f"{res.get('first', '?')} → {res.get('last', '?')}", "passed": ok,

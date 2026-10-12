@@ -861,5 +861,27 @@ class _Spy(type(_me)):
 _bt.run("USDJPY", _fx.simulate("EURUSD", 120, 2), strategy=_Spy(name="spy", hypothesis="x"))
 ok("backtest: each market gets the strategy as used on that market (for_symbol)", _seen_sym == ["USDJPY"])
 
+# an idea found in another's results: no development backtest, sealed period only
+_real_ledger2 = L.PATH
+L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
+_dd = L.load(); _src = L.add(_dd, "source idea", "daily"); L.save(_dd)
+with contextlib.redirect_stdout(io.StringIO()):
+    _main(["research", "add", "the mirror of it", "--found-in", _src["id"]])
+    _main(["research", "wire", "H2", "daily", "--strategy", "stretch_snap"])
+    _main(["research", "predict", "H2", "--return", "1", "--win-rate", "50", "--max-dd", "5", "--min-trades", "5"])
+_blocked = False
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        _main(["research", "backtest", "H2", "--source", "sim", "--bars", "800"])
+except SystemExit:
+    _blocked = True
+_out = io.StringIO()
+with contextlib.redirect_stdout(_out):
+    _main(["research", "sealed", "H2", "--source", "sim", "--bars", "800"])
+_h2 = L.get(L.load(), "H2")
+L.PATH = _real_ledger2
+ok("research: an idea found in another's results skips the development test and goes to the sealed test",
+   _blocked and "SEALED TEST" in _out.getvalue() and _h2.get("found_in") == "H1" and not _h2.get("sealed"))
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

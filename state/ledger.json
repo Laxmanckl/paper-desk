@@ -3914,6 +3914,57 @@
       ],
       "notes": "",
       "module": "london_orb"
+    },
+    {
+      "id": "H20",
+      "idea": "Fade the London-open breakout on 1-hour bars: when the first 1-hour close breaks London's opening-hour range (by 10% of its height, within 4 hours), trade the other way; target the range middle, stop 1.5x that distance, out after 6 bars",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP"
+      ],
+      "source": "Claude (from H19's results)",
+      "created": "2026-10-12T11:24:07+00:00",
+      "strategy": "jev_bot/strategies/london_fade.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "on the sealed period: wins within 2 standard errors of the 60% chance rate, or a loss, or a loss at double costs",
+      "prediction": {
+        "return_pct": 4.0,
+        "win_rate_pct": 65.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 300,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 12.0
+        },
+        "written": "2026-10-12T11:24:12+00:00",
+        "sha256": "31b6791503d77671eefc70c8474ff6706f8715b07cd0e0ab0526f5fb44206e18"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T11:24:07+00:00",
+          "source": "ledger",
+          "text": "Found by looking at H19's development-period results, so the development period proves nothing for it: it is judged ONLY on the sealed period, in one run."
+        }
+      ],
+      "notes": "",
+      "module": "london_fade",
+      "found_in": "H19"
     }
   ]
 }
