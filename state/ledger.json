@@ -3650,6 +3650,56 @@
         "verdict": "test",
         "objection": "Untestable until US500 daily history is exported from MT5; only ~12 signals a year per pair."
       }
+    },
+    {
+      "id": "H19",
+      "idea": "London-open breakout on 1-hour bars (H3 moved off 1-minute bars): first 1-hour close beyond London's opening hour range by 10% of its height within 4 hours; stop at the range middle, target 1.5x the stop, out after 6 bars",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP"
+      ],
+      "source": "you + Claude (retest of H3 on 1-hour bars)",
+      "created": "2026-10-12T11:12:04+00:00",
+      "strategy": "jev_bot/strategies/london_orb.py v1",
+      "version": 1,
+      "variations": 2,
+      "max_variations": 5,
+      "falsify": "wins within 2 standard errors of the 40% chance rate, or a loss after double costs, or fewer than 3 of 4 windows profitable",
+      "prediction": {
+        "return_pct": 4.0,
+        "win_rate_pct": 45.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 300,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 15.0
+        },
+        "written": "2026-10-12T11:12:10+00:00",
+        "sha256": "7700a5cae548d5844986ca0b660d3797e68449ce6712e51418f5b83e9423e331"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T11:12:04+00:00",
+          "source": "ledger",
+          "text": "Starts at 2 attempts: H3 (the same idea on 1-minute bars) was tested twice, so the luck adjustment (DSR) counts those tries too."
+        }
+      ],
+      "notes": "",
+      "module": "london_orb"
     }
   ]
 }
