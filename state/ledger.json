@@ -3641,6 +3641,11 @@
           "at": "2026-10-12T11:11:05+00:00",
           "source": "backtest",
           "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance"
+        },
+        {
+          "at": "2026-10-12T11:13:07+00:00",
+          "source": "review",
+          "text": "Attempt 1 was mis-specified by the test harness, not the idea: the forex history starts in 1988 but the S&P 500 export only in 2016, so the development period (1993-2017) held just 12 trades and the sealed part held almost all S&P years. Fixed: tests now start where the S&P history starts. Attempt 1 still counts toward the luck adjustment."
         }
       ],
       "notes": "edge: Foreign holders of US equities keep fixed currency-hedge ratios; an equity rally forces them to sell more USD before month-end, a price-insensitive flow banks publish models for | why: forced, scheduled hedge rebalancing | needs: daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month | timeframe: D1 | chance 50% vs expected 58% wins | kind: daily | memo: research/macro-2026-10-12.md",

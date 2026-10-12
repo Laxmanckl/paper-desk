@@ -132,6 +132,18 @@ def _daily_bars(h, a, strat=None):
             except feeds.FeedError as e:
                 _fail(f"{s}: {e}")
             out[s] = live.completed_bars(bars, quote)
+    # a strategy that also reads another market's history (H18 reads the S&P 500) can only
+    # be tested where that history exists: start there, keeping the usual warm-up before it
+    aux_first = []
+    for f in getattr(strat, "data_files", ()) or ():
+        path = os.path.join(MT5_DIR, f)
+        if a.source != "sim" and os.path.exists(path):
+            aux_first.append(fx.load_csv(path)[0].date[:10])
+    if aux_first:
+        start, W = max(aux_first), honest._warm({"strategy": strat})
+        for s in out:
+            i = next((n for n, b in enumerate(out[s]) if b.date[:10] >= start), len(out[s]))
+            out[s] = out[s][max(0, i - W):]
     label = "sim" if a.source == "sim" and not csvs else ("csv" if csvs else
                                                           f"MT5 {TF_NAME.get(tf, tf)}" if a.source == "mt5" else a.source)
     first = min(b[0].date for b in out.values())
