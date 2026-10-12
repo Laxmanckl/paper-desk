@@ -130,6 +130,7 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
     late_fill fills signals at the next bar's CLOSE instead of its open (a delayed fill)."""
     symbol = fx.resolve_any(symbol)
     if strategy is not None:                 # a jev_bot.strategies strategy brings its own rules
+        strategy = strategy.for_symbol(symbol)
         settings = strategy.settings()
     s = settings or Settings()
     lim = limits or risk.Limits()

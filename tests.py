@@ -849,5 +849,17 @@ _lon = dict(_ga.controls())["same trade in London hours"]
 ok("gold_asia: the London-hours control buys 8 bars after the day starts, not before or after",
    _lon.signal(_d2) == "BUY" and _lon.signal(_d2[:-1]) is None and _ga.signal(_d2) is None and _ga.offset == 0)
 
+_me = _st.load("month_end_flow")
+_case = _me.tests()[0][1]
+ok("month_end_flow: selling the dollar means BUY EURUSD/GBPUSD but SELL USDJPY",
+   _me.for_symbol("EURUSD").signal(_case) == "BUY" and _me.for_symbol("USDJPY").signal(_case) == "SELL")
+_seen_sym = []
+class _Spy(type(_me)):
+    def for_symbol(self, symbol):
+        _seen_sym.append(symbol)
+        return super().for_symbol(symbol)
+_bt.run("USDJPY", _fx.simulate("EURUSD", 120, 2), strategy=_Spy(name="spy", hypothesis="x"))
+ok("backtest: each market gets the strategy as used on that market (for_symbol)", _seen_sym == ["USDJPY"])
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

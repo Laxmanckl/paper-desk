@@ -54,11 +54,16 @@ FX_MAJORS = {s.symbol: s for s in [
 
 ALL = {**CRYPTO_MAJORS, **FX_MAJORS}
 
+# research data only: exported from MT5 for strategies that read it, never traded
+DATA_ONLY = {"US500": Spec("US500", "index", "mt5", 1, 0.1, max_leverage=5.0)}
+
 
 def get(symbol: str) -> Spec:
     s = symbol.upper().replace("/", "")
     if s in ALL:
         return ALL[s]
+    if s in DATA_ONLY:
+        return DATA_ONLY[s]
     if s.endswith("USDT"):                      # any other Binance USDT pair
         return _crypto(s, 4)
     if len(s) == 6 and s.isalpha():             # any other 6-letter forex pair

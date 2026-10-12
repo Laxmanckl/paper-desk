@@ -112,7 +112,8 @@ class BinanceFeed:
 
 # --- MetaTrader 5 (forex + gold) -----------------------------------------------------
 
-ALIASES = {"XAUUSD": ["XAUUSD", "GOLD"], "XAGUSD": ["XAGUSD", "SILVER"]}
+ALIASES = {"XAUUSD": ["XAUUSD", "GOLD"], "XAGUSD": ["XAGUSD", "SILVER"],
+           "US500": ["US500", "SPX500", "SP500", "USA500", "US500CASH", "SPX", "US.500"]}
 
 
 def resolve_mt5_symbols(wanted: list[str], available: list[str], overrides: dict) -> dict:

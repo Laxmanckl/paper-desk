@@ -39,6 +39,7 @@ class DailyStrategy:
     warmup: int = 0                   # bars of history before the first trade (0 = the usual 50)
     timeframe: str = "D1"             # bar size it runs on: D1, H4 or H1 (max_hold counts these bars)
     entry_spread_mult: float = 1.0    # entries happen when spreads are wider than usual (e.g. the Sunday reopen)
+    data_files: tuple = ()            # extra MT5 exports it reads, e.g. ("US500_D1.csv",)
     history_bars: int = 0             # bars signal() needs to see (0 = all history); keeps long
                                       # hourly backtests fast: each call gets only the last `history_bars` bars
 
@@ -61,6 +62,13 @@ class DailyStrategy:
     def explain(self, history: list) -> str:
         """One plain sentence: why the signal is what it is."""
         return "rule fired" if self.signal(history) else "no rule fired"
+
+    # --- per market (optional) ---------------------------------------------------------
+    def for_symbol(self, symbol: str) -> "DailyStrategy":
+        """The strategy as used on one market. Most strategies are the same everywhere;
+        one whose direction depends on the market (sell the dollar = buy EURUSD but sell
+        USDJPY) returns a copy that knows its symbol."""
+        return self
 
     # --- control runs (optional) -----------------------------------------------------
     def controls(self) -> list:

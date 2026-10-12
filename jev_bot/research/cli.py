@@ -102,6 +102,11 @@ def _daily_bars(h, a, strat=None):
     (those come only from MT5: `export-mt5 --hourly`)."""
     from .. import feeds, fx, live
     tf = getattr(strat, "timeframe", "D1") or "D1"
+    for f in getattr(strat, "data_files", ()) or ():
+        if a.source != "sim" and not os.path.exists(os.path.join(MT5_DIR, f)):
+            sym = f.split("_")[0]
+            _fail(f"{strat.label} also reads data/mt5/{f}, which is missing. On the Windows PC "
+                  f"with MT5 open, run:\n    python -m jev_bot research export-mt5 {sym} --daily")
     if tf != "D1" and a.source not in ("mt5", "sim") and not a.csv:
         a.source = "mt5"                                  # web feeds only have daily bars
     syms, overridden = _test_markets(h, a)

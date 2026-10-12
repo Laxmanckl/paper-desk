@@ -322,7 +322,7 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
             continue
         state = fx.state_at(sym, done, len(done) - 1)
         if strategy is not None:
-            act = strategy.signal(done)
+            act = strategy.for_symbol(sym).signal(done)
             d = Decision(sym, act or "HOLD", 1.0, 1.0, source=strategy.name)
             gate = risk.Gate("EXECUTE", "") if act in ("BUY", "SELL") else risk.Gate("SKIP", "no signal")
         else:
@@ -333,11 +333,11 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
                 "atr": round(fx.atr(done, len(done) - 1), fx.INSTRUMENTS[sym]["digits"]),
                 "probability": d.probability, "confidence": d.confidence, "engine": d.source}
         if strategy is not None:
-            cond.update(strategy.conditions(done))
+            cond.update(strategy.for_symbol(sym).conditions(done))
         why_signal = (f"{d.action} from the {d.source} engine: momentum {state.momentum:+.2f}, "
                       f"{state.regime} regime, p {d.probability:.0%}, conf {d.confidence:.0%}"
                       if strategy is None else f"{d.action} from {strategy.name} v{strategy.version}: "
-                      + strategy.explain(done))
+                      + strategy.for_symbol(sym).explain(done))
         base = {"symbol": sym, "bar": last, "side": d.action if d.action in ("BUY", "SELL") else None,
                 "price": px, "conditions": cond}
         acct.last_bar[sym] = last
@@ -363,7 +363,7 @@ def check(acct: Account, symbols: list[str], source: str = "yahoo",
         dists = None
         if strategy is not None:
             e0 = px + _half_spread(sym) if d.action == "BUY" else px - _half_spread(sym)
-            dists = strategy.levels(done, d.action, e0, a)
+            dists = strategy.for_symbol(sym).levels(done, d.action, e0, a)
         entry, _, units = _size(acct, sym, d.action, px, a, s, dists)
         nums = acct.risk_numbers(t_now, risk_cfg, desk)
         nums["open_positions"] -= 1 if p else 0           # a reversal replaces a position

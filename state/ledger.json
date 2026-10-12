@@ -3434,7 +3434,7 @@
     {
       "id": "H18",
       "idea": "Month-end dollar rebalancing: if the S&P 500 is up more than 3% on the month by the 3rd-to-last trading day, sell USD against EUR, GBP and JPY into the month-end close (mirror when it is down 3%)",
-      "desk": "idea",
+      "desk": "daily",
       "markets": [
         "EURUSD",
         "GBPUSD",
@@ -3442,18 +3442,29 @@
       ],
       "source": "Macro Watcher",
       "created": "2026-10-12T10:45:00+00:00",
-      "strategy": "",
+      "strategy": "jev_bot/strategies/month_end_flow.py v1",
       "version": 1,
       "variations": 0,
       "max_variations": 5,
       "falsify": "no better than 50% direction calls over 2010-2026 month-ends, or a loss after costs",
-      "prediction": null,
+      "prediction": {
+        "return_pct": 2.0,
+        "win_rate_pct": 58.0,
+        "max_drawdown_pct": 6.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 10.0
+        },
+        "written": "2026-10-12T11:02:54+00:00",
+        "sha256": "a4cb257979725862b84c339f9c1ace443abe5310ca0247d30010971d5f21ac71"
+      },
       "regime": "",
       "backtest": null,
       "attempts": [],
       "sealed": null,
       "paper": null,
-      "status": "untested",
+      "status": "testing",
       "lessons": [
         {
           "at": "2026-10-12T10:45:14+00:00",
@@ -3462,7 +3473,7 @@
         }
       ],
       "notes": "edge: Foreign holders of US equities keep fixed currency-hedge ratios; an equity rally forces them to sell more USD before month-end, a price-insensitive flow banks publish models for | why: forced, scheduled hedge rebalancing | needs: daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month | timeframe: D1 | chance 50% vs expected 58% wins | kind: daily | memo: research/macro-2026-10-12.md",
-      "module": "",
+      "module": "month_end_flow",
       "conditions": "daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month",
       "skeptic": {
         "verdict": "test",
