@@ -450,6 +450,11 @@
           "at": "2026-10-12T10:26:31+00:00",
           "source": "you",
           "text": "Re-test on the fixed time-ordered replay (MT5 1-minute, 2026-08-13 to 09-25): -39.48%, 550 trades, 34% wins, lost in 0 of 4 windows, DSR 0.00, -24.6% at 2x costs. Paused on paper."
+        },
+        {
+          "at": "2026-10-12T12:33:53+00:00",
+          "source": "you",
+          "text": "2026-10-12: switched back on by the owner as a forward paper test, despite the failed backtest; the kill switch limits (2% a day, 8% from peak) still apply."
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
@@ -691,6 +696,11 @@
           "at": "2026-10-12T10:26:31+00:00",
           "source": "you",
           "text": "Re-test on the fixed time-ordered replay (MT5 1-minute, 2026-08-13 to 09-25): -16.43%, 279 trades, 33% wins, lost in 0 of 4 windows, DSR 0.00. Paused on paper."
+        },
+        {
+          "at": "2026-10-12T12:33:53+00:00",
+          "source": "you",
+          "text": "2026-10-12: switched back on by the owner as a forward paper test, despite the failed backtest; the kill switch limits (2% a day, 8% from peak) still apply."
         }
       ],
       "notes": "Reached paper trading before this research loop existed: no prediction was written up front, earlier tuning was not counted, and there is no honest backtest yet."
