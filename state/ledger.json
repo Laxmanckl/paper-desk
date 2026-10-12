@@ -3390,7 +3390,7 @@
       ],
       "sealed": null,
       "paper": null,
-      "status": "testing",
+      "status": "failed",
       "lessons": [
         {
           "at": "2026-10-12T10:45:14+00:00",
@@ -3411,6 +3411,16 @@
           "at": "2026-10-12T10:57:47+00:00",
           "source": "review",
           "text": "First test: +17.7%, 3 of 4 windows, survives double costs and delayed fills, DSR 0.90 (needs 0.95), 53% wins vs 50% (z +0.9). Open question: gold rose strongly in 2025-26, so any 8 hours long could look good; needs a control run on London and New York hours before it means anything."
+        },
+        {
+          "at": "2026-10-12T11:00:25+00:00",
+          "source": "review",
+          "text": "Control runs (development period): Asia hours +17.7%, London hours -8.1%, New York hours +20.7%. The claimed mechanism (Asian buying, Western selling) is contradicted: New York hours did better than Asia. The gain is gold's 2025-26 uptrend, not an Asia-hours edge. Any later 'London hours are weak' idea was found by looking at this data and must be tested on other data first."
+        },
+        {
+          "at": "2026-10-12T11:00:25+00:00",
+          "source": "you",
+          "text": "Control runs showed the same trade in New York hours did better (+20.7%) than Asia hours (+17.7%): the result is gold's drift, not the idea."
         }
       ],
       "notes": "edge: Asian physical demand (Shanghai, India) buys during Asian hours; Western futures and fixing-related selling happens in London/NY hours. A habitual time-of-day flow, documented over years. | why: returns concentrated in Asian hours | needs: 1-hour bars, XAUUSD, every trading night | timeframe: H1 | chance 50% vs expected 55% wins | kind: daily | memo: research/price-2026-10-12.md",
