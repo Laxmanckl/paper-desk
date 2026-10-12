@@ -829,11 +829,11 @@ ok("honest test: windows follow one clock across markets with different hours (n
    all(_wf[i]["last"] < _wf[i + 1]["first"] for i in range(len(_wf) - 1) if _wf[i]["last"] and _wf[i + 1]["first"]))
 ok("honest test: the development period ends before the sealed time in every market",
    _rd["last"] < _rd["sealed_from"] and _al["ref"] == "EURUSD")
-_tr = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 10 < 7 else -1.0) for i in range(1000)]
+_tr = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 10 < 7 else -1.0, reason="target" if i % 10 < 7 else "stop") for i in range(1000)]
 _c = _hon.chance(_tr)
 ok("chance baseline: stop 2x / target 0.8x gives 71% by chance; 70% real wins is no edge",
    _c["chance_win_pct"] == 71.4 and _c["edge_z"] < 0)
-_tr2 = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 20 < 18 else -1.0) for i in range(1000)]
+_tr2 = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 20 < 18 else -1.0, reason="target" if i % 20 < 18 else "stop") for i in range(1000)]
 ok("chance baseline: 90% wins on the same shape is a real edge (z well above 2)", _hon.chance(_tr2)["edge_z"] > 2)
 
 _rep = {"memos": [], "skipped": [], "added": []}
