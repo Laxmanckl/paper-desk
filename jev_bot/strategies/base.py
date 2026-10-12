@@ -38,6 +38,7 @@ class DailyStrategy:
     rare: bool = False                # set-ups so rare that simulated data may never show one
     warmup: int = 0                   # bars of history before the first trade (0 = the usual 50)
     timeframe: str = "D1"             # bar size it runs on: D1, H4 or H1 (max_hold counts these bars)
+    entry_spread_mult: float = 1.0    # entries happen when spreads are wider than usual (e.g. the Sunday reopen)
     history_bars: int = 0             # bars signal() needs to see (0 = all history); keeps long
                                       # hourly backtests fast: each call gets only the last `history_bars` bars
 

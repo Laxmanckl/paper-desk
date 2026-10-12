@@ -2955,6 +2955,152 @@
       ],
       "notes": "",
       "module": "trend_dip_h4"
+    },
+    {
+      "id": "H16",
+      "idea": "Weekend gap partial fill: when the week's first 1-hour bar closes more than 0.5 ATR from Friday's last close, trade back toward Friday's close for half the gap, stop 1.5x the gap, out after 24 bars",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP"
+      ],
+      "source": "Price Analyst",
+      "created": "2026-10-12T10:45:00+00:00",
+      "strategy": "jev_bot/strategies/weekend_gap.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "wins within 2 standard errors of the 75% chance rate, or a loss after double spreads",
+      "prediction": {
+        "return_pct": 3.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 12.0,
+          "win_rate_below": 80.0
+        },
+        "written": "2026-10-12T10:46:29+00:00",
+        "sha256": "cb0e338dfa6a9a90d5cba9a4a15af7ff49727d741dbdedfd915745cedd90c996"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T10:45:14+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Sunday reopen spreads are several times normal and the entry is in that hour; a fixed-spread backtest flatters it. Charge >=3x spread on the reopen bar and judge against the 75% chance rate."
+        }
+      ],
+      "notes": "edge: Sunday reopen trades in the week's thinnest liquidity; a few dealers reprice weekend news in one jump, and two-way flow from Tokyo and London takes part of an over-sized jump back. Too small and infrequent for large desks. | why: liquidity-driven overshoot at the weekly reopen, corrected when normal liquidity returns | needs: 1-hour bars; first bar of the week; gap > 0.5 ATR(14); spread at the reopen must be charged in full | timeframe: H1 | chance 75% vs expected 85% wins | kind: daily | memo: research/price-2026-10-12.md",
+      "module": "weekend_gap",
+      "conditions": "1-hour bars; first bar of the week; gap > 0.5 ATR(14); spread at the reopen must be charged in full",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Sunday reopen spreads are several times normal and the entry is in that hour; a fixed-spread backtest flatters it. Charge >=3x spread on the reopen bar and judge against the 75% chance rate."
+      }
+    },
+    {
+      "id": "H17",
+      "idea": "Gold Asia-hours drift: buy XAUUSD at the 23:00 UTC 1-hour close and sell at the 07:00 UTC close, symmetric 2 ATR stop and target",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD"
+      ],
+      "source": "Price Analyst",
+      "created": "2026-10-12T10:45:00+00:00",
+      "strategy": "jev_bot/strategies/gold_asia.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "no positive Asia-hours return after costs on the history, or wins within 2 standard errors of 50%",
+      "prediction": {
+        "return_pct": 4.0,
+        "win_rate_pct": 55.0,
+        "max_drawdown_pct": 8.0,
+        "min_trades": 200,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 12.0
+        },
+        "written": "2026-10-12T10:46:29+00:00",
+        "sha256": "ed8e9e3106c122cfed1efbbf8958ec45dc10846f9ff021abec1cb6adaef266d1"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [
+        {
+          "at": "2026-10-12T10:45:14+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Edge may have shrunk since the London fix went electronic in 2015; best case ~55% wins, far from the 85% goal."
+        },
+        {
+          "at": "2026-10-12T10:46:37+00:00",
+          "source": "build",
+          "text": "Built as: enter at the 2nd bar of each trading day (the first bar after gold's daily pause, found from bar-time gaps because MT5 bars are in the broker's server time, not UTC), out 8 hours later. On US-hours brokers that is ~19:00 to 03:00 New York."
+        }
+      ],
+      "notes": "edge: Asian physical demand (Shanghai, India) buys during Asian hours; Western futures and fixing-related selling happens in London/NY hours. A habitual time-of-day flow, documented over years. | why: returns concentrated in Asian hours | needs: 1-hour bars, XAUUSD, every trading night | timeframe: H1 | chance 50% vs expected 55% wins | kind: daily | memo: research/price-2026-10-12.md",
+      "module": "gold_asia",
+      "conditions": "1-hour bars, XAUUSD, every trading night",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Edge may have shrunk since the London fix went electronic in 2015; best case ~55% wins, far from the 85% goal."
+      }
+    },
+    {
+      "id": "H18",
+      "idea": "Month-end dollar rebalancing: if the S&P 500 is up more than 3% on the month by the 3rd-to-last trading day, sell USD against EUR, GBP and JPY into the month-end close (mirror when it is down 3%)",
+      "desk": "idea",
+      "markets": [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY"
+      ],
+      "source": "Macro Watcher",
+      "created": "2026-10-12T10:45:00+00:00",
+      "strategy": "",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "no better than 50% direction calls over 2010-2026 month-ends, or a loss after costs",
+      "prediction": null,
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "untested",
+      "lessons": [
+        {
+          "at": "2026-10-12T10:45:14+00:00",
+          "source": "Skeptic",
+          "text": "Skeptic (test): Untestable until US500 daily history is exported from MT5; only ~12 signals a year per pair."
+        }
+      ],
+      "notes": "edge: Foreign holders of US equities keep fixed currency-hedge ratios; an equity rally forces them to sell more USD before month-end, a price-insensitive flow banks publish models for | why: forced, scheduled hedge rebalancing | needs: daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month | timeframe: D1 | chance 50% vs expected 58% wins | kind: daily | memo: research/macro-2026-10-12.md",
+      "module": "",
+      "conditions": "daily bars; needs US500 daily history from MT5 (not exported yet); last 3 trading days of each month",
+      "skeptic": {
+        "verdict": "test",
+        "objection": "Untestable until US500 daily history is exported from MT5; only ~12 signals a year per pair."
+      }
     }
   ]
 }

@@ -160,7 +160,8 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
         if pending and pos is None:
             a = fx.atr(bars, t - 1)
             px_in = b.close if late_fill else b.open
-            entry = px_in + half if pending == "BUY" else px_in - half
+            half_in = half * (getattr(strategy, "entry_spread_mult", 1.0) or 1.0)
+            entry = px_in + half_in if pending == "BUY" else px_in - half_in
             lv = strategy.levels(upto(t), pending, entry, a) if strategy is not None else None
             stop_dist = lv[0] if lv else s.sl_atr * a
             tgt_dist = lv[1] if lv else s.tp_atr * a

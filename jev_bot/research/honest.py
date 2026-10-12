@@ -37,8 +37,9 @@ def _field(t, k):
 
 def chance(trades: list) -> dict:
     """The win rate pure chance gives these trades. A price wandering at random reaches
-    a target g away before a stop s away with probability s / (s + g); averaged over the
-    trades that is the coin-flip win rate for this stop/target shape. z says how far the
+    a target g away before a stop s away with probability s / (s + g); trades closed by
+    the time limit count as 50/50. Averaged over the trades, that is the coin-flip win
+    rate for this stop/target shape. z says how far the
     real wins are above it (2 or more = unlikely to be luck)."""
     ps, wins = [], 0
     for t in trades:
@@ -48,7 +49,9 @@ def chance(trades: list) -> dict:
         sd, gd = abs(e - s), abs(g - e)
         if sd + gd <= 0:
             continue
-        ps.append(sd / (sd + gd))
+        # a trade that ended at its stop or target: chance s / (s + g); one closed by the
+        # time limit (or a reversal) is a coin flip on where the price happened to be
+        ps.append(sd / (sd + gd) if _field(t, "reason") in ("stop", "target") else 0.5)
         wins += _pnl(t) > 0
     if not ps:
         return {"chance_win_pct": None, "edge_z": None}

@@ -646,9 +646,9 @@ def _fake_api(body, key):
     if "Skeptic" in body["system"]:
         txt = '```json\n{"reviews": [{"id": "H2", "objection": "costs", "verdict": "drop"}]}\n```'
     elif "Price" in body["system"]:
-        txt = 'memo\n```json\n{"ideas": [{"idea": "EUR/USD fades a 2% weekly move", "falsify": "f", "markets": ["EURUSD"]}]}\n```'
+        txt = 'memo\n```json\n{"ideas": [{"idea": "EUR/USD fades a 2% weekly move", "edge": "month-end hedging flows", "falsify": "f", "markets": ["EURUSD"]}]}\n```'
     else:
-        txt = 'memo\n```json\n{"ideas": [{"idea": "Gold trends after a breakout above the 20-day high", "markets": ["XAUUSD"]}]}\n```'
+        txt = 'memo\n```json\n{"ideas": [{"idea": "Gold trends after a breakout above the 20-day high", "edge": "stop orders above the high", "markets": ["XAUUSD"]}]}\n```'
     return {"content": [{"type": "text", "text": txt}], "stop_reason": "end_turn"}
 
 
@@ -671,7 +671,7 @@ _real_ledger = L.PATH
 L.PATH = __import__("pathlib").Path(tempfile.mkdtemp()) / "ledger.json"
 L.save({"hypotheses": []})
 _od = tempfile.mkdtemp()
-_r1 = AG.import_reply("price", 'memo\n```json\n{"ideas": [{"idea": "EUR/USD snaps back after a 3% stretch", "markets": ["EURUSD"]}]}\n```', _od)
+_r1 = AG.import_reply("price", 'memo\n```json\n{"ideas": [{"idea": "EUR/USD snaps back after a 3% stretch", "edge": "forced dealer rebalancing", "markets": ["EURUSD"]}]}\n```', _od)
 _brief = AG.prompt_for("skeptic")
 _r2 = AG.import_reply("skeptic", '```json\n{"reviews": [{"id": "H1", "objection": "few trades", "verdict": "test"}]}\n```', _od)
 _led = L.load()
@@ -835,6 +835,12 @@ ok("chance baseline: stop 2x / target 0.8x gives 71% by chance; 70% real wins is
    _c["chance_win_pct"] == 71.4 and _c["edge_z"] < 0)
 _tr2 = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 20 < 18 else -1.0) for i in range(1000)]
 ok("chance baseline: 90% wins on the same shape is a real edge (z well above 2)", _hon.chance(_tr2)["edge_z"] > 2)
+
+_rep = {"memos": [], "skipped": [], "added": []}
+with tempfile.TemporaryDirectory() as _od2:
+    _new = AG.apply_specialist("price", 'm\n```json\n{"ideas": [{"idea": "Buy AUD/USD when RSI is under 20 on Tuesdays", "markets": ["AUDUSD"]}]}\n```',
+                               {"hypotheses": []}, __import__("pathlib").Path(_od2), "2026-10-12", _rep)
+ok("agents: an idea that names no edge (mechanism) is not added", not _new and "names no edge" in _rep["skipped"][0])
 
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

@@ -36,7 +36,8 @@ API = "https://api.anthropic.com/v1/messages"
 MODEL = os.environ.get("RESEARCH_MODEL", "claude-sonnet-5-5")
 OUT = Path(__file__).resolve().parent.parent.parent / "research"
 WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
-MARKETS = ("XAUUSD", "EURUSD")
+MARKETS = ("XAUUSD", "EURUSD")            # the ones the brief has numbers for
+TESTABLE = ("XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP")
 
 ROLES = {
     "price": {
@@ -57,11 +58,17 @@ ROLES = {
 }
 
 DESK_FACTS = (
-    "The desk paper-trades spot gold (XAUUSD) and EUR/USD. There are two kinds of strategy it can run: "
-    "DAILY strategies that decide once per completed daily bar (entry rules on daily OHLC, stop and "
-    "target in ATR multiples, hold up to a few weeks), and 1-MINUTE scalping strategies on forex majors and "
-    "gold. Ideas must be testable on price history with fixed rules: something like 'when X, then Y within "
-    "N days', not a one-off forecast."
+    "The desk paper-trades spot gold (XAUUSD) and forex majors (EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, "
+    "USDCAD, NZDUSD, EURGBP). Strategies decide on completed bars of one timeframe: DAILY (MT5 history "
+    "back to ~2000s), 4-HOUR (~5 years), 1-HOUR (~1.4 years) or 1-MINUTE (60 days). Entry rules on OHLC, "
+    "stop and target in ATR multiples, a time limit in bars. Ideas must be testable on price history with "
+    "fixed rules: 'when X, then Y within N bars', not a one-off forecast.\n\n"
+    "What the desk has learned (do not relearn it): every 1-minute scalper so far lost after spreads. "
+    "A high win rate made by a small target and a wide stop is geometry, not skill: chance alone wins "
+    "stop / (stop + target) of the time (target 0.8 ATR vs stop 2 ATR = 71%), and the desk's tests now "
+    "fail any idea whose wins do not beat that chance rate by 2 standard errors. Indicator settings "
+    "alone (RSI levels, moving-average crosses, a machine-learning classifier on indicators) have shown "
+    "no edge here. The owner's goal is a high win rate, but only one that beats chance after costs."
 )
 
 
@@ -138,20 +145,27 @@ def specialist_prompt(role: str, data: dict, market: str, today: str) -> tuple[s
             "Do not propose anything already there, and never repeat a failed idea unless you can say exactly "
             f"which market condition has changed since it failed:\n{ledger_brief(data)}\n\n"
             f"MARKET NUMBERS:\n{market}\n\n"
-            "Propose AT MOST 3 testable trading ideas for XAUUSD and/or EURUSD, from your angle only. For each: "
-            "the idea in one sentence, why it might work, the exact market conditions it needs, and what result "
-            "would prove it wrong. Fewer, better ideas beat three weak ones; zero is a valid answer.\n\n"
+            "Propose AT MOST 3 testable trading ideas for gold and/or the forex majors, from your angle only. "
+            "For each: the idea in one sentence; THE EDGE: the mechanism that makes the pattern exist (who is "
+            "on the other side and why they keep losing to it, or what forced flow or habit causes it) and why "
+            "it is not already traded away; the exact conditions, timeframe, stop and target; the win rate "
+            "chance alone would give that stop/target shape, and the win rate you expect instead; and what "
+            "result would prove it wrong. An idea with no mechanism beyond an indicator reading is not "
+            "accepted. Fewer, better ideas beat three weak ones; zero is a valid answer.\n\n"
             "Reply with a short memo in markdown (your reasoning, sources if you searched), then end with ONE "
             "```json block exactly like:\n"
-            '{"ideas": [{"idea": "...", "why": "...", "conditions": "...", "falsify": "...", '
-            '"markets": ["XAUUSD"], "kind": "daily or scalp"}]}')
+            '{"ideas": [{"idea": "...", "edge": "the mechanism", "why": "...", "conditions": "...", '
+            '"timeframe": "D1, H4, H1 or M1", "chance_win_pct": 50, "expected_win_pct": 60, '
+            '"falsify": "...", "markets": ["XAUUSD"], "kind": "daily or scalp"}]}')
     return system, user
 
 
 def skeptic_prompt(ideas: list[dict], data: dict, today: str) -> tuple[str, str]:
     system = ("You are the Skeptic on a small trading research desk. Your only job is to argue why each "
               "idea will fail: overfitting risk, costs and spreads, regime dependence, too few trades to "
-              f"ever test, data that is not available, or a duplicate of a past failure.\n\n{DESK_FACTS}")
+              "ever test, data that is not available, a duplicate of a past failure, an 'edge' that is only "
+              "an indicator reading, or an expected win rate that barely beats the chance rate for its "
+              f"stop/target shape.\n\n{DESK_FACTS}")
     listing = "\n".join(f"- {h['id']}: {h['idea']} (needs: {h.get('conditions', '')}; falsified by: "
                         f"{h.get('falsify', '')})" for h in ideas)
     user = (f"Today is {today}.\n\nNEW IDEAS:\n{listing}\n\nTHE LEDGER (past ideas and lessons):\n"
@@ -250,10 +264,15 @@ def apply_specialist(role: str, text: str, data: dict, out: Path, today: str, re
         if dup:
             report["skipped"].append(f"{ROLES[role]['name']}: '{idea[:80]}' looks like {dup}")
             continue
-        markets = [m.upper() for m in i.get("markets") or [] if m.upper() in MARKETS] or list(MARKETS)
+        if not str(i.get("edge", "")).strip():
+            report["skipped"].append(f"{ROLES[role]['name']}: '{idea[:80]}' names no edge (mechanism)")
+            continue
+        markets = [m.upper() for m in i.get("markets") or [] if m.upper() in TESTABLE] or list(MARKETS)
         h = ledger.add(data, idea, "idea", markets, ROLES[role]["name"], str(i.get("falsify", "")),
-                       note=f"why: {i.get('why', '')} | needs: {i.get('conditions', '')} | "
-                            f"kind: {i.get('kind', '')} | memo: research/{memo.name}")
+                       note=f"edge: {i.get('edge', '')} | why: {i.get('why', '')} | needs: {i.get('conditions', '')} | "
+                            f"timeframe: {i.get('timeframe', '')} | chance {i.get('chance_win_pct', '?')}% vs "
+                            f"expected {i.get('expected_win_pct', '?')}% wins | kind: {i.get('kind', '')} | "
+                            f"memo: research/{memo.name}")
         h["conditions"] = str(i.get("conditions", ""))
         new.append(h)
         report["added"].append(h["id"])
