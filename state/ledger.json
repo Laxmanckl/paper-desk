@@ -1359,7 +1359,7 @@
       "created": "2026-10-10T15:06:05+00:00",
       "strategy": "jev_bot/strategies/fomc_rebound.py v1",
       "version": 1,
-      "variations": 1,
+      "variations": 2,
       "max_variations": 5,
       "falsify": "Across all qualifying FOMC meetings 2008-2026 (expect roughly 40-60 trades), expectancy after costs is at or below zero, or not better than the same entry, stop and target applied to non-FOMC days with the same at-least-1% 5-day drop; or the 2020-2026 subsample is negative while the earlier one is positive (edge decayed).",
       "prediction": {
@@ -1373,137 +1373,137 @@
         "written": "2026-10-11T18:38:46+00:00",
         "sha256": "180999c59a8750593b92855cd85e0a6c949ef8678a31e60cbb196002a69bd1f2"
       },
-      "regime": "trending up",
+      "regime": "choppy",
       "backtest": {
-        "return_pct": 0.58,
-        "max_drawdown_pct": 5.75,
-        "trades": 16,
-        "win_rate_pct": 43.8,
-        "sharpe": 0.0036,
-        "sharpe_ann": 0.06,
-        "first": "2016-12-22",
-        "last": "2024-04-09",
-        "dsr": 0.562,
-        "period": "2016-12-22 → 2024-04-09",
-        "sealed_from": "2024-04-10",
-        "bars": 2513,
+        "return_pct": -6.49,
+        "max_drawdown_pct": 7.7,
+        "trades": 20,
+        "win_rate_pct": 35.0,
+        "sharpe": -0.0303,
+        "sharpe_ann": -0.48,
+        "first": "2014-06-13",
+        "last": "2023-08-24",
+        "dsr": 0.019,
+        "period": "2014-06-13 → 2023-08-24",
+        "sealed_from": "2023-08-25",
+        "bars": 3227,
         "walk_forward": [
           {
-            "first": "2016-12-22",
-            "last": "2018-10-18",
-            "return_pct": 2.29,
+            "first": "2014-06-13",
+            "last": "2016-09-27",
+            "return_pct": -0.34,
             "trades": 6,
             "win_rate_pct": 50.0,
-            "max_drawdown_pct": 2.01
+            "max_drawdown_pct": 1.88
           },
           {
-            "first": "2018-10-19",
-            "last": "2020-08-14",
-            "return_pct": 1.91,
-            "trades": 1,
-            "win_rate_pct": 100.0,
-            "max_drawdown_pct": 0.56
+            "first": "2016-09-28",
+            "last": "2019-01-21",
+            "return_pct": -0.71,
+            "trades": 7,
+            "win_rate_pct": 42.9,
+            "max_drawdown_pct": 3.12
           },
           {
-            "first": "2020-08-17",
-            "last": "2022-06-09",
-            "return_pct": -1.09,
-            "trades": 5,
-            "win_rate_pct": 40.0,
-            "max_drawdown_pct": 2.71
+            "first": "2019-01-22",
+            "last": "2021-05-07",
+            "return_pct": 0.0,
+            "trades": 0,
+            "win_rate_pct": 0.0,
+            "max_drawdown_pct": 0.0
           },
           {
-            "first": "2022-06-10",
-            "last": "2024-04-09",
-            "return_pct": -2.45,
-            "trades": 4,
-            "win_rate_pct": 25.0,
-            "max_drawdown_pct": 3.45
+            "first": "2021-05-10",
+            "last": "2023-08-24",
+            "return_pct": -5.5,
+            "trades": 7,
+            "win_rate_pct": 14.3,
+            "max_drawdown_pct": 5.5
           }
         ],
         "costs_2x": {
-          "return_pct": 0.45,
-          "max_drawdown_pct": 5.78,
-          "trades": 16,
-          "win_rate_pct": 43.8,
-          "sharpe": 0.003,
-          "sharpe_ann": 0.05,
-          "first": "2016-12-22",
-          "last": "2024-04-09"
+          "return_pct": -6.62,
+          "max_drawdown_pct": 7.78,
+          "trades": 20,
+          "win_rate_pct": 35.0,
+          "sharpe": -0.0309,
+          "sharpe_ann": -0.49,
+          "first": "2014-06-13",
+          "last": "2023-08-24"
         },
         "breaker": {
-          "return_pct": 2.17,
-          "max_drawdown_pct": 4.32,
-          "trades": 16,
-          "win_rate_pct": 56.2,
-          "sharpe": 0.0127,
-          "sharpe_ann": 0.2,
-          "first": "2016-12-22",
-          "last": "2024-04-09"
+          "return_pct": -1.02,
+          "max_drawdown_pct": 5.58,
+          "trades": 20,
+          "win_rate_pct": 45.0,
+          "sharpe": -0.0041,
+          "sharpe_ann": -0.07,
+          "first": "2014-06-13",
+          "last": "2023-08-24"
         },
         "worst_stretches": [
           {
-            "first": "2019-05-16",
-            "last": "2019-08-09",
+            "first": "2015-12-16",
+            "last": "2016-03-10",
+            "return_pct": 0.06,
+            "trades": 1,
+            "max_drawdown_pct": 0.85
+          },
+          {
+            "first": "2019-05-30",
+            "last": "2019-08-21",
             "return_pct": 0.0,
             "trades": 0,
             "max_drawdown_pct": 0.0
           },
           {
-            "first": "2020-02-25",
-            "last": "2020-05-19",
+            "first": "2020-03-02",
+            "last": "2020-05-25",
             "return_pct": 0.0,
             "trades": 0,
             "max_drawdown_pct": 0.0
           },
           {
-            "first": "2020-05-20",
-            "last": "2020-08-13",
+            "first": "2020-05-26",
+            "last": "2020-08-17",
             "return_pct": 0.0,
             "trades": 0,
             "max_drawdown_pct": 0.0
           },
           {
-            "first": "2020-12-22",
-            "last": "2021-03-19",
-            "return_pct": 0.0,
-            "trades": 0,
-            "max_drawdown_pct": 0.0
-          },
-          {
-            "first": "2022-10-27",
-            "last": "2023-01-24",
+            "first": "2022-11-01",
+            "last": "2023-01-25",
             "return_pct": 0.0,
             "trades": 0,
             "max_drawdown_pct": 0.0
           }
         ],
-        "regime": "trending up",
+        "regime": "choppy",
         "checks": [
           {
             "name": "Beats its own written prediction",
-            "passed": true,
-            "detail": "inside every line it drew"
+            "passed": false,
+            "detail": "return -6.49% < 0.0%"
           },
           {
             "name": "Deflated Sharpe (luck-adjusted)",
             "passed": false,
-            "detail": "0.56 after 1 attempt; needs 0.95"
+            "detail": "0.02 after 2 attempts; needs 0.95"
           },
           {
             "name": "Walk-forward windows",
             "passed": false,
-            "detail": "2 of 4 windows with trades were profitable"
+            "detail": "0 of 3 windows with trades were profitable"
           },
           {
             "name": "Survives double costs",
-            "passed": true,
-            "detail": "+0.45% with 2x spread"
+            "passed": false,
+            "detail": "-6.62% with 2x spread"
           },
           {
             "name": "Survives delayed fills + double costs",
-            "passed": true,
-            "detail": "+2.17%"
+            "passed": false,
+            "detail": "-1.02%"
           },
           {
             "name": "Worst historical stretches",
@@ -1512,8 +1512,8 @@
           }
         ],
         "passed": false,
-        "data": "yahoo",
-        "at": "2026-10-11T18:39:15+00:00",
+        "data": "MT5 daily · 1 market · from 2014-04-03",
+        "at": "2026-10-12T05:26:14+00:00",
         "version": 1
       },
       "attempts": [
@@ -1528,6 +1528,19 @@
           "sharpe": 0.0036,
           "dsr": 0.562,
           "data": "yahoo",
+          "passed": false
+        },
+        {
+          "at": "2026-10-12T05:26:14+00:00",
+          "version": 1,
+          "return_pct": -6.49,
+          "win_rate_pct": 35.0,
+          "max_drawdown_pct": 7.7,
+          "trades": 20,
+          "sharpe_ann": -0.48,
+          "sharpe": -0.0303,
+          "dsr": 0.019,
+          "data": "MT5 daily · 1 market · from 2014-04-03",
           "passed": false
         }
       ],
@@ -1554,6 +1567,11 @@
           "at": "2026-10-11T18:42:44+00:00",
           "source": "review",
           "text": "16 trades in 7.5 years: too few to judge. +0.58% and survives double costs, but the last two windows lost (-1.1%, -2.5%) and DSR 0.56. Left in testing, not revised: tweaking a 16-trade sample would be fitting noise"
+        },
+        {
+          "at": "2026-10-12T05:26:14+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, survives double costs, survives delayed fills + double costs"
         }
       ],
       "notes": "why: Gold tends to be de-risked into a feared hawkish FOMC and then recovers once the uncertainty is gone; in July 2026 gold slid toward $4,000 into the meeting and rebounded above $4,100 after the hold. Record central-bank buying (PBoC 23 straight months, 21t in September; Q2 2026 a record 289t) gives dips a structural buyer, so a long-only rebound rule fits the current backdrop. | needs: Only the 8 scheduled FOMC decision dates per year (next: 2026-10-28); a 5-day pre-meeting decline of at least 1% in XAUUSD; long only; one trade per meeting; skip unscheduled or emergency meetings. Backtest on all scheduled FOMC dates since 2008. | kind: daily | memo: research/central-2026-10-10.md",
