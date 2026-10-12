@@ -134,7 +134,7 @@ def simulate(symbol: str, bars: int = 750, seed: int = 7, trends: bool = True) -
 # --- real history from a CSV ---------------------------------------------------
 
 _DATE_FORMATS = ("%Y-%m-%d", "%Y.%m.%d", "%m/%d/%Y", "%d/%m/%Y", "%d-%m-%Y",
-                 "%b %d, %Y", "%Y%m%d", "%Y-%m-%d %H:%M:%S", "%Y.%m.%d %H:%M")
+                 "%b %d, %Y", "%Y%m%d", "%Y-%m-%d %H:%M:%S", "%Y.%m.%d %H:%M", "%Y-%m-%d %H:%M")
 
 
 def _parse_dates(values: list[str]):

@@ -134,6 +134,11 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
     s = settings or Settings()
     lim = limits or risk.Limits()
     W = max(fx.WARMUP, getattr(strategy, "warmup", 0) or 0)
+    lb = getattr(strategy, "history_bars", 0) or 0
+
+    def upto(end: int) -> list:
+        """Completed bars before index `end` (all of them, or the strategy's history_bars)."""
+        return bars[max(0, end - lb):end] if lb else bars[:end]
     spec = dict(fx.spec(symbol))
     spec["spread"] *= cost_mult
     half = spec["spread"] / 2
@@ -156,7 +161,7 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
             a = fx.atr(bars, t - 1)
             px_in = b.close if late_fill else b.open
             entry = px_in + half if pending == "BUY" else px_in - half
-            lv = strategy.levels(bars[:t], pending, entry, a) if strategy is not None else None
+            lv = strategy.levels(upto(t), pending, entry, a) if strategy is not None else None
             stop_dist = lv[0] if lv else s.sl_atr * a
             tgt_dist = lv[1] if lv else s.tp_atr * a
             units = (equity * s.risk_pct) / stop_dist if stop_dist > 0 else 0
@@ -195,7 +200,7 @@ def run(symbol: str, bars: list, settings: Settings | None = None,
 
         # 3. decide on this bar's close
         if strategy is not None:
-            act = strategy.signal(bars[:t + 1])          # completed bars only: no peeking
+            act = strategy.signal(upto(t + 1))          # completed bars only: no peeking
             d = types.Decision(symbol, act or "HOLD", 1.0, 1.0, source=strategy.name)
             gate = risk.Gate("EXECUTE" if act in ("BUY", "SELL") else "SKIP", "")
         else:

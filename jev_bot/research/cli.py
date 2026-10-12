@@ -94,8 +94,16 @@ def _test_markets(h, a):
     return [fx.resolve_any(m) for m in (h.get("test_markets") or h.get("markets") or list(fx.INSTRUMENTS))], False
 
 
-def _daily_bars(h, a):
+TF_NAME = {"D1": "daily", "H4": "4-hour", "H1": "1-hour"}
+
+
+def _daily_bars(h, a, strat=None):
+    """Bars for a bar-by-bar strategy: daily, or 1-hour / 4-hour for strategies that say so
+    (those come only from MT5: `export-mt5 --hourly`)."""
     from .. import feeds, fx, live
+    tf = getattr(strat, "timeframe", "D1") or "D1"
+    if tf != "D1" and a.source not in ("mt5", "sim") and not a.csv:
+        a.source = "mt5"                                  # web feeds only have daily bars
     syms, overridden = _test_markets(h, a)
     if overridden:
         h["test_markets"] = syms
@@ -105,10 +113,11 @@ def _daily_bars(h, a):
         if s in csvs:
             out[s] = fx.load_csv(csvs[s])
         elif a.source == "mt5":
-            f = os.path.join(MT5_DIR, f"{s}_D1.csv")
+            f = os.path.join(MT5_DIR, f"{s}_{tf}.csv")
             if not os.path.exists(f):
-                _fail(f"no MT5 daily history for {s}. On the Windows PC with MT5 open, run:\n"
-                      f"    python -m jev_bot research export-mt5 {' '.join(syms)} --daily")
+                flag = "--daily" if tf == "D1" else "--hourly"
+                _fail(f"no MT5 {TF_NAME.get(tf, tf)} history for {s}. On the Windows PC with MT5 open, run:\n"
+                      f"    python -m jev_bot research export-mt5 {' '.join(syms)} {flag}")
             out[s] = fx.load_csv(f)
         elif a.source == "sim":
             out[s] = fx.simulate(s, a.bars, a.seed)
@@ -119,7 +128,7 @@ def _daily_bars(h, a):
                 _fail(f"{s}: {e}")
             out[s] = live.completed_bars(bars, quote)
     label = "sim" if a.source == "sim" and not csvs else ("csv" if csvs else
-                                                          "MT5 daily" if a.source == "mt5" else a.source)
+                                                          f"MT5 {TF_NAME.get(tf, tf)}" if a.source == "mt5" else a.source)
     first = min(b[0].date for b in out.values())
     label += f" · {len(out)} market{'s' if len(out) > 1 else ''} · from {first}"
     return out, label
@@ -217,7 +226,10 @@ def cmd_promote(a):
               "passed the development backtest and its sealed test goes to paper trading.")
     if not h.get("module"):
         _fail(f"{h['id']} is not wired to a strategy in jev_bot/strategies/")
-    strategies.load(h["module"])
+    strat = strategies.load(h["module"])
+    if strat.timeframe != "D1":
+        _fail(f"{h['id']} runs on {strat.timeframe} bars. The live desks only run daily strategies (server) "
+              "and the 1-minute scalpers (PC); an hourly paper runner has to be built first.")
     h["status"] = "paper"
     h["paper_since"] = ledger._now()
     ledger.add_lesson(h, "promoted to paper trading after passing the backtest and the sealed test", "promote")
@@ -234,7 +246,7 @@ def cmd_backtest(a):
     sharpes = [x["sharpe"] for x in h.get("attempts", []) if x.get("sharpe") is not None]
     if h["desk"] == "daily":
         strat = _checked_strategy(h)
-        bars, label = _daily_bars(h, a)
+        bars, label = _daily_bars(h, a, strat)
         r = honest.daily(h, bars, trials, sharpes, a.windows, strategy=strat)
     else:
         series, label = _scalp_series(h, a)
@@ -275,7 +287,7 @@ def cmd_sealed(a):
         _fail(f"run the development backtest first: python -m jev_bot research backtest {h['id']}")
     if h["desk"] == "daily":
         strat = _checked_strategy(h)
-        bars, label = _daily_bars(h, a)
+        bars, label = _daily_bars(h, a, strat)
         r = honest.daily_sealed(h, bars, strategy=strat)
     else:
         series, label = _scalp_series(h, a)
@@ -415,6 +427,27 @@ def cmd_export_mt5(a):
             print(f"  {s}: not offered by this broker, skipped")
             continue
         mt5.symbol_select(theirs, True)
+        if a.hourly:
+            from datetime import datetime as _dt, timezone as _tz
+            for tf_name, tf in (("H1", mt5.TIMEFRAME_H1), ("H4", mt5.TIMEFRAME_H4)):
+                rates = None
+                for count in (60000, 40000, 25000, 15000, 10000, 5000, 2000):   # step down, as for daily
+                    rates = mt5.copy_rates_from_pos(theirs, tf, 1, count)          # 1 = skip the open bar
+                    if rates is not None and len(rates):
+                        break
+                    time.sleep(1)
+                if rates is None or not len(rates):
+                    print(f"  {s} {tf_name}: no history returned ({mt5.last_error()})")
+                    continue
+                path = os.path.join(a.out, f"{s}_{tf_name}.csv")
+                with open(path, "w") as fh:
+                    fh.write("date,open,high,low,close\n")
+                    for r in rates:
+                        d = _dt.fromtimestamp(int(r["time"]), _tz.utc)
+                        fh.write(f"{d:%Y-%m-%d %H:%M},{r['open']},{r['high']},{r['low']},{r['close']}\n")
+                print(f"  {s} {tf_name}: {len(rates)} bars "
+                      f"({_dt.fromtimestamp(int(rates[0]['time']), _tz.utc):%Y-%m-%d} onward) → {path}")
+            continue
         if a.daily:
             rates = None
             # brokers keep different amounts of history; asking for more than the terminal
@@ -555,5 +588,6 @@ def add_parser(sub) -> None:
     x.add_argument("symbols", nargs="+")
     x.add_argument("--days", type=int, default=60)
     x.add_argument("--daily", action="store_true", help="all daily history instead of 60 days of 1-minute")
+    x.add_argument("--hourly", action="store_true", help="1-hour and 4-hour history (up to ~60,000 bars each)")
     x.add_argument("--out", default="data/mt5")
     x.set_defaults(func=cmd_export_mt5)

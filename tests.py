@@ -776,5 +776,35 @@ ok("scalp backtest: instruments with gaps are replayed in true time order (no dr
    [int(t // 60) for t in _seen_t] == sorted(int(t // 60) for t in _seen_t)
    and len(_seen_t) == 4 * (len(_ga) + len(_gb)))
 
+# --- hourly (1H / 4H) strategies ---------------------------------------------------
+import tempfile, os as _os, types as _types
+from jev_bot import backtest as _bt, fx as _fx
+from jev_bot import strategies as _st
+from jev_bot.research import cli as _rcli
+_h1 = _st.load("trend_dip_h1")
+ok("trend_dip_h1 / h4: pass their own checks and declare their timeframe",
+   not _st.check(_h1) and _h1.timeframe == "H1" and _st.load("trend_dip_h4").timeframe == "H4")
+_sim = _fx.simulate("EURUSD", 900, 3)
+import copy as _copy
+_nolb = _copy.copy(_h1); _nolb.history_bars = 0
+_r1 = _bt.run("EURUSD", _sim, strategy=_h1)
+_r2 = _bt.run("EURUSD", _sim, strategy=_nolb)
+ok("backtest: a strategy's history_bars window gives exactly the same trades as full history",
+   [(t.entry_date, t.exit_date, t.pnl) for t in _r1.trades] == [(t.entry_date, t.exit_date, t.pnl) for t in _r2.trades]
+   and len(_r1.trades) > 0)
+with tempfile.TemporaryDirectory() as _d:
+    with open(_os.path.join(_d, "EURUSD_H1.csv"), "w") as _fh:
+        _fh.write("date,open,high,low,close\n")
+        for _i, _b in enumerate(_sim[:300]):
+            _fh.write(f"2026-0{1 + _i // 240}-{1 + (_i // 24) % 10:02d} {_i % 24:02d}:00,{_b.open},{_b.high},{_b.low},{_b.close}\n")
+    _old = _rcli.MT5_DIR; _rcli.MT5_DIR = _d
+    _a = _types.SimpleNamespace(source="yahoo", markets="EURUSD", csv=[], bars=0, seed=0, range="")
+    try:
+        _bars, _label = _rcli._daily_bars({"markets": ["EURUSD"]}, _a, _h1)
+    finally:
+        _rcli.MT5_DIR = _old
+    ok("research: a 1-hour strategy reads data/mt5/<SYM>_H1.csv with hours in the dates",
+       len(_bars["EURUSD"]) == 300 and _bars["EURUSD"][1].date.endswith("01:00") and "1-hour" in _label)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

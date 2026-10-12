@@ -2523,6 +2523,96 @@
         "NZDUSD",
         "EURGBP"
       ]
+    },
+    {
+      "id": "H14",
+      "idea": "1-hour trend dip, small target: buy RSI(2) below 10 inside a 50/200-bar uptrend (sell RSI(2) above 90 in a downtrend); stop 2 ATR, target 0.8 ATR, out after 24 bars",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP"
+      ],
+      "source": "Claude (85% win-rate goal)",
+      "created": "2026-10-12T10:33:24+00:00",
+      "strategy": "jev_bot/strategies/trend_dip_h1.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "wins under 85%, or loses money after costs, or fewer than 3 of 4 windows profitable",
+      "prediction": {
+        "return_pct": 5.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 300,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 15.0,
+          "win_rate_below": 85.0
+        },
+        "written": "2026-10-12T10:33:29+00:00",
+        "sha256": "c94fe90bae7c10d085b077819098851ebbc90dc103ec487f5e09a96f97aefc91"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [],
+      "notes": "",
+      "module": "trend_dip_h1"
+    },
+    {
+      "id": "H15",
+      "idea": "4-hour trend dip, small target: same rules as H14 on 4-hour bars (out after 24 bars = 4 days)",
+      "desk": "daily",
+      "markets": [
+        "XAUUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "EURGBP"
+      ],
+      "source": "Claude (85% win-rate goal)",
+      "created": "2026-10-12T10:33:25+00:00",
+      "strategy": "jev_bot/strategies/trend_dip_h4.py v1",
+      "version": 1,
+      "variations": 0,
+      "max_variations": 5,
+      "falsify": "wins under 85%, or loses money after costs, or fewer than 3 of 4 windows profitable",
+      "prediction": {
+        "return_pct": 5.0,
+        "win_rate_pct": 85.0,
+        "max_drawdown_pct": 10.0,
+        "min_trades": 100,
+        "fail_if": {
+          "return_below": 0.0,
+          "drawdown_above": 15.0,
+          "win_rate_below": 85.0
+        },
+        "written": "2026-10-12T10:33:29+00:00",
+        "sha256": "d2491280116fd8ccebf6bbd1a5755746540a061204046c0c20bb4580b3a2a573"
+      },
+      "regime": "",
+      "backtest": null,
+      "attempts": [],
+      "sealed": null,
+      "paper": null,
+      "status": "testing",
+      "lessons": [],
+      "notes": "",
+      "module": "trend_dip_h4"
     }
   ]
 }

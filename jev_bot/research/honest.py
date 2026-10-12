@@ -103,6 +103,13 @@ def _combine(curves: dict, start: float) -> list[float]:
     return out
 
 
+BARS_PER_YEAR = {"D1": 252, "H4": 252 * 6, "H1": 252 * 24}
+
+
+def _tf(kw) -> str:
+    return getattr(kw.get("strategy"), "timeframe", "D1") or "D1"
+
+
 def _warm(kw) -> int:
     """Bars of history a strategy needs before its first trade (50 unless it says more)."""
     return max(fx.WARMUP, getattr(kw.get("strategy"), "warmup", 0) or 0)
@@ -123,7 +130,7 @@ def _run_daily(bars_by_sym: dict, lo: int | None = None, hi: int | None = None, 
         trades += res.trades
     start = backtest.Settings().start_equity
     curve = _combine(curves, start) if curves else [start]
-    m = _metrics(curve, trades, start, 252)
+    m = _metrics(curve, trades, start, BARS_PER_YEAR.get(_tf(kw), 252))
     if curves:
         m["first"] = min(min(c) for c in curves.values())
         m["last"] = max(max(c) for c in curves.values())
@@ -157,7 +164,7 @@ def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows:
     cut = int(n * (1 - HOLDOUT))
     W = _warm({"strategy": strategy})
     if cut - W < 120:
-        raise SystemExit(f"  only {n} daily bars: need at least ~{int((W + 120) / (1 - HOLDOUT))}")
+        raise SystemExit(f"  only {n} {_tf({'strategy': strategy})} bars: need at least ~{int((W + 120) / (1 - HOLDOUT))}")
     dev = _run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy)
     step = (cut - W) // windows
     wf = []
@@ -169,7 +176,8 @@ def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows:
     breaker = _clean(_run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy, cost_mult=2.0, late_fill=True))
     ref = next(iter(bars_by_sym.values()))
     worst = []
-    for a, b in _worst_stretches(ref, W, cut):
+    size = 60 if _tf({"strategy": strategy}) == "D1" else 120     # ~3 months daily; 5 days (1H) / 20 days (4H)
+    for a, b in _worst_stretches(ref, W, cut, size=size):
         w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
         worst.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "max_drawdown_pct")})
     v = _verdict(h, dev, wf, costs2, worst, trials, trial_sharpes, breaker)

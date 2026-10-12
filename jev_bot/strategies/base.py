@@ -37,6 +37,9 @@ class DailyStrategy:
     needs_real_dates: bool = False    # trades on calendar events: simulated data has no event days
     rare: bool = False                # set-ups so rare that simulated data may never show one
     warmup: int = 0                   # bars of history before the first trade (0 = the usual 50)
+    timeframe: str = "D1"             # bar size it runs on: D1, H4 or H1 (max_hold counts these bars)
+    history_bars: int = 0             # bars signal() needs to see (0 = all history); keeps long
+                                      # hourly backtests fast: each call gets only the last `history_bars` bars
 
     # --- entry rules --------------------------------------------------------
     def signal(self, history: list) -> str | None:

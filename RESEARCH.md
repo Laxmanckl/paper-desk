@@ -83,6 +83,21 @@ python -m jev_bot research backtest H2 --csv EURUSD=data/mt5/EURUSD_M1.csv --csv
 
 Then commit `state/ledger.json` (the scalper's next publish does it for you if you run it inside `C:\paper-scalper`).
 
+### 1-hour and 4-hour strategies
+
+A strategy in `jev_bot/strategies/` can set `timeframe="H1"` or `"H4"` (and `history_bars`
+so long hourly backtests stay fast). Its bars come only from MT5. On the Windows PC:
+
+```bash
+python -m jev_bot research export-mt5 XAUUSD EURUSD GBPUSD USDJPY USDCHF AUDUSD USDCAD NZDUSD EURGBP --hourly
+python -m jev_bot research backtest H14      # 1-hour trend dip
+python -m jev_bot research backtest H15      # 4-hour trend dip
+```
+
+`max_hold` counts bars of the strategy's own timeframe. These are tested like any other
+idea (prediction first, sealed newest 25%, walk-forward, DSR, breaker), but cannot be
+promoted yet: no live desk runs hourly bars until one is built for a strategy that passes.
+
 ## The three strategies already running
 
 H1 (daily), H2 (scalper A) and H3 (scalper B) reached paper trading before this loop existed. They have no prediction written up front and earlier tuning was not counted. The honest thing to do now:
