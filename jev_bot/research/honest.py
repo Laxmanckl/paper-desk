@@ -16,6 +16,7 @@ profitable, not one great total.
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -24,16 +25,44 @@ from . import stats
 
 MIN_DSR = 0.95
 WF_MIN_SHARE = 0.6
+MIN_EDGE_Z = 2.0         # wins must beat the coin-flip rate by 2 standard errors
 HOLDOUT = 0.25          # the newest 25% of the history is sealed
 
 
 # --- shared -----------------------------------------------------------------------
 
+def _field(t, k):
+    return t.get(k) if isinstance(t, dict) else getattr(t, k, None)
+
+
+def chance(trades: list) -> dict:
+    """The win rate pure chance gives these trades. A price wandering at random reaches
+    a target g away before a stop s away with probability s / (s + g); averaged over the
+    trades that is the coin-flip win rate for this stop/target shape. z says how far the
+    real wins are above it (2 or more = unlikely to be luck)."""
+    ps, wins = [], 0
+    for t in trades:
+        e, s, g = _field(t, "entry"), _field(t, "stop"), _field(t, "target")
+        if not (e and s and g):
+            continue
+        sd, gd = abs(e - s), abs(g - e)
+        if sd + gd <= 0:
+            continue
+        ps.append(sd / (sd + gd))
+        wins += _pnl(t) > 0
+    if not ps:
+        return {"chance_win_pct": None, "edge_z": None}
+    exp = sum(ps)
+    var = sum(p * (1 - p) for p in ps)
+    return {"chance_win_pct": round(100 * exp / len(ps), 1),
+            "edge_z": round((wins - exp) / math.sqrt(var), 2) if var > 0 else 0.0}
+
+
 def _metrics(curve: list[float], trades: list, start: float, periods_per_year: float) -> dict:
     rets = stats.returns([start] + curve)
     sr = stats.sharpe(rets)
     wins = sum(1 for t in trades if _pnl(t) > 0)
-    return {"return_pct": round((curve[-1] / start - 1) * 100 if curve else 0.0, 2),
+    return {**chance(trades),"return_pct": round((curve[-1] / start - 1) * 100 if curve else 0.0, 2),
             "max_drawdown_pct": round(stats.max_drawdown([start] + curve) * 100, 2),
             "trades": len(trades), "win_rate_pct": round(100 * wins / len(trades), 1) if trades else 0.0,
             "sharpe": round(sr, 4), "sharpe_ann": round(sr * math.sqrt(periods_per_year), 2),
@@ -69,6 +98,10 @@ def _verdict(h: dict, dev: dict, wf: list, costs2: dict, worst: list, trials: in
     good = sum(1 for w in active if w["return_pct"] > 0)
     checks.append(_check("Walk-forward windows", len(active) >= 3 and good >= WF_MIN_SHARE * len(active),
                          f"{good} of {len(active)} windows with trades were profitable"))
+    if dev.get("chance_win_pct") is not None:
+        checks.append(_check("Wins more often than chance", dev["edge_z"] >= MIN_EDGE_Z,
+                             f"{dev['win_rate_pct']:.0f}% wins vs {dev['chance_win_pct']:.0f}% by pure chance for "
+                             f"this stop/target shape (z {dev['edge_z']:+.1f}; needs {MIN_EDGE_Z:+.1f})"))
     checks.append(_check("Survives double costs", costs2["return_pct"] > 0,
                          f"{costs2['return_pct']:+.2f}% with 2x spread"))
     if breaker is not None:
@@ -115,18 +148,41 @@ def _warm(kw) -> int:
     return max(fx.WARMUP, getattr(kw.get("strategy"), "warmup", 0) or 0)
 
 
-def _run_daily(bars_by_sym: dict, lo: int | None = None, hi: int | None = None, **kw) -> dict:
-    """Run every instrument on bars[lo:hi] (lo counted from where trading starts),
-    with the warm-up taken from just before lo."""
+def _align(bars_by_sym: dict, W: int) -> dict:
+    """One shared clock for every market. Gold and the currency pairs trade different
+    hours (and brokers keep different amounts of history), so the n-th bar is not the
+    same moment in every market. Periods are cut by TIME on the busiest market's clock;
+    every market then uses its own bars inside that time. Dates that do not parse (the
+    simulator) fall back to lining the markets up by bar count, as before."""
+    parsed = {s: fx._parse_dates([b.date for b in bars]) for s, bars in bars_by_sym.items()}
+    if all(parsed.values()):
+        keys = parsed
+    else:
+        n = min(len(b) for b in bars_by_sym.values())
+        bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}
+        keys = {s: list(range(n)) for s in bars_by_sym}
+    first = max(k[min(W, len(k) - 1)] for k in keys.values())     # every market has its warm-up
+    end = min(k[-1] for k in keys.values())                       # every market still has data
+    ref = max(bars_by_sym, key=lambda s: len(bars_by_sym[s]))
+    clock = [k for k in keys[ref] if first <= k <= end]
+    return {"bars": bars_by_sym, "keys": keys, "first": first, "end": end, "ref": ref, "clock": clock}
+
+
+def _run_daily(al: dict, lo=None, hi=None, **kw) -> dict:
+    """Every market from time lo (inclusive) to hi (exclusive; None = the shared end),
+    each warming up on its own bars just before lo."""
     curves, trades = {}, []
     W = _warm(kw)
-    for sym, bars in bars_by_sym.items():
-        a = (lo if lo is not None else W) - W
-        seg = bars[max(0, a):hi]
+    lo = al["first"] if lo is None else lo
+    for sym, bars in al["bars"].items():
+        k = al["keys"][sym]
+        i = max(W, bisect_left(k, lo))
+        j = bisect_left(k, hi) if hi is not None else bisect_right(k, al["end"])
+        seg = bars[i - W:j]
         if len(seg) <= W + 1:
             continue
         res = backtest.run(sym, seg, **kw)
-        curves[sym] = {seg[W + i].date: e for i, e in enumerate(res.equity_curve)}
+        curves[sym] = {seg[W + n].date: e for n, e in enumerate(res.equity_curve)}
         trades += res.trades
     start = backtest.Settings().start_equity
     curve = _combine(curves, start) if curves else [start]
@@ -156,47 +212,59 @@ def _worst_stretches(bars: list, lo: int, hi: int, n: int = 5, size: int = 60) -
     return [(a, a + size) for a in sorted(picked)]
 
 
+def _cut(al: dict) -> tuple:
+    """(time the sealed part starts, its index on the shared clock). The newest 25% of the
+    busiest market's history (counted from its first bar, warm-up included, as always)."""
+    rk = [k for k in al["keys"][al["ref"]] if k <= al["end"]]
+    t = rk[int(len(rk) * (1 - HOLDOUT))]
+    return t, bisect_left(al["clock"], t)
+
+
 def daily(h: dict, bars_by_sym: dict, trials: int, trial_sharpes: list, windows: int = 4,
           engine: str = "offline", strategy=None) -> dict:
     """Development-period test of a daily-bot hypothesis. Never touches the sealed part."""
-    n = min(len(b) for b in bars_by_sym.values())
-    bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}        # same span for every instrument
-    cut = int(n * (1 - HOLDOUT))
     W = _warm({"strategy": strategy})
-    if cut - W < 120:
-        raise SystemExit(f"  only {n} {_tf({'strategy': strategy})} bars: need at least ~{int((W + 120) / (1 - HOLDOUT))}")
-    dev = _run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy)
-    step = (cut - W) // windows
+    al = _align(bars_by_sym, W)
+    clock = al["clock"]
+    need = int((W + 120) / (1 - HOLDOUT))
+    if bisect_left(clock, _cut(al)[0]) < 120:
+        raise SystemExit(f"  only {len(clock) + W} {_tf({'strategy': strategy})} bars shared by every market: "
+                         f"need at least ~{need}")
+    cut_t, c = _cut(al)
+    kw = {"engine": engine, "strategy": strategy}
+    dev = _run_daily(al, None, cut_t, **kw)
+    step = c // windows
     wf = []
     for i in range(windows):
-        a, b = W + i * step, (cut if i == windows - 1 else W + (i + 1) * step)
-        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
+        a, b = clock[i * step], (cut_t if i == windows - 1 else clock[(i + 1) * step])
+        w = _clean(_run_daily(al, a, b, **kw))
         wf.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "win_rate_pct", "max_drawdown_pct")})
-    costs2 = _clean(_run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy, cost_mult=2.0))
-    breaker = _clean(_run_daily(bars_by_sym, W, cut, engine=engine, strategy=strategy, cost_mult=2.0, late_fill=True))
-    ref = next(iter(bars_by_sym.values()))
+    costs2 = _clean(_run_daily(al, None, cut_t, cost_mult=2.0, **kw))
+    breaker = _clean(_run_daily(al, None, cut_t, cost_mult=2.0, late_fill=True, **kw))
+    ref, rk = al["bars"][al["ref"]], al["keys"][al["ref"]]
+    ia, ib = bisect_left(rk, al["first"]), bisect_left(rk, cut_t)
+    size = 60 if _tf(kw) == "D1" else 120      # ~3 months daily; 5 days (1H) / 20 days (4H)
     worst = []
-    size = 60 if _tf({"strategy": strategy}) == "D1" else 120     # ~3 months daily; 5 days (1H) / 20 days (4H)
-    for a, b in _worst_stretches(ref, W, cut, size=size):
-        w = _clean(_run_daily(bars_by_sym, a, b, engine=engine, strategy=strategy))
+    for a, b in _worst_stretches(ref, ia, ib, size=size):
+        w = _clean(_run_daily(al, rk[a], rk[b], **kw))
         worst.append({k: w.get(k) for k in ("first", "last", "return_pct", "trades", "max_drawdown_pct")})
     v = _verdict(h, dev, wf, costs2, worst, trials, trial_sharpes, breaker)
-    closes = [b.close for b in ref[W:cut]]
+    closes = [b.close for b in ref[ia:ib]]
     return {**_clean(dev), "period": f"{dev.get('first', '?')} → {dev.get('last', '?')}",
-            "sealed_from": ref[cut].date, "bars": n, "walk_forward": wf, "costs_2x": costs2,
+            "sealed_from": ref[ib].date, "bars": len(clock), "walk_forward": wf, "costs_2x": costs2,
             "breaker": breaker, "worst_stretches": worst, "regime": stats.regime(closes), **v}
 
 
 def daily_sealed(h: dict, bars_by_sym: dict, engine: str = "offline", strategy=None) -> dict:
-    n = min(len(b) for b in bars_by_sym.values())
-    bars_by_sym = {s: b[-n:] for s, b in bars_by_sym.items()}
-    cut = int(n * (1 - HOLDOUT))
-    res = _clean(_run_daily(bars_by_sym, cut, None, engine=engine, strategy=strategy))
+    al = _align(bars_by_sym, _warm({"strategy": strategy}))
+    cut_t, _ = _cut(al)
+    res = _clean(_run_daily(al, cut_t, None, engine=engine, strategy=strategy))
     from . import ledger
     ok, why = ledger.judge(h, res) if h.get("prediction") else (res["return_pct"] > 0, [])
     if res["return_pct"] <= 0:
         ok, why = False, why + [f"lost money ({res['return_pct']:+.2f}%)"]
-    closes = [b.close for b in next(iter(bars_by_sym.values()))[cut:]]
+    ref, rk = al["bars"][al["ref"]], al["keys"][al["ref"]]
+    closes = [b.close for b in ref[bisect_left(rk, cut_t):]]
     return {**res, "period": f"{res.get('first', '?')} → {res.get('last', '?')}", "passed": ok,
             "why": why, "regime": stats.regime(closes)}
 

@@ -806,5 +806,35 @@ with tempfile.TemporaryDirectory() as _d:
     ok("research: a 1-hour strategy reads data/mt5/<SYM>_H1.csv with hours in the dates",
        len(_bars["EURUSD"]) == 300 and _bars["EURUSD"][1].date.endswith("01:00") and "1-hour" in _label)
 
+# --- time-aligned periods and the chance baseline -------------------------------------
+from datetime import datetime as _DT, timedelta as _TD
+from jev_bot.research import honest as _hon
+def _hourly(sym, n, start, skip_hour=None, seed=4):
+    out, t, src = [], start, _fx.simulate(sym, n + 200, seed)
+    for b in src:
+        if len(out) == n:
+            break
+        if skip_hour is None or t.hour != skip_hour:
+            out.append(_fx.Bar(t.strftime("%Y-%m-%d %H:%M"), b.open, b.high, b.low, b.close))
+        t += _TD(hours=1)
+    return out
+_eu = _hourly("EURUSD", 3000, _DT(2025, 1, 1))
+_xa = _hourly("XAUUSD", 2700, _DT(2025, 1, 11), skip_hour=22)        # starts later, one hour shut a day
+_al = _hon._align({"EURUSD": _eu, "XAUUSD": _xa}, 210)
+_ct, _ = _hon._cut(_al)
+_hh = {"id": "Hx", "prediction": None, "status": "testing"}
+_rd = _hon.daily(_hh, {"EURUSD": _eu, "XAUUSD": _xa}, 1, [], strategy=_h1)
+_wf = _rd["walk_forward"]
+ok("honest test: windows follow one clock across markets with different hours (no overlaps)",
+   all(_wf[i]["last"] < _wf[i + 1]["first"] for i in range(len(_wf) - 1) if _wf[i]["last"] and _wf[i + 1]["first"]))
+ok("honest test: the development period ends before the sealed time in every market",
+   _rd["last"] < _rd["sealed_from"] and _al["ref"] == "EURUSD")
+_tr = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 10 < 7 else -1.0) for i in range(1000)]
+_c = _hon.chance(_tr)
+ok("chance baseline: stop 2x / target 0.8x gives 71% by chance; 70% real wins is no edge",
+   _c["chance_win_pct"] == 71.4 and _c["edge_z"] < 0)
+_tr2 = [_types.SimpleNamespace(entry=1.0, stop=0.98, target=1.008, pnl=1.0 if i % 20 < 18 else -1.0) for i in range(1000)]
+ok("chance baseline: 90% wins on the same shape is a real edge (z well above 2)", _hon.chance(_tr2)["edge_z"] > 2)
+
 print(f"\n  {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

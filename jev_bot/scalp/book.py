@@ -262,6 +262,7 @@ class ScalpBook:
         self.cooldown[sym] = t + cfg.cooldown_min * 60
         risk = abs(p["entry"] - p["stop"]) * p["units"] * conv
         tr = {"symbol": sym, "side": p["side"], "entry": p["entry"], "exit": price,
+              "stop": p["stop"], "target": p["target"],
               "opened": p["opened"], "closed": _iso(t), "secs": round(t - p["t_open"]),
               "reason": reason, "gross": round(gross, 2), "fees": round(fees, 2),
               "pnl": round(net, 2), "r": round(net / risk, 2) if risk else 0.0,
