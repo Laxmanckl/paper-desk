@@ -2975,7 +2975,7 @@
       "created": "2026-10-12T10:45:00+00:00",
       "strategy": "jev_bot/strategies/weekend_gap.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "wins within 2 standard errors of the 75% chance rate, or a loss after double spreads",
       "prediction": {
@@ -2991,9 +2991,175 @@
         "written": "2026-10-12T10:46:29+00:00",
         "sha256": "cb0e338dfa6a9a90d5cba9a4a15af7ff49727d741dbdedfd915745cedd90c996"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "choppy",
+      "backtest": {
+        "chance_win_pct": 74.4,
+        "edge_z": 0.8,
+        "return_pct": 0.1,
+        "max_drawdown_pct": 1.5,
+        "trades": 252,
+        "win_rate_pct": 76.6,
+        "sharpe": 0.0009,
+        "sharpe_ann": 0.07,
+        "first": "2025-03-06 23:00",
+        "last": "2026-05-12 07:00",
+        "dsr": 0.532,
+        "period": "2025-03-06 23:00 → 2026-05-12 07:00",
+        "sealed_from": "2026-05-12 08:00",
+        "bars": 9456,
+        "walk_forward": [
+          {
+            "first": "2025-03-06 23:00",
+            "last": "2025-06-23 17:00",
+            "return_pct": -0.48,
+            "trades": 63,
+            "win_rate_pct": 71.4,
+            "max_drawdown_pct": 0.74
+          },
+          {
+            "first": "2025-06-23 18:00",
+            "last": "2025-10-07 14:00",
+            "return_pct": 0.5,
+            "trades": 47,
+            "win_rate_pct": 85.1,
+            "max_drawdown_pct": 0.64
+          },
+          {
+            "first": "2025-10-07 15:00",
+            "last": "2026-01-23 14:00",
+            "return_pct": -0.62,
+            "trades": 50,
+            "win_rate_pct": 66.0,
+            "max_drawdown_pct": 0.62
+          },
+          {
+            "first": "2026-01-23 15:00",
+            "last": "2026-05-12 07:00",
+            "return_pct": 0.68,
+            "trades": 92,
+            "win_rate_pct": 81.5,
+            "max_drawdown_pct": 0.68
+          }
+        ],
+        "costs_2x": {
+          "chance_win_pct": 74.4,
+          "edge_z": -1.23,
+          "return_pct": -2.82,
+          "max_drawdown_pct": 3.39,
+          "trades": 252,
+          "win_rate_pct": 71.0,
+          "sharpe": -0.0212,
+          "sharpe_ann": -1.65,
+          "first": "2025-03-06 23:00",
+          "last": "2026-05-12 07:00"
+        },
+        "breaker": {
+          "chance_win_pct": 74.0,
+          "edge_z": -4.55,
+          "return_pct": -5.85,
+          "max_drawdown_pct": 6.9,
+          "trades": 252,
+          "win_rate_pct": 61.5,
+          "sharpe": -0.036,
+          "sharpe_ann": -2.8,
+          "first": "2025-03-06 23:00",
+          "last": "2026-05-12 07:00"
+        },
+        "worst_stretches": [
+          {
+            "first": "2025-10-10 08:00",
+            "last": "2025-10-17 12:00",
+            "return_pct": -0.32,
+            "trades": 7,
+            "max_drawdown_pct": 0.32
+          },
+          {
+            "first": "2025-10-20 20:00",
+            "last": "2025-10-28 00:00",
+            "return_pct": 0.04,
+            "trades": 7,
+            "max_drawdown_pct": 0.14
+          },
+          {
+            "first": "2026-01-21 04:00",
+            "last": "2026-01-28 08:00",
+            "return_pct": 0.14,
+            "trades": 8,
+            "max_drawdown_pct": 0.16
+          },
+          {
+            "first": "2026-01-28 09:00",
+            "last": "2026-02-04 13:00",
+            "return_pct": 0.14,
+            "trades": 4,
+            "max_drawdown_pct": 0.0
+          },
+          {
+            "first": "2026-03-17 08:00",
+            "last": "2026-03-24 12:00",
+            "return_pct": 0.14,
+            "trades": 4,
+            "max_drawdown_pct": 0.0
+          }
+        ],
+        "regime": "choppy",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": false,
+            "detail": "win rate 77% < 80.0%"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.53 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": false,
+            "detail": "2 of 4 windows with trades were profitable"
+          },
+          {
+            "name": "Wins more often than chance",
+            "passed": false,
+            "detail": "77% wins vs 74% by pure chance for this stop/target shape (z +0.8; needs +2.0)"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": false,
+            "detail": "-2.82% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": false,
+            "detail": "-5.85%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches -0.32% (prediction allowed -8.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "MT5 1-hour · 9 markets · from 2025-02-03 06:00",
+        "at": "2026-10-12T10:51:09+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-12T10:51:09+00:00",
+          "version": 1,
+          "return_pct": 0.1,
+          "win_rate_pct": 76.6,
+          "max_drawdown_pct": 1.5,
+          "trades": 252,
+          "sharpe_ann": 0.07,
+          "sharpe": 0.0009,
+          "dsr": 0.532,
+          "data": "MT5 1-hour · 9 markets · from 2025-02-03 06:00",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -3002,6 +3168,11 @@
           "at": "2026-10-12T10:45:14+00:00",
           "source": "Skeptic",
           "text": "Skeptic (test): Sunday reopen spreads are several times normal and the entry is in that hour; a fixed-spread backtest flatters it. Charge >=3x spread on the reopen bar and judge against the 75% chance rate."
+        },
+        {
+          "at": "2026-10-12T10:51:09+00:00",
+          "source": "backtest",
+          "text": "v1 failed: beats its own written prediction, deflated sharpe (luck-adjusted), walk-forward windows, wins more often than chance, survives double costs, survives delayed fills + double costs"
         }
       ],
       "notes": "edge: Sunday reopen trades in the week's thinnest liquidity; a few dealers reprice weekend news in one jump, and two-way flow from Tokyo and London takes part of an over-sized jump back. Too small and infrequent for large desks. | why: liquidity-driven overshoot at the weekly reopen, corrected when normal liquidity returns | needs: 1-hour bars; first bar of the week; gap > 0.5 ATR(14); spread at the reopen must be charged in full | timeframe: H1 | chance 75% vs expected 85% wins | kind: daily | memo: research/price-2026-10-12.md",
@@ -3023,7 +3194,7 @@
       "created": "2026-10-12T10:45:00+00:00",
       "strategy": "jev_bot/strategies/gold_asia.py v1",
       "version": 1,
-      "variations": 0,
+      "variations": 1,
       "max_variations": 5,
       "falsify": "no positive Asia-hours return after costs on the history, or wins within 2 standard errors of 50%",
       "prediction": {
@@ -3038,9 +3209,175 @@
         "written": "2026-10-12T10:46:29+00:00",
         "sha256": "ed8e9e3106c122cfed1efbbf8958ec45dc10846f9ff021abec1cb6adaef266d1"
       },
-      "regime": "",
-      "backtest": null,
-      "attempts": [],
+      "regime": "choppy",
+      "backtest": {
+        "chance_win_pct": 50.0,
+        "edge_z": 0.94,
+        "return_pct": 17.74,
+        "max_drawdown_pct": 11.78,
+        "trades": 325,
+        "win_rate_pct": 52.6,
+        "sharpe": 0.0148,
+        "sharpe_ann": 1.15,
+        "first": "2025-02-05 10:00",
+        "last": "2026-05-12 07:00",
+        "dsr": 0.899,
+        "period": "2025-02-05 10:00 → 2026-05-12 07:00",
+        "sealed_from": "2026-05-12 08:00",
+        "bars": 9950,
+        "walk_forward": [
+          {
+            "first": "2025-02-05 10:00",
+            "last": "2025-05-30 12:00",
+            "return_pct": 7.81,
+            "trades": 81,
+            "win_rate_pct": 56.8,
+            "max_drawdown_pct": 5.71
+          },
+          {
+            "first": "2025-05-30 13:00",
+            "last": "2025-09-22 19:00",
+            "return_pct": -2.76,
+            "trades": 81,
+            "win_rate_pct": 48.1,
+            "max_drawdown_pct": 7.98
+          },
+          {
+            "first": "2025-09-22 20:00",
+            "last": "2026-01-16 02:00",
+            "return_pct": 7.94,
+            "trades": 82,
+            "win_rate_pct": 50.0,
+            "max_drawdown_pct": 5.18
+          },
+          {
+            "first": "2026-01-16 03:00",
+            "last": "2026-05-12 07:00",
+            "return_pct": 3.8,
+            "trades": 81,
+            "win_rate_pct": 55.6,
+            "max_drawdown_pct": 4.8
+          }
+        ],
+        "costs_2x": {
+          "chance_win_pct": 50.0,
+          "edge_z": 0.94,
+          "return_pct": 13.71,
+          "max_drawdown_pct": 12.76,
+          "trades": 325,
+          "win_rate_pct": 52.6,
+          "sharpe": 0.0118,
+          "sharpe_ann": 0.92,
+          "first": "2025-02-05 10:00",
+          "last": "2026-05-12 07:00"
+        },
+        "breaker": {
+          "chance_win_pct": 50.0,
+          "edge_z": 0.5,
+          "return_pct": 11.46,
+          "max_drawdown_pct": 14.09,
+          "trades": 325,
+          "win_rate_pct": 51.4,
+          "sharpe": 0.0102,
+          "sharpe_ann": 0.79,
+          "first": "2025-02-05 10:00",
+          "last": "2026-05-12 07:00"
+        },
+        "worst_stretches": [
+          {
+            "first": "2025-04-07 13:00",
+            "last": "2025-04-14 17:00",
+            "return_pct": 3.24,
+            "trades": 5,
+            "max_drawdown_pct": 0.7
+          },
+          {
+            "first": "2026-01-21 20:00",
+            "last": "2026-01-29 01:00",
+            "return_pct": 3.04,
+            "trades": 5,
+            "max_drawdown_pct": 0.44
+          },
+          {
+            "first": "2026-01-29 02:00",
+            "last": "2026-02-05 06:00",
+            "return_pct": -1.22,
+            "trades": 5,
+            "max_drawdown_pct": 1.99
+          },
+          {
+            "first": "2026-03-16 17:00",
+            "last": "2026-03-23 21:00",
+            "return_pct": -1.3,
+            "trades": 5,
+            "max_drawdown_pct": 2.06
+          },
+          {
+            "first": "2026-03-26 13:00",
+            "last": "2026-04-02 18:00",
+            "return_pct": 2.05,
+            "trades": 5,
+            "max_drawdown_pct": 1.14
+          }
+        ],
+        "regime": "choppy",
+        "checks": [
+          {
+            "name": "Beats its own written prediction",
+            "passed": true,
+            "detail": "inside every line it drew"
+          },
+          {
+            "name": "Deflated Sharpe (luck-adjusted)",
+            "passed": false,
+            "detail": "0.90 after 1 attempt; needs 0.95"
+          },
+          {
+            "name": "Walk-forward windows",
+            "passed": true,
+            "detail": "3 of 4 windows with trades were profitable"
+          },
+          {
+            "name": "Wins more often than chance",
+            "passed": false,
+            "detail": "53% wins vs 50% by pure chance for this stop/target shape (z +0.9; needs +2.0)"
+          },
+          {
+            "name": "Survives double costs",
+            "passed": true,
+            "detail": "+13.71% with 2x spread"
+          },
+          {
+            "name": "Survives delayed fills + double costs",
+            "passed": true,
+            "detail": "+11.46%"
+          },
+          {
+            "name": "Worst historical stretches",
+            "passed": true,
+            "detail": "worst of 5 stretches -1.30% (prediction allowed -8.0%)"
+          }
+        ],
+        "passed": false,
+        "data": "MT5 1-hour · 1 market · from 2025-02-03 06:00",
+        "at": "2026-10-12T10:51:10+00:00",
+        "version": 1
+      },
+      "attempts": [
+        {
+          "at": "2026-10-12T10:51:10+00:00",
+          "version": 1,
+          "return_pct": 17.74,
+          "win_rate_pct": 52.6,
+          "max_drawdown_pct": 11.78,
+          "trades": 325,
+          "sharpe_ann": 1.15,
+          "sharpe": 0.0148,
+          "dsr": 0.899,
+          "data": "MT5 1-hour · 1 market · from 2025-02-03 06:00",
+          "passed": false
+        }
+      ],
       "sealed": null,
       "paper": null,
       "status": "testing",
@@ -3054,6 +3391,11 @@
           "at": "2026-10-12T10:46:37+00:00",
           "source": "build",
           "text": "Built as: enter at the 2nd bar of each trading day (the first bar after gold's daily pause, found from bar-time gaps because MT5 bars are in the broker's server time, not UTC), out 8 hours later. On US-hours brokers that is ~19:00 to 03:00 New York."
+        },
+        {
+          "at": "2026-10-12T10:51:10+00:00",
+          "source": "backtest",
+          "text": "v1 failed: deflated sharpe (luck-adjusted), wins more often than chance"
         }
       ],
       "notes": "edge: Asian physical demand (Shanghai, India) buys during Asian hours; Western futures and fixing-related selling happens in London/NY hours. A habitual time-of-day flow, documented over years. | why: returns concentrated in Asian hours | needs: 1-hour bars, XAUUSD, every trading night | timeframe: H1 | chance 50% vs expected 55% wins | kind: daily | memo: research/price-2026-10-12.md",
