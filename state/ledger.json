@@ -3910,6 +3910,11 @@
           "at": "2026-10-12T11:22:01+00:00",
           "source": "you",
           "text": "Locked line hit: -33.8%, 0 of 4 windows, wins significantly below chance."
+        },
+        {
+          "at": "2026-10-12T11:27:23+00:00",
+          "source": "review",
+          "text": "Caveat found after H20: both H19 and its exact mirror (H20, on later data) won about 6 points below their chance rates. Trades closed by the time limit lose the spread, so the 50/50 chance figure for them is slightly generous; H19's 'far below chance' was partly costs, not a reliably wrong signal."
         }
       ],
       "notes": "",
@@ -3989,6 +3994,11 @@
           "at": "2026-10-12T11:25:46+00:00",
           "source": "sealed",
           "text": "sealed test failed (-9.89% on 2026-05-12 08:00 → 2026-10-12 12:00): return -9.89% < 0.0%; lost money (-9.89%); 53% wins vs 59% by chance (z -3.6; needs +2.0); loses at double costs (-18.11%)"
+        },
+        {
+          "at": "2026-10-12T11:27:23+00:00",
+          "source": "sealed",
+          "text": "Sealed run (2026-05-12 to 10-12, 803 trades): -9.9%, 53% wins vs 59% by chance, -18.1% at double costs. The reversal seen in H19's 2025-26 data did not hold on new data. Sealed 1-hour period now used."
         }
       ],
       "notes": "",
