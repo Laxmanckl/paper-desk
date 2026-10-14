@@ -13,8 +13,9 @@
     "enter_move_continues_min": 0.55,
     "_enter_move_continues_min": "Probability that the latest move continues must be at least this.",
 
+    "use_jev_costs": false,
     "stand_aside_costs_abnormal": 0.6,
-    "_stand_aside_costs_abnormal": "No new position if Jev puts 'costs abnormal' at or above this.",
+    "_use_jev_costs": "Off: the spread is arithmetic, so code checks it (risk.max_spread_vs_normal) instead of Jev (guide Step 1: never spend a Jev call on arithmetic). The first day's log showed Jev reading normal spreads as abnormal. Jev is still asked, and its answer is logged for the calibration check. If true, no new position when Jev puts 'costs abnormal' at or above stand_aside_costs_abnormal.",
 
     "stand_aside_regimes": ["volatile", "quiet"],
     "stand_aside_regime_conf": 0.6,
@@ -48,7 +49,8 @@
     "max_drawdown_pct": 6.0,
     "_max_drawdown_pct": "Kill switch: fall this % below peak equity and every position closes; trading stays off until reset by hand (bash ~/paper-desk/server/reset-kill.sh).",
 
-    "max_spread_vs_normal": 2.0,
+    "max_spread_vs_normal": 1.5,
+    "_max_spread_vs_normal": "No new position while the spread is wider than this multiple of its normal level (median of the last day). Checked by code.",
     "max_quote_age_s": 60,
     "max_jev_errors_in_a_row": 3,
     "max_decision_ms": 5000,

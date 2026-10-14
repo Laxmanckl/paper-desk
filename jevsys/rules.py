@@ -24,7 +24,7 @@ from .policy import Action
 # standing aside when Jev is unsure actually helps.
 NO_GATE = {
     "enter_direction_conf": 0.0, "enter_quality_min_level": 2, "enter_quality_conf": 0.0,
-    "enter_move_continues_min": 0.5, "stand_aside_costs_abnormal": 0.5,
+    "enter_move_continues_min": 0.5, "use_jev_costs": False, "stand_aside_costs_abnormal": 0.5,
     "stand_aside_regimes": ["volatile", "quiet"], "stand_aside_regime_conf": 0.0,
     "exit_urgency_close_level": 3, "exit_urgency_tighten_level": 2, "exit_urgency_conf": 0.0,
     "exit_on_opposite_direction_conf": 0.0,

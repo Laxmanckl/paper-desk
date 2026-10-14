@@ -170,6 +170,29 @@ def cmd_alert_test(a) -> None:
     print("  Test message sent. Check Telegram.")
 
 
+def cmd_restart_test(a) -> None:
+    """Start the two-week paper test over: empty paper accounts, day 0. Logs are kept.
+    Run with the service stopped (server/restart-test.sh does that)."""
+    import os
+    sdir = os.path.dirname(a.state) or "."
+    for name in ("paper_book.json", "shadow_rules.json", "shadow_nogate.json"):
+        try:
+            os.remove(os.path.join(sdir, name))
+        except FileNotFoundError:
+            pass
+    try:
+        st = json.load(open(a.state, encoding="utf-8"))
+    except (OSError, ValueError):
+        st = None
+    if st:
+        st["created"] = time.time()
+        st["report"] = None
+        st.setdefault("log", []).append([round(time.time(), 1), "Two-week paper test restarted: accounts reset to $10,000, day 0."])
+        with open(a.state, "w", encoding="utf-8") as fh:
+            json.dump(st, fh, separators=(",", ":"))
+    print("  Paper accounts reset to $10,000 and the two-week clock restarted. Logs kept.")
+
+
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(prog="jevsys")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -200,6 +223,9 @@ def main(argv=None) -> None:
     rp.add_argument("--port", type=int, default=8080)
     rp.add_argument("--state", default="state/jev_desk.json")
     rp.set_defaults(func=cmd_report)
+    rt = sub.add_parser("restart-test", help="reset the paper accounts and restart the two-week clock")
+    rt.add_argument("--state", default="state/jev_desk.json")
+    rt.set_defaults(func=cmd_restart_test)
     at = sub.add_parser("alert-test", help="send one Telegram test message")
     at.set_defaults(func=cmd_alert_test)
     a = p.parse_args(argv)

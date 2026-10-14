@@ -98,7 +98,7 @@ higher bar than exiting, because a wrong entry costs more than leaving early.
 **Risk engine** (`jevsys/risk.py`). It has the final word:
 - **Every position** gets a stop of 2.5 × the 5-minute ATR and a target of 1.5 × that distance.
 - **Size** is set so hitting the stop costs 0.5% of equity.
-- **Vetoes before every entry:** max open positions (4), max positions betting the same way on the US dollar (2), spread over 2× normal, stale price, Jev failing 3 rounds in a row, slow Jev answer, Friday after 19:00 UTC, stop too wide for the risk budget.
+- **Vetoes before every entry:** max open positions (4), max positions betting the same way on the US dollar (2), spread over 1.5× normal, stale price, Jev failing 3 rounds in a row, slow Jev answer, Friday after 19:00 UTC, stop too wide for the risk budget.
 - **Between rounds,** every 2 s on live quotes: stop, target, a 6-hour maximum hold, and flat by Friday 20:30 UTC.
 - **Kill switches:**
   - down 2% on the day: close everything, no trades until 00:00 UTC;
@@ -108,6 +108,11 @@ higher bar than exiting, because a wrong entry costs more than leaving early.
 - buys fill at the live ask and sells at the bid, so the spread is paid;
 - stops fill at the price seen when hit, so slippage is real;
 - swaps are not modelled.
+
+**Spread is checked by code, not Jev.** Whether the spread is above normal is arithmetic, and
+the guide says never to spend a Jev call on arithmetic. The first day's log showed Jev calling
+normal spreads abnormal. So the risk engine's 1.5×-normal limit decides, and Jev's
+"costs abnormal" answer is only logged for calibration (`policy.use_jev_costs: false`).
 
 **All thresholds and limits are in [`config/desk.json`](config/desk.json),** each with a note.
 Edit it on GitHub; the server picks it up within ~15 minutes. A bad edit is rejected and the
@@ -169,6 +174,7 @@ The report says **ready for a small real-money test** only when all of them pass
 | Phone alerts | `bash ~/paper-desk/server/telegram.sh` |
 | Test every ladder rung | `bash ~/paper-desk/server/drill.sh` |
 | Step 8 report | `cd ~/paper-desk && .venv/bin/python -m jevsys report` |
+| Restart the two-week test (after changing how it decides) | `bash ~/paper-desk/server/restart-test.sh` |
 | Turn trading back on after the drawdown kill switch | `bash ~/paper-desk/server/reset-kill.sh` |
 | Start the paper account over | `sudo systemctl stop jev-desk && rm ~/paper-desk/state/paper_book.json && sudo systemctl start jev-desk` |
 | Bridge log (PC) | `Get-Content C:\jev-bridge\bridge.log -Tail 20 -Wait` |
@@ -229,7 +235,7 @@ jevsys/
   sim_fx.py        price simulator for tests and `run --sim`
 bridge/            mt5_bridge.py + Windows setup and watchdog
 server/            Lightsail setup / stop
-tests/             92 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
+tests/             93 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
 ```
 
 Try it anywhere without MT5: `python3 -m jevsys run --sim --every 5`, then open http://localhost:8080

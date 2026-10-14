@@ -14,7 +14,7 @@ import os
 DEFAULTS = {
     "policy": {
         "enter_direction_conf": 0.65, "enter_quality_min_level": 2, "enter_quality_conf": 0.45,
-        "enter_move_continues_min": 0.55, "stand_aside_costs_abnormal": 0.6,
+        "enter_move_continues_min": 0.55, "use_jev_costs": False, "stand_aside_costs_abnormal": 0.6,
         "stand_aside_regimes": ["volatile", "quiet"], "stand_aside_regime_conf": 0.6,
         "exit_urgency_close_level": 3, "exit_urgency_tighten_level": 2, "exit_urgency_conf": 0.5,
         "exit_on_opposite_direction_conf": 0.6,
@@ -89,7 +89,7 @@ def validate(raw: dict) -> dict:
             _hhmm(merged["friday_flat_utc"])
         if section == "alerts":
             _hhmm(merged["daily_summary_utc"])
-        for k in ("enabled", "trades", "kill_switch", "jev_down"):
+        for k in ("enabled", "trades", "kill_switch", "jev_down", "use_jev_costs"):
             if k in merged and not isinstance(merged[k], bool):
                 raise ValueError(f"{section}.{k} must be true or false")
         out[section] = merged

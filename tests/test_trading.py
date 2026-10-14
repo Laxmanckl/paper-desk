@@ -46,7 +46,7 @@ def test_usd_direction():
 @pytest.mark.parametrize("kw,kind,side", [
     ({}, "ENTER", "long"),
     ({"direction": "down"}, "ENTER", "short"),
-    ({"costs": 0.7}, "STAND_ASIDE", None),
+    ({"costs": 0.95}, "ENTER", "long"),                               # Jev's costs read no longer gates (code checks spread)
     ({"regime": "volatile", "rconf": 0.65}, "STAND_ASIDE", None),
     ({"regime": "volatile", "rconf": 0.5}, "ENTER", "long"),          # not sure it's volatile: allowed
     ({"regime": "quiet"}, "STAND_ASIDE", None),
@@ -71,6 +71,11 @@ def test_policy_flat(kw, kind, side):
 ])
 def test_policy_in_position(pos, kw, kind):
     assert decide(answers(**kw), pos, P).kind == kind
+
+
+def test_jev_costs_gate_only_when_enabled():
+    assert decide(answers(costs=0.7), None, {**P, "use_jev_costs": True}).kind == "STAND_ASIDE"
+    assert decide(answers(costs=0.7), None, P).kind == "ENTER"
 
 
 def test_tightened_stop():

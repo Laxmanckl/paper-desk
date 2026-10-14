@@ -10,7 +10,7 @@ Order of checks, for an instrument WITH a position:
   3. exit urgency "Tighten the stop" (confident)   -> TIGHTEN (stop to halfway, or breakeven once in profit)
   4. otherwise                                     -> HOLD
 For an instrument WITHOUT a position:
-  1. costs abnormal                                -> STAND ASIDE
+  1. costs abnormal (only if use_jev_costs; normally code checks the spread) -> STAND ASIDE
   2. regime volatile or quiet (confident)          -> STAND ASIDE
   3. direction neutral, or not confident enough    -> STAND ASIDE
   4. entry quality below Good, or not confident    -> STAND ASIDE
@@ -56,8 +56,10 @@ def decide(ans: dict, position_side: str | None, p: dict) -> Action:
         checks.append({"ok": ok, "check": text})
         return ok
 
-    if not gate(ca.get("p", 1.0) < p["stand_aside_costs_abnormal"],
-                f"costs normal (abnormal {ca.get('p', 0):.0%} < {p['stand_aside_costs_abnormal']:.0%})"):
+    # Spread is arithmetic, so code checks it (risk engine: max_spread_vs_normal), not Jev (guide Step 1).
+    # Jev's "costs abnormal" answer is still asked and logged for calibration, but only gates when enabled.
+    if p.get("use_jev_costs") and not gate(ca.get("p", 1.0) < p["stand_aside_costs_abnormal"],
+                                           f"costs normal (abnormal {ca.get('p', 0):.0%} < {p['stand_aside_costs_abnormal']:.0%})"):
         return Action("STAND_ASIDE", why=f"costs abnormal ({ca.get('p', 0):.0%})", checks=checks)
     bad_regime = rg.get("value") in p["stand_aside_regimes"] and rg.get("p", 0) >= p["stand_aside_regime_conf"]
     if not gate(not bad_regime, f"regime tradable ({rg.get('value')} {rg.get('p', 0):.0%})"):
