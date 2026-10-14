@@ -1,9 +1,10 @@
 """The desk: the decision loop for gold + forex and everything the dashboard shows.
 
 Every `decide_every_min` minutes (15 by default), just after a 5-minute bar
-closes, it builds a snapshot per instrument. Stage 1 stops there: snapshots are
-checked for freshness and logged. Stages 2-5 plug into `_decide()` (Jev battery
--> policy -> risk veto). No orders exist yet, paper or otherwise.
+closes, it builds a snapshot per instrument (Stage 1), then asks Jev the
+six-question battery for every fresh one, in parallel (Stage 2). Snapshot,
+answers and the model version are logged together for the calibration check.
+Stages 3-5 plug into `_decide()` (policy -> risk veto). No orders exist yet.
 """
 from __future__ import annotations
 
@@ -17,31 +18,17 @@ from collections import deque
 from .config import StateConfig
 from .fx_state import FxStateEngine, SnapshotTooLarge, estimate_tokens, session_at
 from .instruments import INSTRUMENTS
+from .jev import MODEL_VERSION, JevLayer, dashboard_questions
 from .market import MarketStore
 from .snapshot_log import SnapshotLog
 
-MODEL_VERSION = "jev-1.13.0"  # pinned (guide Step 2), used from Stage 2
-
 STAGES = [
     {"n": 1, "name": "State engine", "what": "Snapshot per instrument, < 400 tokens, no future data", "status": "live"},
-    {"n": 2, "name": "Jev decision layer", "what": "6-question battery per instrument, pinned version", "status": "pending"},
+    {"n": 2, "name": "Jev decision layer", "what": "6-question battery per instrument, pinned version", "status": "live"},
     {"n": 3, "name": "Policy engine", "what": "Long / short / exit / stand aside by confidence", "status": "pending"},
     {"n": 4, "name": "Risk engine", "what": "Hard limits, stop per trade, veto on every order", "status": "pending"},
     {"n": 5, "name": "Loop + fallback ladder", "what": "Stale = hold, Jev down = code rules, limit = kill", "status": "pending"},
     {"n": 6, "name": "Paper trading + calibration", "what": "Two weeks before any real money", "status": "pending"},
-]
-
-QUESTIONS = [
-    {"key": "regime", "type": "Choice", "ask": "What regime is this market in right now",
-     "options": ["trending", "ranging", "volatile", "quiet"]},
-    {"key": "direction", "type": "Choice", "ask": "Most likely price bias over the next hour",
-     "options": ["up", "down", "neutral"]},
-    {"key": "move_continues", "type": "Noul", "ask": "The latest move is likely to continue rather than reverse"},
-    {"key": "costs_abnormal", "type": "Noul", "ask": "Trading costs are abnormally high right now"},
-    {"key": "entry_quality", "type": "Score", "ask": "How good is this moment to open a new position",
-     "options": ["No", "Marginal", "Good", "Excellent"]},
-    {"key": "exit_urgency", "type": "Score", "ask": "How urgently an open position should be closed",
-     "options": ["None", "Mild", "Tighten stop", "Close now"]},
 ]
 
 RISK_LIMITS = ["Max position size (lots)", "Max open positions", "Max risk per trade (stop)",
@@ -63,8 +50,10 @@ SERIES_KEEP_S = 2 * 86_400
 
 class Desk:
     def __init__(self, market: MarketStore, state_path: str = "state/jev_desk.json", runner: str = "local",
-                 log_dir: str = "logs", cfg: StateConfig | None = None, starting_equity: float = 10_000.0):
+                 log_dir: str = "logs", cfg: StateConfig | None = None, starting_equity: float = 10_000.0,
+                 jev: JevLayer | None = None):
         self.cfg = cfg or StateConfig()
+        self.jev = jev if jev is not None else JevLayer()
         self.market, self.state_path, self.runner = market, state_path, runner
         self.engine = FxStateEngine(market, self.cfg, starting_equity)
         self.snaplog = SnapshotLog(log_dir)
@@ -79,6 +68,8 @@ class Desk:
         self._restore()
         self.event(f"Desk started ({runner}). Decides every {self.cfg.decide_every_min} min on closed 5-min bars. "
                    "Waiting for prices from the MT5 bridge.")
+        self.event(f"Jev {self.jev.model} connected (direct TypeSafe API)." if self.jev.enabled
+                   else f"Jev is off: {self.jev.reason}. Snapshots are still built and logged.")
 
     # ---- persistence ----------------------------------------------------
     def _restore(self) -> None:
@@ -128,13 +119,23 @@ class Desk:
                 stale.append(sym)
                 continue
             fresh, reason = FxStateEngine.is_fresh(snap, self.cfg)
-            rec = {"t": t, "fresh": fresh, "reason": reason, "snap": snap, "tokens": estimate_tokens(snap)}
-            rec["decision"] = self._decide(sym, snap) if fresh else None
+            out[sym] = {"t": t, "fresh": fresh, "reason": reason, "snap": snap, "tokens": estimate_tokens(snap)}
             if not fresh:
                 stale.append(sym)
-            self.snaplog.write(t, {"sym": sym, "snap": snap, "fresh": fresh, "model": None, "decision": rec["decision"]})
-            out[sym] = rec
+        # Stage 2: one parallel Jev round for every fresh snapshot (stale ones are never asked)
+        fresh_snaps = {s: r["snap"] for s, r in out.items() if r["fresh"]}
+        answers = self.jev.ask_all(fresh_snaps)
+        for sym, rec in out.items():
+            j = answers.get(sym)
+            rec["jev"] = j
+            rec["decision"] = self._decide(sym, rec["snap"], j) if rec["fresh"] else None
+            if rec["snap"] is not None:
+                self.snaplog.write(t, {"sym": sym, "snap": rec["snap"], "fresh": rec["fresh"],
+                                       "model": (j or {}).get("model"), "pinned": self.jev.model,
+                                       "jev": (j or {}).get("answers"), "jev_ms": (j or {}).get("ms"),
+                                       "jev_error": (j or {}).get("error"), "decision": rec["decision"]})
         self.snaplog.flush()
+        self._jev_events(answers)
         ms = (time.perf_counter() - t0) * 1000
         with self.lock:
             self.latest.update(out)
@@ -156,9 +157,39 @@ class Desk:
 
     _last_stale_reason: str | None = None
 
-    def _decide(self, symbol: str, snap: dict):
-        """Stages 2-5 go here: Jev battery -> policy -> risk veto.
-        Stage 1: observe only, no orders."""
+    def _jev_events(self, answers: dict[str, dict]) -> None:
+        if not answers:
+            return
+        errs = {s: r for s, r in answers.items() if "error" in r}
+        drift = {r["model"] for r in answers.values() if "error" not in r and not r.get("pinned_ok")}
+        if drift:
+            self.event(f"WARNING: TypeSafe answered with {', '.join(sorted(drift))}, not the pinned {self.jev.model}. "
+                       "Thresholds are tuned to the pinned version.")
+        kinds = sorted({r["kind"] for r in errs.values()})
+        if errs and len(errs) == len(answers):
+            if "auth" in kinds:
+                self.event("Jev rejected the API key. Run server/jev-key.sh to set it again.")
+            elif self._last_jev_problem != tuple(kinds):
+                self.event(f"Jev unavailable this round ({', '.join(kinds)}): {next(iter(errs.values()))['error'][:120]}")
+            self._last_jev_problem = tuple(kinds)
+        else:
+            if self._last_jev_problem:
+                self.event("Jev answering again.")
+            self._last_jev_problem = None
+            if errs:
+                self.event(f"Jev missed {len(errs)} of {len(answers)} ({', '.join(kinds)}): {', '.join(errs)}")
+            ok = [r for r in answers.values() if "error" not in r]
+            if ok and self._first_jev_ok:
+                self._first_jev_ok = False
+                ms = sorted(r["ms"] for r in ok)[len(ok) // 2]
+                self.event(f"First Jev answers: {len(ok)} instruments, model {ok[0]['model']}, ~{ms} ms each.")
+
+    _last_jev_problem: tuple | None = None
+    _first_jev_ok = True
+
+    def _decide(self, symbol: str, snap: dict, jev: dict | None):
+        """Stages 3-5 go here: policy turns Jev's answers into an action, then the risk veto.
+        Until then: observe only, no orders."""
         return None
 
     def run(self, stop: threading.Event) -> None:
@@ -208,7 +239,7 @@ class Desk:
         with self.lock:
             toks = [r["tokens"] for r in self.latest.values() if r.get("tokens")]
             d = {
-                "desk": {"name": "Jev Desk", "stage": 1, "model": MODEL_VERSION, "version": 2,
+                "desk": {"name": "Jev Desk", "stage": 2, "model": MODEL_VERSION, "version": 2,
                          "market": "Gold + forex majors · MT5"},
                 "runner": self.runner,
                 "server_time": now,
@@ -223,8 +254,9 @@ class Desk:
                            "tokens_max": max(toks) if toks else 0, "budget": self.cfg.max_snapshot_tokens},
                 "account": {"start": self.engine.starting_equity, "equity": self.engine.starting_equity,
                             "realized": 0.0, "unrealized": 0.0, "open_positions": 0, "drawdown": 0.0},
-                "stages": STAGES,
-                "jev": {"status": "pending", "model": MODEL_VERSION, "questions": QUESTIONS},
+                "stages": [dict(st, status="live" if self.jev.enabled else "needs key") if st["n"] == 2 else st
+                           for st in STAGES],
+                "jev": {**self.jev.status(), "questions": dashboard_questions()},
                 "policy": {"status": "pending"},
                 "risk": {"status": "pending", "limits": [{"name": n, "value": None, "limit": None} for n in RISK_LIMITS]},
                 "ladder": {"status": "pending", "rungs": LADDER, "current": None},

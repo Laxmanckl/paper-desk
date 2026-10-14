@@ -263,6 +263,20 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   function tile(l, v, s) { return '<div class="stat"><span class="label">' + l + '</span><span class="v">' + v + '</span><span class="s">' + s + "</span></div>"; }
   function kv(l, v, c) { return '<div class="kv"><span class="label">' + l + '</span><span class="v ' + (c || "") + '">' + v + "</span></div>"; }
   function PENDING(st) { return '<span class="chip next">Stage ' + st + "</span>"; }
+  function pct(p) { return p == null ? "–" : Math.round(p * 100) + "%"; }
+  var ARROW = { up: "↑", down: "↓", neutral: "→" };
+  function jevCell(rec, jevOn) {
+    if (!jevOn) return '<span class="chip next">needs key</span>';
+    if (!rec || !rec.t) return '<span class="muted">–</span>';
+    if (!rec.fresh) return '<span class="muted" title="not asked: stale data">–</span>';
+    var j = rec.jev;
+    if (!j) return '<span class="muted">–</span>';
+    if (j.error) return '<span class="chip bad" title="' + esc(j.error) + '">' + esc(j.kind) + "</span>";
+    var a = j.answers || {}, rg = a.regime || {}, dr = a.direction || {};
+    var dc = dr.value === "up" ? "up" : dr.value === "down" ? "down" : "";
+    return '<span class="chip">' + esc(rg.value || "?") + "</span> " +
+      '<span class="chip ' + dc + '" title="direction confidence">' + (ARROW[dr.value] || "") + " " + pct(dr.p) + "</span>";
+  }
   function pretty(sym) { return sym === "XAUUSD" ? "XAU/USD" : sym.slice(0, 3) + "/" + sym.slice(3); }
 
   function line(el, pts, fmt) {
@@ -328,15 +342,18 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     else if (!brLive) msgs.push("The MT5 bridge has been silent for " + span(br.age_s || 0) + ". Check that the PC is on and MetaTrader 5 is open. The desk holds until prices return.");
     else if (!marketOpen && newest) msgs.push("Bridge connected but prices aren't moving: the forex market is closed (weekend) or MT5 is disconnected from the broker.");
     if (/simulated/.test(S.runner || "")) msgs.push("Using simulated prices, not real market data.");
+    if ((S.jev || {}).status === "off" && S.runner !== "waiting for server") msgs.push("Jev is off: " + ((S.jev || {}).reason || "no API key") + ". Run server/jev-key.sh to switch it on.");
+    if ((S.jev || {}).status === "errors") msgs.push("Jev isn't answering: " + ((S.jev || {}).last_error || "") + ". The desk holds; nothing is decided without Jev until the fallback rules arrive in Stage 5.");
     msgs.push("Stage " + stageN + " of " + stages.length + ": the desk observes only and places no orders.");
     $("banner").hidden = false; $("banner").textContent = msgs.join(" ");
 
-    var acct = S.account || {}, tot = S.totals || {}, eng = S.engine || {};
+    var acct = S.account || {}, tot = S.totals || {}, eng = S.engine || {}, jevSt = S.jev || {}, jevOn = jevSt.status && jevSt.status !== "off";
     var nextIn = S.next_round ? Math.max(0, S.next_round - now) : null;
     $("summary").innerHTML = [
       tile("Paper equity", money(acct.equity), "from " + money(acct.start)),
       tile("Open positions", acct.open_positions || 0, "trading starts at Stage 3"),
-      tile("Drawdown", n((acct.drawdown || 0) * 100, 2) + "%", "from peak equity"),
+      tile("Jev", esc(jevSt.status === "off" ? "off" : jevSt.status), jevSt.status === "off" ? esc(jevSt.reason || "") :
+        (jevSt.latency_p50_ms != null ? "~" + jevSt.latency_p50_ms + " ms per call · " : "") + esc(jevSt.model || "") ),
       tile("Decision rounds", (tot.rounds || 0).toLocaleString("en-US"), "8 instruments each"),
       tile("Snapshot size", "~" + (eng.tokens_max || 0) + " tok", "largest of 8 · budget " + (eng.budget || 400)),
       tile("Next decision", nextIn == null ? "–" : span(nextIn), S.last_round ? "last at " + hm(S.last_round) : "none yet")
@@ -345,18 +362,21 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     var st = function (k) { return (stages[k - 1] || {}).status === "live"; };
     var L = [
       ["1 · Code", "computes the state", "Returns, spread vs normal, ATR, RSI, trend, session, USD index, position. All math.", st(1), "~" + (eng.tokens_max || 0) + " tokens per instrument", 1],
-      ["2 · Jev", "interprets the state", "Six narrow judgments per instrument, each with a calibrated probability.", st(2), "", 2],
+      ["2 · Jev", "interprets the state", "Six narrow judgments per instrument, each with a calibrated probability.", st(2),
+        esc(jevSt.model || "") + (jevSt.latency_p50_ms != null ? " · ~" + jevSt.latency_p50_ms + " ms" : "") + (jevSt.calls ? " · " + jevSt.calls + " answers" : ""), 2],
       ["3 · Code", "applies the policy", "Long, short, exit or stand aside, by confidence thresholds in config.", st(3), "", 3],
       ["4 · Risk engine", "has the final word", "Hard limits and a stop on every trade. Can veto anything.", st(4), "", 4]
     ];
     $("layers").innerHTML = L.map(function (l) {
       return '<div class="layer ' + (l[3] ? "on" : "off") + '"><span class="who">' + l[0] + ' <span class="muted" style="font-weight:500">' + l[1] + '</span></span><span class="what">' + l[2] +
-        '</span><span class="out">' + (l[3] ? '<span class="chip live">live</span> ' + esc(l[4]) : PENDING(l[5])) + "</span></div>";
+        '</span><span class="out">' + (l[3] ? '<span class="chip live">live</span> ' + l[4] :
+          (l[5] === 2 && stages[1] && stages[1].status === "needs key" ? '<span class="chip next">needs key</span>' : PENDING(l[5]))) + "</span></div>";
     }).join("");
     var firstPending = (stages.filter(function (s) { return s.status !== "live"; })[0] || {}).n;
     $("stages").innerHTML = stages.map(function (s) {
       var c = s.status === "live" ? "live" : s.n === firstPending ? "next" : "";
-      return '<div class="stg"><span><span class="chip ' + c + '">' + (s.status === "live" ? "done" : s.n === firstPending ? "next" : "to do") + "</span> <b>" + s.n + ". " + esc(s.name) + '</b></span><span class="s">' + esc(s.what) + "</span></div>";
+      var lab = s.status === "live" ? "done" : s.status === "needs key" ? "needs key" : s.n === firstPending ? "next" : "to do";
+      return '<div class="stg"><span><span class="chip ' + c + '">' + lab + "</span> <b>" + s.n + ". " + esc(s.name) + '</b></span><span class="s">' + esc(s.what) + "</span></div>";
     }).join("");
 
     // board
@@ -376,7 +396,7 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
         "<td class='n r " + cls(sn.ret_1h_bps) + "'>" + sgn(sn.ret_1h_bps, 0) + "</td><td class='n r " + cls(sn.ret_1d_bps) + "'>" + sgn(sn.ret_1d_bps, 0) + "</td>" +
         "<td class='n r'>" + (sn.atr_pips == null ? "–" : n(sn.atr_pips, 1)) + "</td><td class='n r'>" + (sn.rsi14 == null ? "–" : n(sn.rsi14, 0)) + "</td>" +
         "<td>" + (trend ? '<span class="chip ' + (trend === "flat" ? "" : trend) + '">' + trend + "</span>" : "") + "</td>" +
-        "<td>" + data + "</td><td>" + PENDING(2) + "</td></tr>";
+        "<td>" + data + "</td><td>" + jevCell(last, jevOn) + "</td></tr>";
     });
     $("board").innerHTML = rows.length ? rows.join("") : "<tr><td colspan='11' class='empty'>Waiting for prices from the MT5 bridge…</td></tr>";
 
@@ -407,15 +427,23 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     $("raw").textContent = last.snap ? JSON.stringify(snap) : "No snapshot yet.";
 
     // jev battery
-    var jev = S.jev || {};
-    $("jev-note").textContent = jev.status === "live" ? pretty(PICK) : "asked per instrument from Stage 2";
+    var jev = S.jev || {}, jr = (r0.last || {}).jev, ja = (jr && jr.answers) || {};
+    $("jev-note").textContent = !jevOn ? "switches on when the API key is set" :
+      jr && jr.answers ? pretty(PICK) + " · " + esc(jr.model) + " · " + jr.ms + " ms" + (jr.pinned_ok === false ? " · NOT PINNED VERSION" : "") :
+      jr && jr.error ? pretty(PICK) + " · no answer (" + jr.kind + ")" : pretty(PICK) + " · not asked (no fresh data)";
     $("jev").innerHTML = (jev.questions || []).map(function (q) {
+      var a = ja[q.key], cell = jevOn ? '<span class="muted">–</span>' : '<span class="chip next">needs key</span>', conf = "";
+      if (a) {
+        if (q.type === "Choice") { cell = "<b>" + esc(a.value) + "</b>"; conf = pct(a.p); }
+        else if (q.type === "Score") { cell = "<b>" + esc(a.label) + "</b> <span class='muted num'>(" + n(a.score, 2) + ")</span>"; conf = pct(a.p); }
+        else { cell = "<b>" + (a.p >= 0.5 ? "yes" : "no") + "</b>"; conf = pct(a.p) + " yes"; }
+      }
       return "<tr><td class='q'>" + esc(q.ask) + "</td><td><span class='chip'>" + esc(q.type) + "</span></td><td class='why'>" + esc((q.options || ["yes / no, as a probability"]).join(" · ")) +
-        "</td><td>" + PENDING(2) + "</td><td class='n r'></td></tr>";
+        "</td><td>" + cell + "</td><td class='n r'>" + conf + "</td></tr>";
     }).join("");
 
     var lad = S.ladder || {};
-    $("action").innerHTML = '<span class="muted">observe only</span>';
+    $("action").innerHTML = '<span class="muted">observe only</span>' + (jevOn ? ' <span class="label">Jev judges · policy comes in Stage 3</span>' : "");
     $("ladder-note").textContent = lad.status === "live" ? "current rung highlighted" : "wired in Stages 3 and 5";
     $("ladder").innerHTML = (lad.rungs || []).map(function (r, i) {
       return '<div class="rung' + (lad.current === r.key ? " here" : "") + '"><span class="k">' + (i + 1) + "</span><span><b>" + esc(r.name) + '</b><br><span class="s">' + esc(r.do) + "</span></span></div>";
@@ -433,6 +461,9 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
       kv("Broker", esc(br.broker || "–")), kv("Account", esc(br.account || "–")),
       kv("Broker clock", br.utc_offset_h == null ? "–" : "UTC" + sgn(br.utc_offset_h, 1).replace("−", "-") + "h"),
       kv("Rejected data", (br.rejected || 0).toLocaleString("en-US"), br.rejected ? "neg" : ""),
+      kv("Jev", esc(jevSt.status || "off"), jevSt.status === "live" ? "pos" : jevSt.status === "errors" ? "neg" : ""),
+      kv("Jev answers", (jevSt.calls || 0).toLocaleString("en-US") + (jevSt.errors ? ' <span class="neg">· ' + jevSt.errors + " failed</span>" : "")),
+      kv("Jev tokens", (jevSt.tokens_in || 0).toLocaleString("en-US")),
       kv("Round time", eng.round_ms_p50 == null ? "–" : n(eng.round_ms_p50, 0) + '<span class="muted"> ms</span>'),
       kv("Errors", (tot.errors || 0).toLocaleString("en-US"), tot.errors ? "neg" : "")
     ].join("");

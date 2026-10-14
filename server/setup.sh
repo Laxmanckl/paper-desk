@@ -25,7 +25,7 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 say "Installing git, python3 and pytest"
 sudo apt-get update -qq
-sudo apt-get install -y -qq git python3 python3-pytest >/dev/null
+sudo apt-get install -y -qq git python3 python3-venv >/dev/null
 python3 -c 'import sys; assert sys.version_info >= (3, 10), "need Python 3.10+"; print("python", sys.version.split()[0])'
 
 say "Retiring the old Paper Desk services"
@@ -65,7 +65,7 @@ if [ -d "$DIR/.git" ]; then
   else
     # first switch from the old Paper Desk: take the new code as-is
     git -C "$DIR" reset -q --hard origin/main
-    git -C "$DIR" clean -fdq -e logs/
+    git -C "$DIR" clean -fdq -e logs/ -e .venv/
   fi
 else
   git clone -q "https://github.com/$REPO" "$DIR"
@@ -96,8 +96,14 @@ fi
 sudo chmod 600 /etc/jev-desk.env
 BRIDGE_TOKEN=$(sudo sed -n 's/^JEV_BRIDGE_TOKEN=//p' /etc/jev-desk.env | head -1)
 
+say "Installing the TypeSafe SDK (pinned) in a private Python environment"
+[ -x .venv/bin/python ] || python3 -m venv .venv
+.venv/bin/python -m pip install -q --upgrade pip
+.venv/bin/python -m pip install -q "typesafe-sdk==0.7.4" pytest
+.venv/bin/python -c 'import typesafe_sdk; print("typesafe-sdk", typesafe_sdk.__version__)'
+
 say "Running tests"
-python3 -m pytest -q tests | tail -1
+.venv/bin/python -m pytest -q tests | tail -1
 
 say "Installing the jev-desk service"
 sudo tee /etc/systemd/system/$SERVICE.service >/dev/null <<UNIT
@@ -111,7 +117,7 @@ User=${USER:-$(id -un)}
 WorkingDirectory=$DIR
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/jev-desk.env
-ExecStart=/usr/bin/python3 -m jevsys run --runner server --port $PORT --every 15 --publish-every 15 --state state/jev_desk.json --logs logs
+ExecStart=$DIR/.venv/bin/python -m jevsys run --runner server --port $PORT --every 15 --publish-every 15 --state state/jev_desk.json --logs logs
 Restart=always
 RestartSec=10
 MemoryMax=400M
@@ -142,6 +148,7 @@ It waits for prices from the MT5 bridge on your Windows PC.
                  Lightsail -> Networking -> IPv4 Firewall, as it was for the scalper)
   Dashboard:     https://$OWNER.github.io/${REPO##*/}/   (updates every ~15 min)
   Live log:      journalctl -u $SERVICE -f
+  Jev (Stage 2): bash ~/paper-desk/server/jev-key.sh   (stores your TypeSafe key, fires a test decision)
   Update code:   run this setup command again
   Stop:          bash ~/paper-desk/server/stop.sh
 MSG

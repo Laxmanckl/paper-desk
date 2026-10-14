@@ -52,12 +52,45 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\setup-bridge.ps1
 Paste the address and token when asked. The setup does a test push, then starts the bridge
 at every logon and keeps the PC from sleeping while plugged in.
 
+**3. Switch on Jev (Stage 2)** on the Lightsail server:
+```bash
+bash ~/paper-desk/server/jev-key.sh
+```
+It asks for your TypeSafe API key (from https://console.typesafe.ai/keys) without showing it,
+fires the guide's first test decision, and only if Jev answers saves the key to
+`/etc/jev-desk.env` (readable by root only) and restarts the desk.
+
+## Stage 2: the Jev battery
+
+Every round, each instrument with fresh prices gets one `system_one` call (all eight in
+parallel) with its snapshot as `state` and six atomic questions:
+
+| Key | Type | Question |
+|---|---|---|
+| `regime` | Choice | trending / ranging / volatile / quiet |
+| `direction` | Choice | up / down / neutral over the next hour |
+| `move_continues` | Noul | the latest move continues rather than reverses |
+| `costs_abnormal` | Noul | the spread is abnormally wide |
+| `entry_quality` | Score | Do not enter / Marginal / Good / Excellent |
+| `exit_urgency` | Score | No urgency / Mild / Tighten the stop / Close now |
+
+Following the guide: the direct TypeSafe API, the model pinned to `jev-1.13.0` (a different
+model in a response is flagged), and the snapshot, answers, model and latency logged together
+for the calibration check. Stale instruments are never sent to Jev. Answers later than 20 s are
+discarded. Errors (bad key, rate limit, network) are shown on the dashboard and the round carries
+on. Jev only judges; it does not decide to trade. That is Stage 3's job.
+
+The SDK is the official `typesafe-sdk`, pinned to 0.7.4 in the server's private Python
+environment (`~/paper-desk/.venv`), so it can't change underneath the thresholds either.
+
 ## Everyday use
 
 | You want to… | Do this |
 |---|---|
 | Watch it | Dashboard link, or the live page |
 | Server log | `journalctl -u jev-desk -f` |
+| Test Jev by hand | `cd ~/paper-desk && sudo env $(sudo cat /etc/jev-desk.env) .venv/bin/python -m jevsys jev-test` |
+| Replace the key | `bash ~/paper-desk/server/jev-key.sh` |
 | Bridge log (PC) | `Get-Content C:\jev-bridge\bridge.log -Tail 20 -Wait` |
 | Decide every 5 or 10 min | Change `--every 15` in `/etc/systemd/system/jev-desk.service`, then `sudo systemctl daemon-reload && sudo systemctl restart jev-desk` |
 | Update the code | Run the setup command again (server, PC, or both) |
@@ -68,8 +101,8 @@ at every logon and keeps the PC from sleeping while plugged in.
 | # | Stage | Status |
 |---|---|---|
 | 1 | State engine: snapshot per instrument, under 400 tokens, no future data | **done** |
-| 2 | Jev decision layer: 6 questions per instrument in one call, `jev-1.13.0` pinned and logged | next |
-| 3 | Policy engine: long / short / exit / stand aside by confidence thresholds | |
+| 2 | Jev decision layer: 6 questions per instrument in one call, `jev-1.13.0` pinned and logged | **done** (needs your key) |
+| 3 | Policy engine: long / short / exit / stand aside by confidence thresholds | next |
 | 4 | Risk engine: hard limits, a stop on every trade, veto on every order | |
 | 5 | Loop + fallback ladder: stale = hold, Jev down = code rules, limit = kill | |
 | 6 | Paper trading + calibration log, two weeks before any real money | |
@@ -100,13 +133,14 @@ jevsys/
   fx_state.py      Stage 1 state engine (snapshot per instrument)
   market.py        price inbox from the bridge; rejects unclosed bars and future timestamps
   instruments.py   symbols, pip sizes, USD direction
+  jev.py           Stage 2: the 6-question battery, parallel calls, pinned model, error handling
   desk.py          15-min decision loop + everything the dashboard shows; stages 2-5 plug into _decide()
   web.py           live page, /api/state, /api/ingest (token)
   publish.py       pushes state to GitHub
   sim_fx.py        price simulator for tests and `run --sim`
 bridge/            mt5_bridge.py + Windows setup and watchdog
 server/            Lightsail setup / stop
-tests/             26 tests: python3 -m pytest -q
+tests/             36 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
 ```
 
 Try it anywhere without MT5: `python3 -m jevsys run --sim --every 5`, then open http://localhost:8080
