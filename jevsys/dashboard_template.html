@@ -1,0 +1,414 @@
+<title>Jev Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Same visual system as the Paper Desk / Scalp Desk. Layout follows the guide:
+   status, summary, the four layers, market, Jev battery, policy + ladder, risk, snapshot, health, log. */
+:root {
+  --bg: #f5f6f4; --panel: #ffffff; --ink: #1c2126; --ink-2: #4c5560; --ink-3: #7c8590;
+  --rule: #dde1e3; --grid: #eceff0; --accent: #2f5d7c;
+  --good: #0f8a1f; --bad: #c43535; --warn-bg: #fbe8b4; --warn-ink: #6b4b00;
+  --good-bg: #e2f2e1; --bad-bg: #f8e2e0; --hold-bg: #eceef0; --flash: #fff3c4;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
+  --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
+  --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
+  --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; --flash: #3a3417; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121518; --panel: #1a1e22; --ink: #e6e9ec; --ink-2: #aab2ba; --ink-3: #7f8892;
+  --rule: #2c3238; --grid: #23282d; --accent: #7fb0d3;
+  --good: #3fbf4f; --bad: #ec6a6a; --warn-bg: #3d3110; --warn-ink: #f3cf6e;
+  --good-bg: #173320; --bad-bg: #3a1c1c; --hold-bg: #262b30; --flash: #3a3417; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 18px; }
+h1, h2 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; letter-spacing: .01em; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.muted { color: var(--ink-3); }
+.num, td.n { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.pos { color: var(--good); } .neg { color: var(--bad); }
+
+header { display: grid; gap: 6px; }
+.title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.paper, .stage-tag { font-family: var(--f-num); font-size: 11px; font-weight: 500; letter-spacing: .06em; padding: 3px 8px; border-radius: 3px; }
+.paper { color: var(--warn-ink); background: repeating-linear-gradient(135deg, var(--warn-bg) 0 6px, transparent 6px 9px), var(--warn-bg); border: 1px solid var(--warn-ink); }
+.stage-tag { color: var(--accent); border: 1px solid var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--ink-3); }
+.dot.live { background: var(--good); animation: pulse 2s infinite; }
+.dot.down { background: var(--bad); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 10px 14px; font-size: 13px; }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+.stat { padding: 14px 16px; display: grid; gap: 4px; border-left: 1px solid var(--rule); min-width: 0; }
+.stat:first-child { border-left: 0; }
+.stat .v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; }
+.stat .s { font-size: 12px; color: var(--ink-3); }
+
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+th.r, td.r { text-align: right; }
+td.why { color: var(--ink-2); font-size: 12.5px; }
+td.q { min-width: 210px; }
+.chip { font-family: var(--f-num); font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 3px; background: var(--hold-bg); color: var(--ink-2); white-space: nowrap; }
+.chip.live, .chip.up { background: var(--good-bg); color: var(--good); }
+.chip.down, .chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.next { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+.flash { animation: flash .9s ease-out; }
+@keyframes flash { from { background: var(--flash); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash, .dot.live { animation: none; } }
+
+/* the four layers */
+.layers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.layer { position: relative; padding: 12px 14px 12px 14px; border: 1px solid var(--rule); border-right: 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.layer:first-child { border-radius: 6px 0 0 6px; }
+.layer:last-child { border-right: 1px solid var(--rule); border-radius: 0 6px 6px 0; }
+.layer.on { box-shadow: inset 0 3px 0 var(--good); }
+.layer.off { box-shadow: inset 0 3px 0 var(--rule); }
+.layer .who { font-family: var(--f-display); font-weight: 600; font-size: 15px; }
+.layer .what { font-size: 12.5px; color: var(--ink-2); }
+.layer .out { font-family: var(--f-num); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.layer + .layer::before { content: "→"; position: absolute; left: -9px; top: 12px; background: var(--panel); color: var(--ink-3); font-size: 13px; line-height: 1; padding: 2px 0; }
+@media (max-width: 760px) {
+  .layers { grid-template-columns: 1fr; }
+  .layer, .layer:first-child, .layer:last-child { border: 1px solid var(--rule); border-bottom: 0; border-radius: 0; }
+  .layer:first-child { border-radius: 6px 6px 0 0; }
+  .layer:last-child { border-bottom: 1px solid var(--rule); border-radius: 0 0 6px 6px; }
+  .layer + .layer::before { content: "↓"; left: 14px; top: -9px; padding: 0 4px; }
+}
+.stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.stg { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--grid); border-radius: 5px; font-size: 12.5px; }
+.stg b { font-family: var(--f-display); font-weight: 600; font-size: 13.5px; }
+.stg .s { color: var(--ink-3); font-size: 12px; }
+
+/* market */
+.mkt { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px 18px; }
+.kv { display: grid; gap: 2px; min-width: 0; }
+.kv .v { font-family: var(--f-num); font-size: 16px; font-variant-numeric: tabular-nums; }
+.big { font-family: var(--f-num); font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.gauge { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--bad-bg), var(--hold-bg) 50%, var(--good-bg)); }
+.gauge i { position: absolute; top: -3px; width: 3px; height: 12px; border-radius: 2px; background: var(--ink); transform: translateX(-1px); transition: left .3s; }
+.gauge-lab { display: flex; justify-content: space-between; font-family: var(--f-num); font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+.bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; min-width: 70px; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.bar.hot i { background: var(--bad); }
+
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: var(--f-num); font-size: 10.5px; fill: var(--ink-3); }
+
+/* ladder */
+.ladder { display: grid; gap: 6px; }
+.rung { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--grid); border-radius: 5px; font-size: 13px; }
+.rung .k { font-family: var(--f-num); font-size: 12px; color: var(--ink-3); text-align: center; }
+.rung b { font-weight: 600; }
+.rung .s { color: var(--ink-3); font-size: 12.5px; }
+.rung.here { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.action { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.action .big { font-size: 22px; }
+
+.snap { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 18px; }
+.snap table td { padding: 4px 8px; font-size: 12.5px; }
+.snap h3 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); font-weight: 500; }
+details summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
+pre { font-family: var(--f-num); font-size: 11.5px; background: var(--bg); border: 1px solid var(--grid); border-radius: 5px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; color: var(--ink-2); }
+
+.log { display: grid; font-size: 12.5px; max-height: 320px; overflow-y: auto; }
+.log div { display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--grid); }
+.log time { font-family: var(--f-num); color: var(--ink-3); font-size: 11.5px; }
+.log span { min-width: 0; overflow-wrap: anywhere; }
+.empty { padding: 20px 8px; text-align: center; color: var(--ink-3); }
+.cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; }
+.cols.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+footer { font-size: 12px; color: var(--ink-3); display: grid; gap: 6px; }
+footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+@media (max-width: 860px) { .cols, .cols.even { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .stat { border-left: 0; border-top: 1px solid var(--rule); } .stat:first-child { border-top: 0; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="title-row"><h1>Jev Desk</h1><span class="paper">PAPER · NO REAL ORDERS</span><span class="stage-tag" id="stage-tag"></span></div>
+    <div class="meta" id="meta"><span>Connecting…</span></div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="summary" id="summary" aria-label="Summary"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>The four layers</h2><span class="label">math in code · judgment in Jev · final say in risk</span></div>
+    <div class="layers" id="layers"></div>
+    <div class="stages" id="stages"></div>
+  </section>
+
+  <div class="cols">
+    <section class="card">
+      <div class="card-head"><h2>Market</h2><span class="label" id="mkt-note"></span></div>
+      <div class="action"><span class="big" id="mid">–</span><span class="muted num" id="mid-sub"></span></div>
+      <div class="mkt" id="mkt"></div>
+      <div>
+        <div class="label" style="margin-bottom:6px">Book imbalance, top 3 levels</div>
+        <div class="gauge"><i id="imb-i" style="left:50%"></i></div>
+        <div class="gauge-lab"><span>−1 all asks</span><span id="imb-v">0</span><span>all bids +1</span></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Mid price</h2><span class="label">last 24 hours</span></div>
+      <div class="chart" id="px-chart"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>Jev judgment battery</h2><span class="label" id="jev-note"></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Question</th><th>Type</th><th>Possible answers</th><th>Jev's answer</th><th class="r">Confidence</th></tr></thead>
+      <tbody id="jev"></tbody>
+    </table></div>
+  </section>
+
+  <div class="cols even">
+    <section class="card">
+      <div class="card-head"><h2>Policy &amp; fallback ladder</h2><span class="label" id="ladder-note"></span></div>
+      <div class="action"><span class="label">Action this block</span><span class="big" id="action">–</span></div>
+      <div class="ladder" id="ladder"></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Risk engine</h2><span class="label" id="risk-note"></span></div>
+      <p class="muted" style="margin:0;font-size:12.5px">Hard limits checked before every order. No model can override them.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Limit</th><th class="r">Now</th><th class="r">Limit</th><th>Used</th></tr></thead>
+        <tbody id="risk"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>State snapshot</h2><span class="label" id="snap-note"></span></div>
+    <div class="snap" id="snap"></div>
+    <details><summary>Exactly what Jev receives</summary><pre id="raw"></pre></details>
+  </section>
+
+  <div class="cols">
+    <section class="card">
+      <div class="card-head"><h2>Equity</h2><span class="label">last 24 hours</span></div>
+      <div class="chart" id="eq-chart"></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>System health</h2><span class="label">this session</span></div>
+      <div class="mkt" id="health"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>Activity</h2><span class="label">newest first</span></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <footer>
+    <div class="label">Rules</div>
+    <ol>
+      <li>Never ask Jev to trade. Ask it narrow judgments. Code makes the decision.</li>
+      <li>Math in code, judgment in Jev, final say in the risk engine.</li>
+      <li>Thresholds live in code, set by what being wrong costs.</li>
+      <li>Late answer means no trade. Never act on stale data.</li>
+      <li>Pin the model version and log it every time.</li>
+      <li>Paper trade two weeks minimum. Check calibration and fees before real money.</li>
+    </ol>
+    <div>Paper only. No broker or wallet is connected, and no stage can place a real order. Not financial advice.</div>
+  </footer>
+</div>
+
+<script type="application/json" id="desk-data">/*__DATA__*/</script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var BOOT = JSON.parse($("desk-data").textContent);
+  var LIVE = !!BOOT.live, S = BOOT.state, FULL = BOOT.state, lastMid = null;
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function money(v, sign) { if (v == null) return "–"; var s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return (v < 0 ? "−$" : (sign && v > 0 ? "+$" : "$")) + s; }
+  function n(v, d) { return v == null ? "–" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+  function sgn(v, d) { return v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + n(Math.abs(v), d); }
+  function cls(v) { return v > 0 ? "pos" : v < 0 ? "neg" : ""; }
+  function ago(sec) { return sec < 2 ? "now" : sec < 90 ? Math.round(sec) + "s ago" : sec < 5400 ? Math.round(sec / 60) + " min ago" : Math.round(sec / 3600) + " h ago"; }
+  function since(sec) { return sec < 3600 ? Math.round(sec / 60) + " min" : sec < 172800 ? (sec / 3600).toFixed(1) + " h" : Math.round(sec / 86400) + " days"; }
+  function hm(t) { return new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); }
+  function retBp(v) { return v == null ? '<span class="muted">warming up</span>' : "<span class='" + cls(v) + "'>" + sgn(v, 1) + "</span><span class='muted'> bp</span>"; }
+  function tile(l, v, s) { return '<div class="stat"><span class="label">' + l + '</span><span class="v">' + v + '</span><span class="s">' + s + "</span></div>"; }
+  function kv(l, v, c) { return '<div class="kv"><span class="label">' + l + '</span><span class="v ' + (c || "") + '">' + v + "</span></div>"; }
+  var PENDING = function (st) { return '<span class="chip next">Stage ' + st + "</span>"; };
+
+  function line(el, pts, fmt) {
+    if (!pts || pts.length < 2) { el.innerHTML = '<div class="empty">Collecting data · one point every 30 s</div>'; return; }
+    var W = 560, H = 190, L = 54, R = 8, T = 10, B = 22;
+    var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
+    var x0 = xs[0], x1 = xs[xs.length - 1], y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var minSpan = Math.abs((y0 + y1) / 2) * 0.002 || 1;   // a flat line still gets a readable axis
+    if (y1 - y0 < minSpan) { var c = (y0 + y1) / 2; y0 = c - minSpan / 2; y1 = c + minSpan / 2; }
+    var X = function (x) { return L + (x - x0) / (x1 - x0 || 1) * (W - L - R); }, Y = function (y) { return T + (1 - (y - y0) / (y1 - y0)) * (H - T - B); };
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); }).join("");
+    var g = "";
+    for (var i = 0; i <= 3; i++) { var yv = y0 + (y1 - y0) * i / 3, yy = Y(yv).toFixed(1);
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/><text x="' + (L - 6) + '" y="' + yy + '" dy="3" text-anchor="end">' + fmt(yv) + "</text>"; }
+    g += '<text x="' + L + '" y="' + (H - 6) + '">' + hm(x0) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + hm(x1) + "</text>";
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="line chart">' + g + '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+  }
+
+  var GROUPS = [
+    ["Price", [["mid", "Mid", 6], ["micro_bps", "Microprice vs mid", 2, "bp"], ["ret_1m_bps", "Return 1 min", 2, "bp"], ["ret_5m_bps", "Return 5 min", 2, "bp"], ["ret_30m_bps", "Return 30 min", 2, "bp"]]],
+    ["Order book", [["spread_bps", "Spread", 2, "bp"], ["bd1", "Bid depth L1", 1], ["bd2", "Bid depth L2", 1], ["bd3", "Bid depth L3", 1], ["ad1", "Ask depth L1", 1], ["ad2", "Ask depth L2", 1], ["ad3", "Ask depth L3", 1], ["imb", "Imbalance", 3], ["q_bid", "Queue ahead · bid", 3], ["q_ask", "Queue ahead · ask", 3]]],
+    ["Flow · 10 s", [["agg_buy", "Aggressive buys", 1], ["agg_sell", "Aggressive sells", 1], ["agg_buy_ratio", "Buy ratio", 3], ["trades_ps", "Trades / s", 2], ["cancels_ps", "Cancels / s", 2]]],
+    ["Volatility", [["vol_s_bps", "Short (1 min)", 2, "bp"], ["vol_m_bps", "Medium (15 min)", 2, "bp"], ["vol_vs_24h", "vs 24 h baseline", 2, "×"]]],
+    ["Cross-market", [["ref_gap_bps", "Gap vs reference", 2, "bp"], ["basis_bps", "Basis", 2, "bp"], ["funding", "Funding rate", 5]]],
+    ["Our book", [["inv", "Inventory", 2], ["upnl", "Unrealized P&L", 2, "$"], ["rpnl", "Realized P&L", 2, "$"], ["dd", "Drawdown", 2, "%"], ["held_s", "Held", 0, "s"]]],
+    ["System health", [["fill_ratio", "Fill ratio", 3], ["reject_ratio", "Reject ratio", 3], ["slip_bps", "Slippage", 2, "bp"]]]
+  ];
+  function fv(v, d, u) {
+    if (v == null) return '<span class="muted">–</span>';
+    if (u === "%") return n(v * 100, d) + "%";
+    if (u === "$") return '<span class="' + cls(v) + '">' + money(v, true) + "</span>";
+    return n(v, d) + (u ? '<span class="muted"> ' + u + "</span>" : "");
+  }
+
+  function render() {
+    if (!S) return;
+    var now = S.server_time || Date.now() / 1000, snap = S.snapshot || {}, acct = S.account || {}, eng = S.engine || {};
+    var age = S.last_block_ts ? now - S.last_block_ts : null, feedLive = S.feed && S.feed.status === "live" && age != null && age < 60;
+    var stageN = (S.desk || {}).stage || 1, stages = S.stages || [];
+    $("stage-tag").textContent = "STAGE " + stageN + " / " + stages.length;
+
+    var meta = [];
+    meta.push('<span><span class="dot ' + (feedLive ? "live" : "down") + '"></span>' + esc((S.feed || {}).label || (S.feed || {}).name || "feed") + "</span>");
+    meta.push("<span>Last block " + (age == null ? "–" : ago(age)) + "</span>");
+    meta.push("<span>Jev model <span class='num'>" + esc((S.desk || {}).model || "") + "</span> pinned</span>");
+    meta.push("<span>Runner: " + esc(S.runner || "") + "</span>");
+    meta.push("<span>Running " + since(now - (S.created || now)) + "</span>");
+    $("meta").innerHTML = meta.join("");
+
+    var b = $("banner"), msgs = [];
+    if (!LIVE) msgs.push("Snapshot, updated about every 15 minutes. The live page on the server updates every second.");
+    if (age != null && age > (LIVE ? 30 : 2700)) msgs.push("No new blocks for " + since(age) + ". Check the server: journalctl -u jev-desk -n 50");
+    if ((S.feed || {}).name === "sim") msgs.push("Running on a simulated order book until a venue is connected. Stage " + stageN + " of " + stages.length + ": the bot observes only and places no orders.");
+    b.hidden = !msgs.length; b.textContent = msgs.join(" ");
+
+    var tot = S.totals || {}, ret = acct.start ? acct.equity / acct.start - 1 : 0;
+    $("summary").innerHTML = [
+      tile("Paper equity", money(acct.equity), "<span class='" + cls(ret) + "'>" + sgn(ret * 100, 2) + "%</span> from " + money(acct.start)),
+      tile("Drawdown", n((acct.drawdown || 0) * 100, 2) + "%", "from peak equity"),
+      tile("Inventory", n(acct.position || 0, 2), "unrealized " + money(acct.unrealized || 0, true)),
+      tile("Blocks seen", (tot.blocks || 0).toLocaleString("en-US"), (tot.blocks_session || 0).toLocaleString("en-US") + " this session"),
+      tile("Snapshot size", "~" + (eng.tokens || 0) + " tok", "budget " + (eng.budget || 400) + " · max seen " + (eng.max_tokens || 0)),
+      tile("Engine time", eng.p50_ms == null ? "–" : n(eng.p50_ms, 2) + " ms", "p95 " + (eng.p95_ms == null ? "–" : n(eng.p95_ms, 2) + " ms") + " per block")
+    ].join("");
+
+    var st = function (k) { return (stages[k - 1] || {}).status === "live"; };
+    var L = [
+      ["1 · Code", "computes the state", "Mid, spread, imbalance, vol, inventory, drawdown. All math.", st(1), st(1) ? "~" + (eng.tokens || 0) + " tokens · " + Object.keys(snap).length + " fields" : null, 1],
+      ["2 · Jev", "interprets the state", "Six narrow judgments in one call, each with a calibrated probability.", st(2), null, 2],
+      ["3 · Code", "applies the policy", "Thresholds in config turn answers into an action.", st(3), null, 3],
+      ["4 · Risk engine", "has the final word", "Hard limits checked before every order. Can veto anything.", st(4), null, 4]
+    ];
+    $("layers").innerHTML = L.map(function (l) {
+      return '<div class="layer ' + (l[3] ? "on" : "off") + '"><span class="who">' + l[0] + ' <span class="muted" style="font-weight:500">' + l[1] + '</span></span><span class="what">' + l[2] +
+        '</span><span class="out">' + (l[3] ? '<span class="chip live">live</span> ' + esc(l[4] || "") : PENDING(l[5])) + "</span></div>";
+    }).join("");
+    var firstPending = (stages.filter(function (s) { return s.status !== "live"; })[0] || {}).n;
+    $("stages").innerHTML = stages.map(function (s) {
+      var c = s.status === "live" ? "live" : s.n === firstPending ? "next" : "";
+      return '<div class="stg"><span><span class="chip ' + c + '">' + (s.status === "live" ? "done" : s.n === firstPending ? "next" : "to do") + "</span> <b>" + s.n + ". " + esc(s.name) + '</b></span><span class="s">' + esc(s.what) + "</span></div>";
+    }).join("");
+
+    // market
+    var mid = snap.mid;
+    $("mid").textContent = mid == null ? "–" : n(mid, 4);
+    if (mid != null && lastMid != null && mid !== lastMid) { $("mid").classList.remove("flash"); void $("mid").offsetWidth; $("mid").classList.add("flash"); }
+    lastMid = mid;
+    $("mid-sub").textContent = snap.blk != null ? "block " + snap.blk.toLocaleString("en-US") : "";
+    $("mkt-note").textContent = feedLive ? (LIVE ? "updates every block" : "at snapshot time") : "no fresh blocks";
+    $("mkt").innerHTML = [
+      kv("Spread", fv(snap.spread_bps, 2, "bp")), kv("Microprice", fv(snap.micro_bps, 2, "bp")),
+      kv("1 min", retBp(snap.ret_1m_bps)), kv("5 min", retBp(snap.ret_5m_bps)), kv("30 min", retBp(snap.ret_30m_bps)),
+      kv("Vol, 1 min", fv(snap.vol_s_bps, 1, "bp")), kv("Vol vs 24 h", fv(snap.vol_vs_24h, 2, "×")),
+      kv("Buy ratio", fv(snap.agg_buy_ratio, 2))
+    ].join("");
+    var im = snap.imb == null ? 0 : snap.imb;
+    $("imb-i").style.left = ((im + 1) / 2 * 100).toFixed(1) + "%"; $("imb-v").textContent = sgn(im, 3);
+
+    // jev battery
+    var jev = S.jev || {}, ans = jev.answers || {};
+    $("jev-note").textContent = jev.status === "live" ? "one call · " + (jev.latency_ms != null ? jev.latency_ms + " ms" : "") : "wired in Stage 2";
+    $("jev").innerHTML = (jev.questions || []).map(function (q) {
+      var a = ans[q.key], val = '<span class="muted">–</span>', conf = "";
+      if (a) { val = "<b>" + esc(a.value) + "</b>"; conf = n(a.p * 100, 0) + "%"; }
+      return "<tr><td class='q'>" + esc(q.ask) + "</td><td><span class='chip'>" + esc(q.type) + "</span></td><td class='why'>" + esc((q.options || ["yes / no, as a probability"]).join(" · ")) +
+        "</td><td>" + (a ? val : PENDING(2)) + "</td><td class='n r'>" + conf + "</td></tr>";
+    }).join("");
+
+    // policy + ladder
+    var lad = S.ladder || {}, pol = S.policy || {};
+    $("action").innerHTML = pol.action ? esc(pol.action) : '<span class="muted">observe only</span>';
+    $("ladder-note").textContent = lad.status === "live" ? "current rung highlighted" : "wired in Stages 3 and 5";
+    $("ladder").innerHTML = (lad.rungs || []).map(function (r, i) {
+      return '<div class="rung' + (lad.current === r.key ? " here" : "") + '"><span class="k">' + (i + 1) + "</span><span><b>" + esc(r.name) + '</b><br><span class="s">' + esc(r.do) + "</span></span></div>";
+    }).join("");
+
+    // risk
+    var rk = S.risk || {};
+    $("risk-note").textContent = rk.status === "live" ? "checked every order" : "wired in Stage 4";
+    $("risk").innerHTML = (rk.limits || []).map(function (l) {
+      var used = l.value != null && l.limit ? Math.min(1, Math.abs(l.value) / l.limit) : null;
+      return "<tr><td>" + esc(l.name) + "</td><td class='n r'>" + (l.value == null ? "–" : esc(l.value)) + "</td><td class='n r'>" + (l.limit == null ? PENDING(4) : esc(l.limit)) +
+        "</td><td>" + (used == null ? "" : '<div class="bar' + (used > .8 ? " hot" : "") + '"><i style="width:' + (used * 100).toFixed(0) + '%"></i></div>') + "</td></tr>";
+    }).join("");
+
+    // snapshot
+    $("snap-note").textContent = "~" + (eng.tokens || 0) + " of " + (eng.budget || 400) + " tokens · numbers only · no future data";
+    $("snap").innerHTML = GROUPS.map(function (g) {
+      return "<div><h3>" + g[0] + "</h3><table>" + g[1].map(function (f) { return "<tr><td>" + f[1] + "</td><td class='n r'>" + fv(snap[f[0]], f[2], f[3]) + "</td></tr>"; }).join("") + "</table></div>";
+    }).join("");
+    $("raw").textContent = JSON.stringify(snap);
+
+    // charts (full state only)
+    if (FULL && FULL.series) line($("px-chart"), FULL.series.map(function (p) { return [p[0], p[1]]; }), function (v) { return n(v, 4); });
+    if (FULL && FULL.equity) line($("eq-chart"), FULL.equity, function (v) { return "$" + n(v, 0); });
+
+    // health
+    var lat = snap.lat_ms || [];
+    $("health").innerHTML = [
+      kv("Block lag", eng.lag_p50_ms == null ? "–" : n(eng.lag_p50_ms, 0) + '<span class="muted"> ms</span>'),
+      kv("Engine p95", eng.p95_ms == null ? "–" : n(eng.p95_ms, 2) + '<span class="muted"> ms</span>'),
+      kv("Rejected blocks", (tot.rejected || 0).toLocaleString("en-US"), tot.rejected ? "neg" : ""),
+      kv("Errors", (tot.errors || 0).toLocaleString("en-US"), tot.errors ? "neg" : ""),
+      kv("Jev latency", lat.length ? n(lat[lat.length - 1], 0) + '<span class="muted"> ms</span>' : PENDING(2)),
+      kv("Fill ratio", fv(snap.fill_ratio, 2)), kv("Reject ratio", fv(snap.reject_ratio, 2)), kv("Slippage", fv(snap.slip_bps, 2, "bp"))
+    ].join("");
+
+    var log = (S.log || []).slice().reverse();
+    $("log").innerHTML = log.length ? log.map(function (e) { return "<div><time>" + hm(e[0]) + "</time><span>" + esc(e[1]) + "</span></div>"; }).join("") : '<div class="empty">Nothing yet</div>';
+  }
+
+  render();
+  if (LIVE) {
+    var poll = function (full) {
+      return fetch("api/state" + (full ? "?full=1" : ""), { cache: "no-store" }).then(function (r) { return r.json(); })
+        .then(function (d) { S = d; if (full) FULL = d; render(); }).catch(function () {});
+    };
+    setInterval(function () { poll(false); }, 1000);
+    setInterval(function () { poll(true); }, 30000);
+  } else {
+    setTimeout(function () { location.reload(); }, 5 * 60 * 1000);
+  }
+})();
+</script>

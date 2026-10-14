@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Stops the server bot and hands trading back to GitHub's hourly runs.
+# Stops the Jev Desk and pushes its final state. Run setup.sh again to restart.
 set -euo pipefail
 cd "$HOME/paper-desk"
-sudo systemctl disable --now paper-desk
-git add state/paper_account.json
-git commit -q -m "Final server check" || true
+sudo systemctl disable --now jev-desk
+git add state/jev_desk.json
+git commit -q -m "Jev desk final state" || true
 git pull -q --rebase -X theirs origin main
-echo github > state/runner.txt
-git add state/runner.txt
-git commit -q -m "Hand trading back to GitHub" || true
 git push -q origin HEAD:main
-echo "Stopped. GitHub runs the bot hourly again, starting from the same account."
+echo "Stopped. The dashboard keeps the last state; GitHub's hourly check will report the server as silent."

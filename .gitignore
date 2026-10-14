@@ -1,7 +1,5 @@
-paper_account.json.bak
-data/
 __pycache__/
+.pytest_cache/
+logs/
 docs/index.html
-/paper_account.json
-scalper.log
-scalper.old.log
+state/*.tmp

@@ -1,0 +1,53 @@
+# The Jev Desk's GitHub side. Same setup as the old Paper Desk:
+#   - the Lightsail server runs the 24/7 block loop and pushes state/jev_desk.json every 15 min
+#   - every push rebuilds the dashboard on GitHub Pages
+#   - every hour GitHub checks the server is alive; if it has gone quiet the run fails
+#     (red X) and GitHub emails you
+# Nothing here trades. The bot loop needs a decision every 300 ms block, which GitHub
+# Actions can't do (runs start at most every 5 min and stop after 6 h).
+
+name: jev-desk
+
+on:
+  schedule:
+    - cron: "17 * * * *"          # hourly heartbeat at :17 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["state/jev_desk.json", "jevsys/dashboard*", ".github/workflows/jev-desk.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: jev-desk
+  cancel-in-progress: false
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the dashboard
+        run: python -m jevsys dashboard --state state/jev_desk.json --out docs/index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Is the server alive?
+        if: github.event_name == 'schedule'
+        run: python -m jevsys heartbeat --state state/jev_desk.json --max-age 45

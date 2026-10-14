@@ -3,19 +3,21 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "jev-bot"
+name = "jevsys"
 version = "0.1.0"
-description = "JEV-powered market decision bot for stocks, crypto and memes. paper by default.: state in, a typed BUY/SELL/HOLD/AVOID out, paper by default"
-readme = "README.md"
+description = "24/7 Jev trading system, built from 'How to Build a 24/7 AI Trading System With Jev'. Paper only."
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = []
 
-[project.scripts]
-jev-bot = "jev_bot.cli:main"
+[project.optional-dependencies]
+test = ["pytest"]
 
 [tool.setuptools]
-packages = ["jev_bot", "jev_bot.execution", "jev_bot.scalp", "jev_bot.research", "jev_bot.strategies"]
+packages = ["jevsys", "jevsys.feeds"]
 
 [tool.setuptools.package-data]
 "*" = ["*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
