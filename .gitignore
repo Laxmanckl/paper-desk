@@ -4,3 +4,5 @@ logs/
 docs/index.html
 state/*.tmp
 .venv/
+state/paper_book.json
+state/RESET_KILL

@@ -19,6 +19,16 @@ INSTRUMENTS: dict[str, dict] = {
 
 FX_MAJORS = [s for s, v in INSTRUMENTS.items() if v["kind"] == "fx"]
 
+CONTRACT = {"gold": 100, "fx": 100_000}  # units per 1.00 lot (100 oz gold; 100,000 base currency)
+
+
+def pip_value_usd(symbol: str, price: float) -> float:
+    """US-dollar value of a one-pip move for 1.00 lot.
+    XXX/USD and gold: fixed ($10). USD/XXX: converted at the current price."""
+    spec = INSTRUMENTS[symbol]
+    v = CONTRACT[spec["kind"]] * spec["pip"]
+    return v if symbol.endswith("USD") else v / price
+
 
 def pip(symbol: str) -> float:
     return INSTRUMENTS[symbol]["pip"]

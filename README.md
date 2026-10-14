@@ -83,6 +83,36 @@ on. Jev only judges; it does not decide to trade. That is Stage 3's job.
 The SDK is the official `typesafe-sdk`, pinned to 0.7.4 in the server's private Python
 environment (`~/paper-desk/.venv`), so it can't change underneath the thresholds either.
 
+## Stages 3-4: policy, risk, paper trading
+
+Each round, for every instrument with fresh prices and a Jev answer:
+
+**Policy** (`jevsys/policy.py`). Code turns the answers into an action. Entering needs a
+higher bar than exiting, because a wrong entry costs more than leaving early.
+
+| Flat | In a position |
+|---|---|
+| Stand aside if costs look abnormal, the regime is confidently volatile or quiet, the direction is neutral or under 65%, entry quality is below Good, or the move looks likely to reverse | Exit on "Close now", or if Jev points the other way at 60%+ |
+| Otherwise enter long or short | Tighten the stop on "Tighten the stop"; otherwise hold |
+
+**Risk engine** (`jevsys/risk.py`). It has the final word:
+- **Every position** gets a stop of 2.5 × the 5-minute ATR and a target of 1.5 × that distance.
+- **Size** is set so hitting the stop costs 0.5% of equity.
+- **Vetoes before every entry:** max open positions (4), max positions betting the same way on the US dollar (2), spread over 2× normal, stale price, Jev failing 3 rounds in a row, slow Jev answer, Friday after 19:00 UTC, stop too wide for the risk budget.
+- **Between rounds,** every 2 s on live quotes: stop, target, a 6-hour maximum hold, and flat by Friday 20:30 UTC.
+- **Kill switches:**
+  - down 2% on the day: close everything, no trades until 00:00 UTC;
+  - 6% below peak: close everything, off until `bash ~/paper-desk/server/reset-kill.sh`.
+
+**Paper book** (`jevsys/paper.py`). Fake money, real prices:
+- buys fill at the live ask and sells at the bid, so the spread is paid;
+- stops fill at the price seen when hit, so slippage is real;
+- swaps are not modelled.
+
+**All thresholds and limits are in [`config/desk.json`](config/desk.json),** each with a note.
+Edit it on GitHub; the server picks it up within ~15 minutes. A bad edit is rejected and the
+old values stay. Every decision and trade records the settings version it used.
+
 ## Everyday use
 
 | You want to… | Do this |
@@ -91,6 +121,9 @@ environment (`~/paper-desk/.venv`), so it can't change underneath the thresholds
 | Server log | `journalctl -u jev-desk -f` |
 | Test Jev by hand | `cd ~/paper-desk && sudo env $(sudo cat /etc/jev-desk.env) .venv/bin/python -m jevsys jev-test` |
 | Replace the key | `bash ~/paper-desk/server/jev-key.sh` |
+| Change thresholds / limits | Edit `config/desk.json` on GitHub |
+| Turn trading back on after the drawdown kill switch | `bash ~/paper-desk/server/reset-kill.sh` |
+| Start the paper account over | `sudo systemctl stop jev-desk && rm ~/paper-desk/state/paper_book.json && sudo systemctl start jev-desk` |
 | Bridge log (PC) | `Get-Content C:\jev-bridge\bridge.log -Tail 20 -Wait` |
 | Decide every 5 or 10 min | Change `--every 15` in `/etc/systemd/system/jev-desk.service`, then `sudo systemctl daemon-reload && sudo systemctl restart jev-desk` |
 | Update the code | Run the setup command again (server, PC, or both) |
@@ -101,10 +134,10 @@ environment (`~/paper-desk/.venv`), so it can't change underneath the thresholds
 | # | Stage | Status |
 |---|---|---|
 | 1 | State engine: snapshot per instrument, under 400 tokens, no future data | **done** |
-| 2 | Jev decision layer: 6 questions per instrument in one call, `jev-1.13.0` pinned and logged | **done** (needs your key) |
-| 3 | Policy engine: long / short / exit / stand aside by confidence thresholds | next |
-| 4 | Risk engine: hard limits, a stop on every trade, veto on every order | |
-| 5 | Loop + fallback ladder: stale = hold, Jev down = code rules, limit = kill | |
+| 2 | Jev decision layer: 6 questions per instrument in one call, `jev-1.13.0` pinned and logged | **done** |
+| 3 | Policy engine: long / short / exit / tighten / stand aside by confidence thresholds | **done** |
+| 4 | Risk engine: sizing, a stop on every trade, vetoes, kill switches, paper fills | **done** |
+| 5 | Fallback ladder: code-only rules when Jev is down, each rung tested on purpose | next |
 | 6 | Paper trading + calibration log, two weeks before any real money | |
 
 ### Snapshot fields (Step 3, adapted)
@@ -134,13 +167,17 @@ jevsys/
   market.py        price inbox from the bridge; rejects unclosed bars and future timestamps
   instruments.py   symbols, pip sizes, USD direction
   jev.py           Stage 2: the 6-question battery, parallel calls, pinned model, error handling
+  policy.py        Stage 3: Jev's answers -> enter / exit / tighten / hold / stand aside
+  risk.py          Stage 4: sizing, stops, vetoes, exits, kill switches
+  paper.py         paper book: fills at bid/ask, P&L, equity curve, saved on every change
+  settings.py      loads and validates config/desk.json, hot reload
   desk.py          15-min decision loop + everything the dashboard shows; stages 2-5 plug into _decide()
   web.py           live page, /api/state, /api/ingest (token)
   publish.py       pushes state to GitHub
   sim_fx.py        price simulator for tests and `run --sim`
 bridge/            mt5_bridge.py + Windows setup and watchdog
 server/            Lightsail setup / stop
-tests/             36 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
+tests/             69 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
 ```
 
 Try it anywhere without MT5: `python3 -m jevsys run --sim --every 5`, then open http://localhost:8080

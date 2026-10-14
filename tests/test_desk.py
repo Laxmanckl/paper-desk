@@ -37,7 +37,7 @@ def test_stale_round_holds_and_says_why(tmp_path):
     d, _, now = make(tmp_path)
     out = d.decide_round(now + 4 * 3600)
     assert not any(r["fresh"] for r in out.values())
-    assert all(r["decision"] is None for r in out.values())
+    assert all(r["action"]["kind"] == "WAIT" for r in out.values())
     assert any("No fresh prices" in e[1] for e in d.state()["log"])
 
 

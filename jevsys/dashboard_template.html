@@ -147,6 +147,15 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .sym { font-weight: 600; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; }
 .kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-left: 6px; }
 .sel { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--panel); color: var(--ink); }
+.checks { display: grid; gap: 3px; font-size: 12.5px; margin: 0; padding: 0; list-style: none; }
+.checks li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
+.checks .ok { color: var(--good); } .checks .no { color: var(--bad); }
+.why-line { font-size: 13px; color: var(--ink-2); }
+.halt { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); border-radius: 4px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
+details.th summary { font-size: 12.5px; }
+details.th table td { padding: 3px 8px; font-size: 12px; }
+#trades td, #positions td { white-space: nowrap; }
+#trades td.why, #positions td.why { white-space: normal; min-width: 160px; }
 .sel:focus-visible, #board tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 </style>
 
@@ -157,6 +166,7 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   </header>
   <div class="banner" id="banner" hidden></div>
 
+  <div class="halt" id="halt" hidden></div>
   <section class="summary" id="summary" aria-label="Summary"></section>
 
   <section class="card">
@@ -168,10 +178,15 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   <section class="card">
     <div class="card-head"><h2>Instruments</h2><span class="label" id="board-note"></span></div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Instrument</th><th class="r">Bid</th><th class="r">Ask</th><th class="r">Spread</th><th class="r">1 h</th><th class="r">1 day</th><th class="r">ATR 5m</th><th class="r">RSI</th><th>Trend</th><th>Data</th><th>Jev</th></tr></thead>
-      <tbody id="board"><tr><td colspan="11" class="empty">Waiting for prices from the MT5 bridge…</td></tr></tbody>
+      <thead><tr><th>Instrument</th><th class="r">Bid</th><th class="r">Ask</th><th class="r">Spread</th><th class="r">1 h</th><th class="r">1 day</th><th class="r">ATR 5m</th><th class="r">RSI</th><th>Trend</th><th>Data</th><th>Jev</th><th>Action</th><th>Position</th></tr></thead>
+      <tbody id="board"><tr><td colspan="13" class="empty">Waiting for prices from the MT5 bridge…</td></tr></tbody>
     </table></div>
     <div class="muted" style="font-size:12px">Returns in basis points (1 bp = 0.01%). Spread in pips, with how it compares to its normal level. Tap a row to see that instrument below.</div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Open positions</h2><span class="label" id="pos-note"></span></div>
+    <div class="table-wrap" id="positions"></div>
   </section>
 
   <div class="cols">
@@ -203,7 +218,10 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   <div class="cols even">
     <section class="card">
       <div class="card-head"><h2>Policy &amp; fallback ladder</h2><span class="label" id="ladder-note"></span></div>
-      <div class="action"><span class="label">Action</span><span class="big" id="action">–</span></div>
+      <div class="action"><span class="label" id="action-sym">Action</span><span class="big" id="action">–</span></div>
+      <div class="why-line" id="action-why"></div>
+      <ul class="checks" id="checks"></ul>
+      <details class="th"><summary>Thresholds in use (config/desk.json)</summary><div id="thresholds"></div></details>
       <div class="ladder" id="ladder"></div>
     </section>
     <section class="card">
@@ -215,6 +233,16 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
       </table></div>
     </section>
   </div>
+
+  <section class="card">
+    <div class="card-head"><h2>Paper equity</h2><span class="label" id="eq-note">last 7 days</span></div>
+    <div class="chart" id="eq-chart"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Closed trades</h2><span class="label" id="t-note"></span></div>
+    <div class="table-wrap" id="trades"></div>
+  </section>
 
   <div class="cols even">
     <section class="card">
@@ -237,7 +265,7 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
       <li>Pin the model version and log it every time.</li>
       <li>Paper trade two weeks minimum. Check calibration and costs before real money.</li>
     </ol>
-    <div>Paper only. Prices come from your MT5 terminal through a read-only bridge; nothing here can place an order. Not financial advice.</div>
+    <div>Paper only: fake money, filled at the live MT5 bid/ask (spread included; swaps not modelled). The bridge only reads prices; nothing here can place a real order. Not financial advice.</div>
   </footer>
 </div>
 
@@ -265,6 +293,20 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   function PENDING(st) { return '<span class="chip next">Stage ' + st + "</span>"; }
   function pct(p) { return p == null ? "–" : Math.round(p * 100) + "%"; }
   var ARROW = { up: "↑", down: "↓", neutral: "→" };
+  var ACT = { ENTER: "live", EXIT: "", TIGHTEN: "", HOLD: "", STAND_ASIDE: "", VETOED: "bad", WAIT: "" };
+  function actionChip(a) {
+    if (!a) return '<span class="muted">–</span>';
+    var label = a.kind === "ENTER" ? "enter " + a.side : a.kind === "STAND_ASIDE" ? "stand aside" : a.kind.toLowerCase();
+    var tip = a.vetoes ? a.vetoes.join("; ") : a.why || "";
+    var c = a.kind === "ENTER" ? (a.side === "long" ? "up" : "down") : ACT[a.kind] || "";
+    return '<span class="chip ' + c + '" title="' + esc(tip) + '">' + esc(label) + "</span>";
+  }
+  function posCell(sym, dg) {
+    var p = ((S.book || {}).positions || []).filter(function (x) { return x.sym === sym; })[0];
+    if (!p) return '<span class="muted">–</span>';
+    return '<span class="chip ' + (p.side === "long" ? "up" : "down") + '">' + p.side + " " + n(p.lots, 2) + "</span> " +
+      '<span class="num ' + cls(p.pnl) + '">' + money(p.pnl, true) + "</span>";
+  }
   function jevCell(rec, jevOn) {
     if (!jevOn) return '<span class="chip next">needs key</span>';
     if (!rec || !rec.t) return '<span class="muted">–</span>';
@@ -279,9 +321,9 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   }
   function pretty(sym) { return sym === "XAUUSD" ? "XAU/USD" : sym.slice(0, 3) + "/" + sym.slice(3); }
 
-  function line(el, pts, fmt) {
-    if (!pts || pts.length < 2) { el.innerHTML = '<div class="empty">No price history yet</div>'; return; }
-    var W = 560, H = 200, L = 62, R = 8, T = 10, B = 22;
+  function line(el, pts, fmt, wide) {
+    if (!pts || pts.length < 2) { el.innerHTML = '<div class="empty">' + (wide ? "The equity curve starts with the first decision round" : "No price history yet") + "</div>"; return; }
+    var W = wide ? 1140 : 560, H = wide ? 230 : 200, L = 62, R = 8, T = 10, B = 22;
     var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
     var x0 = xs[0], x1 = xs[xs.length - 1], y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
     var minSpan = Math.abs((y0 + y1) / 2) * 0.002 || 1;
@@ -344,18 +386,22 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     if (/simulated/.test(S.runner || "")) msgs.push("Using simulated prices, not real market data.");
     if ((S.jev || {}).status === "off" && S.runner !== "waiting for server") msgs.push("Jev is off: " + ((S.jev || {}).reason || "no API key") + ". Run server/jev-key.sh to switch it on.");
     if ((S.jev || {}).status === "errors") msgs.push("Jev isn't answering: " + ((S.jev || {}).last_error || "") + ". The desk holds; nothing is decided without Jev until the fallback rules arrive in Stage 5.");
-    msgs.push("Stage " + stageN + " of " + stages.length + ": the desk observes only and places no orders.");
+    msgs.push("Paper trading: fake money on live prices. Stage " + stageN + " of " + stages.length + ".");
     $("banner").hidden = false; $("banner").textContent = msgs.join(" ");
 
     var acct = S.account || {}, tot = S.totals || {}, eng = S.engine || {}, jevSt = S.jev || {}, jevOn = jevSt.status && jevSt.status !== "off";
+    var bk = S.book || { start: acct.start || 10000, equity: acct.equity || 10000, today_pnl: 0, unrealized: 0, peak: acct.start || 10000, drawdown_pct: 0, positions: [], trades: [], stats: {} };
+    var stt = bk.stats || {}, halted = bk.halted;
+    $("halt").hidden = !halted;
+    if (halted) $("halt").textContent = "Kill switch ON (" + (halted.kind === "daily" ? "daily loss" : "drawdown") + "): " + halted.reason + ". All positions were closed. " +
+      (halted.kind === "daily" ? "Trading resumes at 00:00 UTC." : "Trading stays off until reset: bash ~/paper-desk/server/reset-kill.sh");
     var nextIn = S.next_round ? Math.max(0, S.next_round - now) : null;
     $("summary").innerHTML = [
-      tile("Paper equity", money(acct.equity), "from " + money(acct.start)),
-      tile("Open positions", acct.open_positions || 0, "trading starts at Stage 3"),
-      tile("Jev", esc(jevSt.status === "off" ? "off" : jevSt.status), jevSt.status === "off" ? esc(jevSt.reason || "") :
-        (jevSt.latency_p50_ms != null ? "~" + jevSt.latency_p50_ms + " ms per call · " : "") + esc(jevSt.model || "") ),
-      tile("Decision rounds", (tot.rounds || 0).toLocaleString("en-US"), "8 instruments each"),
-      tile("Snapshot size", "~" + (eng.tokens_max || 0) + " tok", "largest of 8 · budget " + (eng.budget || 400)),
+      tile("Paper equity", money(bk.equity), "<span class='" + cls(bk.equity - bk.start) + "'>" + sgn((bk.equity / bk.start - 1) * 100, 2) + "%</span> from " + money(bk.start)),
+      tile("Today", "<span class='" + cls(bk.today_pnl) + "'>" + money(bk.today_pnl, true) + "</span>", (bk.today_trades || 0) + " closed today"),
+      tile("Open positions", (bk.positions || []).length, "open P&L <span class='" + cls(bk.unrealized) + "'>" + money(bk.unrealized, true) + "</span>"),
+      tile("Win rate", stt.n ? Math.round(stt.win_rate * 100) + "%" : "–", stt.n ? stt.n + " trades · PF " + (stt.profit_factor == null ? "–" : stt.profit_factor === Infinity ? "∞" : n(stt.profit_factor, 2)) : "no closed trades yet"),
+      tile("Drawdown", n(bk.drawdown_pct || 0, 2) + "%", "kill at " + (((S.risk || {}).settings || {}).max_drawdown_pct || "–") + "% · peak " + money(bk.peak)),
       tile("Next decision", nextIn == null ? "–" : span(nextIn), S.last_round ? "last at " + hm(S.last_round) : "none yet")
     ].join("");
 
@@ -396,9 +442,37 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
         "<td class='n r " + cls(sn.ret_1h_bps) + "'>" + sgn(sn.ret_1h_bps, 0) + "</td><td class='n r " + cls(sn.ret_1d_bps) + "'>" + sgn(sn.ret_1d_bps, 0) + "</td>" +
         "<td class='n r'>" + (sn.atr_pips == null ? "–" : n(sn.atr_pips, 1)) + "</td><td class='n r'>" + (sn.rsi14 == null ? "–" : n(sn.rsi14, 0)) + "</td>" +
         "<td>" + (trend ? '<span class="chip ' + (trend === "flat" ? "" : trend) + '">' + trend + "</span>" : "") + "</td>" +
-        "<td>" + data + "</td><td>" + jevCell(last, jevOn) + "</td></tr>";
+        "<td>" + data + "</td><td>" + jevCell(last, jevOn) + "</td><td>" + actionChip(last.action) + "</td><td>" + posCell(sym, r.digits) + "</td></tr>";
     });
     $("board").innerHTML = rows.length ? rows.join("") : "<tr><td colspan='11' class='empty'>Waiting for prices from the MT5 bridge…</td></tr>";
+
+    // open positions
+    var ps = bk.positions || [];
+    $("pos-note").textContent = ps.length ? ps.length + " open · risk to stops " + money(ps.reduce(function (a, p) { return a + (p.risk_usd || 0); }, 0)) : "";
+    $("positions").innerHTML = ps.length ? "<table><thead><tr><th>Instrument</th><th>Side</th><th class='r'>Lots</th><th class='r'>Entry</th><th class='r'>Now</th><th class='r'>Stop</th><th class='r'>Target</th><th class='r'>Pips</th><th class='r'>P&amp;L</th><th class='r'>Held</th><th>Why Jev + policy entered</th></tr></thead><tbody>" +
+      ps.map(function (p) {
+        var dg = (ins[p.sym] || {}).digits || 5, moved = p.stop !== p.initial_stop;
+        return "<tr><td><span class='sym'>" + pretty(p.sym) + "</span></td><td><span class='chip " + (p.side === "long" ? "up" : "down") + "'>" + p.side + "</span></td>" +
+          "<td class='n r'>" + n(p.lots, 2) + "</td><td class='n r'>" + n(p.entry, dg) + "</td><td class='n r'>" + (p.price == null ? "–" : n(p.price, dg)) + "</td>" +
+          "<td class='n r'>" + n(p.stop, dg) + (moved ? " <span class='muted' title='tightened from " + n(p.initial_stop, dg) + "'>↑</span>" : "") + "</td><td class='n r'>" + n(p.target, dg) + "</td>" +
+          "<td class='n r " + cls(p.pips) + "'>" + sgn(p.pips, 1) + "</td><td class='n r " + cls(p.pnl) + "'>" + money(p.pnl, true) + "</td>" +
+          "<td class='n r'>" + span(now - p.opened) + "</td><td class='why'>" + esc(p.reason) + "</td></tr>";
+      }).join("") + "</tbody></table>" : '<div class="empty">No open positions. The desk opens one only when Jev is confident enough and the risk engine agrees.</div>';
+
+    // closed trades
+    var tr = bk.trades || [];
+    $("t-note").textContent = stt.n ? stt.n + " total · net " + money(stt.net, true) + (stt.avg_r != null ? " · avg " + sgn(stt.avg_r, 2) + "R" : "") + (stt.avg_hold_min != null ? " · avg hold " + span(stt.avg_hold_min * 60) : "") : "";
+    $("trades").innerHTML = tr.length ? "<table><thead><tr><th>Closed</th><th>Instrument</th><th>Side</th><th class='r'>Lots</th><th class='r'>Entry</th><th class='r'>Exit</th><th class='r'>Pips</th><th class='r'>P&amp;L</th><th class='r'>R</th><th class='r'>Held</th><th>Exit reason</th></tr></thead><tbody>" +
+      tr.slice(0, 50).map(function (t) {
+        var dg = (ins[t.sym] || {}).digits || 5;
+        return "<tr><td class='n'>" + dh(t.closed) + "</td><td><span class='sym'>" + pretty(t.sym) + "</span></td><td><span class='chip " + (t.side === "long" ? "up" : "down") + "'>" + t.side + "</span></td>" +
+          "<td class='n r'>" + n(t.lots, 2) + "</td><td class='n r'>" + n(t.entry, dg) + "</td><td class='n r'>" + n(t.exit, dg) + "</td>" +
+          "<td class='n r " + cls(t.pips) + "'>" + sgn(t.pips, 1) + "</td><td class='n r " + cls(t.pnl) + "'>" + money(t.pnl, true) + "</td>" +
+          "<td class='n r " + cls(t.r) + "'>" + (t.r == null ? "–" : sgn(t.r, 2)) + "</td><td class='n r'>" + span(t.held_min * 60) + "</td><td class='why'>" + esc(t.why) + "</td></tr>";
+      }).join("") + "</tbody></table>" : '<div class="empty">No closed trades yet.</div>';
+
+    var ept = (FULL && FULL.book && FULL.book.equity_pts) || [];
+    line($("eq-chart"), ept, function (v) { return "$" + n(v, 0); }, true);
 
     // picker + chart
     var pick = $("pick");
@@ -443,15 +517,26 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     }).join("");
 
     var lad = S.ladder || {};
-    $("action").innerHTML = '<span class="muted">observe only</span>' + (jevOn ? ' <span class="label">Jev judges · policy comes in Stage 3</span>' : "");
-    $("ladder-note").textContent = lad.status === "live" ? "current rung highlighted" : "wired in Stages 3 and 5";
+    var pa = (r0.last || {}).action;
+    $("action-sym").textContent = pretty(PICK) + " this round";
+    $("action").innerHTML = pa ? actionChip(pa).replace('class="chip', 'style="font-size:15px;padding:4px 10px" class="chip') : '<span class="muted">no round yet</span>';
+    $("action-why").innerHTML = pa ? esc(pa.vetoes ? "Risk veto: " + pa.vetoes.join("; ") : pa.why || "") +
+      (pa.plan && pa.plan.lots ? ' <span class="muted num">(plan: ' + n(pa.plan.lots, 2) + " lots, stop " + pa.plan.stop_pips + " pips)</span>" : "") : "";
+    $("checks").innerHTML = (pa && pa.checks || []).map(function (c) { return '<li><span class="' + (c.ok ? "ok" : "no") + '">' + (c.ok ? "✓" : "✗") + "</span><span>" + esc(c.check) + "</span></li>"; }).join("");
+    var pol = S.policy || {}, th = pol.thresholds || {}, rs = (S.risk || {}).settings || {};
+    var rowsT = function (o) { return Object.keys(o).map(function (k) { return "<tr><td>" + esc(k) + "</td><td class='n r'>" + esc(Array.isArray(o[k]) ? o[k].join(", ") : o[k]) + "</td></tr>"; }).join(""); };
+    $("thresholds").innerHTML = '<p class="muted" style="font-size:12px;margin:6px 0">Version ' + esc(pol.settings_version || "–") +
+      (pol.settings_error ? ' · <span class="neg">last edit rejected: ' + esc(pol.settings_error) + "</span>" : "") + "</p><table>" + rowsT(th) + rowsT(rs) + "</table>";
+    $("ladder-note").textContent = lad.current ? "desk is on rung " + (["normal", "cautious", "late", "fallback", "kill"].indexOf(lad.current) + 1) : "after the first round";
     $("ladder").innerHTML = (lad.rungs || []).map(function (r, i) {
       return '<div class="rung' + (lad.current === r.key ? " here" : "") + '"><span class="k">' + (i + 1) + "</span><span><b>" + esc(r.name) + '</b><br><span class="s">' + esc(r.do) + "</span></span></div>";
     }).join("");
     var rk = S.risk || {};
     $("risk-note").textContent = rk.status === "live" ? "checked every order" : "wired in Stage 4";
     $("risk").innerHTML = (rk.limits || []).map(function (l) {
-      return "<tr><td>" + esc(l.name) + "</td><td class='n r'>" + (l.value == null ? "–" : esc(l.value)) + "</td><td class='n r'>" + (l.limit == null ? PENDING(4) : esc(l.limit)) + "</td><td></td></tr>";
+      var u = l.unit ? '<span class="muted"> ' + esc(l.unit) + "</span>" : "";
+      return "<tr><td>" + esc(l.name) + "</td><td class='n r'>" + (l.value == null ? "–" : esc(l.value) + u) + "</td><td class='n r'>" + (l.limit == null ? "–" : esc(l.limit) + (typeof l.limit === "number" ? u : "")) +
+        "</td><td>" + (l.used == null ? "" : '<div class="bar' + (l.used >= 0.8 ? " hot" : "") + '"><i style="width:' + Math.min(100, l.used * 100).toFixed(0) + '%"></i></div>') + "</td></tr>";
     }).join("");
 
     $("health").innerHTML = [

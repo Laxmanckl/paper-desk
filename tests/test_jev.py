@@ -113,7 +113,8 @@ def test_api_errors_dont_crash_the_round(tmp_path, status, kind):
     d = Desk(m, state_path=str(tmp_path / "s.json"), log_dir=str(tmp_path / "logs"), jev=JevLayer(client=client))
     out = d.decide_round(now)
     assert all(r["jev"]["kind"] == kind for r in out.values())
-    assert all(r["decision"] is None for r in out.values())
+    assert all(r["action"]["kind"] == "WAIT" and "no Jev answer" in r["action"]["why"] for r in out.values())
+    assert not d.book.positions
     st = d.state()
     assert st["jev"]["status"] == "errors"
     if kind == "auth":
@@ -130,7 +131,7 @@ def test_round_logs_snapshot_answers_and_model_together(tmp_path):
         assert x["model"] == x["pinned"] == "jev-1.13.0"
         assert x["jev"]["regime"]["value"] == "trending" and x["snap"]["mid"] > 0
     st = d.state(full=True)
-    assert st["desk"]["stage"] == 2 and st["stages"][1]["status"] == "live"
+    assert st["stages"][1]["status"] == "live"
     assert st["instruments"]["XAUUSD"]["last"]["jev"]["answers"]["direction"]["value"] == "up"
     assert any("First Jev answers" in e[1] for e in st["log"])
 

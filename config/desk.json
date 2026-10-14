@@ -1,0 +1,65 @@
+{
+  "_read_me": "Thresholds and limits for the Jev Desk (guide Step 5). Edit on GitHub; the server picks up changes within ~15 minutes and logs which version every decision used. Entering needs a HIGHER bar than exiting: being wrong on an entry costs more than leaving early.",
+
+  "policy": {
+    "enter_direction_conf": 0.65,
+    "_enter_direction_conf": "Jev must pick up or down with at least this confidence to open a position.",
+
+    "enter_quality_min_level": 2,
+    "_enter_quality_min_level": "Entry quality must be at least this level: 0 Do not enter, 1 Marginal, 2 Good, 3 Excellent.",
+    "enter_quality_conf": 0.45,
+    "_enter_quality_conf": "...and Jev must be at least this confident about that level.",
+
+    "enter_move_continues_min": 0.55,
+    "_enter_move_continues_min": "Probability that the latest move continues must be at least this.",
+
+    "stand_aside_costs_abnormal": 0.6,
+    "_stand_aside_costs_abnormal": "No new position if Jev puts 'costs abnormal' at or above this.",
+
+    "stand_aside_regimes": ["volatile", "quiet"],
+    "stand_aside_regime_conf": 0.6,
+    "_stand_aside_regimes": "No new position when Jev is this sure the market is volatile (unpredictable) or quiet (moves too small to beat the spread).",
+
+    "exit_urgency_close_level": 3,
+    "exit_urgency_tighten_level": 2,
+    "exit_urgency_conf": 0.5,
+    "_exit_urgency": "Close a position when exit urgency reaches 'Close now' (3); move the stop closer at 'Tighten the stop' (2); both need this confidence.",
+
+    "exit_on_opposite_direction_conf": 0.6,
+    "_exit_on_opposite_direction_conf": "Close a position when Jev points the other way with at least this confidence."
+  },
+
+  "risk": {
+    "risk_per_trade_pct": 0.5,
+    "_risk_per_trade_pct": "Position size is set so hitting the stop loses this % of equity.",
+
+    "stop_atr_mult": 2.5,
+    "target_r_multiple": 1.5,
+    "_stop_and_target": "Stop = this many 5-minute ATRs from entry. Target = stop distance x this multiple.",
+
+    "max_lots": 1.0,
+    "max_open_positions": 4,
+    "max_same_usd_direction": 2,
+    "_max_same_usd_direction": "All eight instruments move with the US dollar, so at most this many positions may bet the same way on the dollar.",
+
+    "max_daily_loss_pct": 2.0,
+    "_max_daily_loss_pct": "Kill switch: lose this % of the day's starting equity and every position closes; no new trades until 00:00 UTC.",
+
+    "max_drawdown_pct": 6.0,
+    "_max_drawdown_pct": "Kill switch: fall this % below peak equity and every position closes; trading stays off until reset by hand (bash ~/paper-desk/server/reset-kill.sh).",
+
+    "max_spread_vs_normal": 2.0,
+    "max_quote_age_s": 60,
+    "max_jev_errors_in_a_row": 3,
+    "max_decision_ms": 5000,
+    "max_hold_hours": 6,
+    "_hold": "Positions older than this are closed: Jev's direction call looks one hour ahead.",
+
+    "friday_no_entries_utc": "19:00",
+    "friday_flat_utc": "20:30",
+    "_friday": "No new positions late on Friday, and everything is closed before the weekend gap.",
+
+    "commission_per_lot_usd": 0.0,
+    "_commission": "Per lot, per side. The spread is already paid through the real bid/ask."
+  }
+}

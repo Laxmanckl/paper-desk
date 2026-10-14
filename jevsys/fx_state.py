@@ -18,7 +18,6 @@ import json
 import math
 import statistics
 
-from .book_state import AccountState
 from .config import StateConfig
 from .instruments import FX_MAJORS, INSTRUMENTS
 from .market import MarketStore
@@ -103,9 +102,8 @@ class FxStateEngine:
     def __init__(self, market: MarketStore, cfg: StateConfig | None = None, starting_equity: float = 10_000.0):
         self.market = market
         self.cfg = cfg or StateConfig()
-        self.accounts = {s: AccountState(0.0) for s in INSTRUMENTS}  # per-symbol P&L; equity tracked by desk
         self.starting_equity = starting_equity
-        self.peak_equity = starting_equity
+        self.book = None  # the paper book (set by the desk); supplies our position fields
 
     # ---- one instrument -------------------------------------------------
     def snapshot(self, symbol: str, t: float) -> dict:
@@ -151,7 +149,7 @@ class FxStateEngine:
         tv_ratio = tv_hour / statistics.mean(hours) if hours and len(bars) >= 300 else None
 
         sess, sess_min, _ = session_at(t)
-        acct = self.accounts[symbol]
+        lots, upnl_pips, held_min = self.book.position_view(symbol, q, t) if self.book else (0.0, 0.0, 0.0)
         snap = {
             "gold": 1 if spec["kind"] == "gold" else 0,
             # price
@@ -181,9 +179,9 @@ class FxStateEngine:
             "usd_1h_bps": _r(self.usd_index(t, 3_600)),
             "usd_1d_bps": _r(self.usd_index(t, 86_400)),
             # our book
-            "pos": acct.position,
-            "upnl_pips": _r(acct.unrealized(mid) / pip if acct.position else 0.0, 1),
-            "held_min": _r(acct.held_seconds(t) / 60, 0),
+            "pos": lots,
+            "upnl_pips": _r(upnl_pips, 1),
+            "held_min": _r(held_min, 0),
             "dd": _r(self.drawdown(), 4),
             # data health
             "quote_age_s": _r(t - q.ts, 1) if q else None,
@@ -207,7 +205,8 @@ class FxStateEngine:
         return statistics.mean(moves) if len(moves) >= 3 else None
 
     def drawdown(self) -> float:
-        return 0.0  # Stage 1 holds no positions; the risk engine (Stage 4) tracks equity
+        """Fraction below peak equity, from the paper book's last mark."""
+        return getattr(self.book, "last_dd", 0.0) if self.book else 0.0
 
     @staticmethod
     def is_fresh(snap: dict, cfg: StateConfig) -> tuple[bool, str]:
