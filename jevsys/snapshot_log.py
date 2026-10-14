@@ -42,6 +42,10 @@ class SnapshotLog:
             if os.path.getmtime(path) < cutoff:
                 os.remove(path)
 
+    def flush(self) -> None:
+        if self._fh:
+            self._fh.flush()
+
     def close(self) -> None:
         if self._fh:
             self._fh.close()

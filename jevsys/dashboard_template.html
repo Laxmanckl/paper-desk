@@ -3,7 +3,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 /* Same visual system as the Paper Desk / Scalp Desk. Layout follows the guide:
-   status, summary, the four layers, market, Jev battery, policy + ladder, risk, snapshot, health, log. */
+   status, summary, the four layers, instrument board, chart + snapshot of the
+   selected instrument, Jev battery, policy + ladder, risk, health, activity. */
 :root {
   --bg: #f5f6f4; --panel: #ffffff; --ink: #1c2126; --ink-2: #4c5560; --ink-3: #7c8590;
   --rule: #dde1e3; --grid: #eceff0; --accent: #2f5d7c;
@@ -135,6 +136,18 @@ footer { font-size: 12px; color: var(--ink-3); display: grid; gap: 6px; }
 footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 @media (max-width: 860px) { .cols, .cols.even { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .stat { border-left: 0; border-top: 1px solid var(--rule); } .stat:first-child { border-top: 0; } }
+
+/* instrument board */
+#board tr { cursor: pointer; }
+#board tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+#board tr[aria-selected="true"] td { background: color-mix(in srgb, var(--accent) 11%, transparent); }
+#board tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+#board tr.stale td { color: var(--ink-3); }
+#board td { white-space: nowrap; }
+.sym { font-weight: 600; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; }
+.kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-left: 6px; }
+.sel { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--panel); color: var(--ink); }
+.sel:focus-visible, #board tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 </style>
 
 <div class="wrap">
@@ -152,22 +165,32 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     <div class="stages" id="stages"></div>
   </section>
 
+  <section class="card">
+    <div class="card-head"><h2>Instruments</h2><span class="label" id="board-note"></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Instrument</th><th class="r">Bid</th><th class="r">Ask</th><th class="r">Spread</th><th class="r">1 h</th><th class="r">1 day</th><th class="r">ATR 5m</th><th class="r">RSI</th><th>Trend</th><th>Data</th><th>Jev</th></tr></thead>
+      <tbody id="board"><tr><td colspan="11" class="empty">Waiting for prices from the MT5 bridge…</td></tr></tbody>
+    </table></div>
+    <div class="muted" style="font-size:12px">Returns in basis points (1 bp = 0.01%). Spread in pips, with how it compares to its normal level. Tap a row to see that instrument below.</div>
+  </section>
+
   <div class="cols">
     <section class="card">
-      <div class="card-head"><h2>Market</h2><span class="label" id="mkt-note"></span></div>
-      <div class="action"><span class="big" id="mid">–</span><span class="muted num" id="mid-sub"></span></div>
-      <div class="mkt" id="mkt"></div>
-      <div>
-        <div class="label" style="margin-bottom:6px">Book imbalance, top 3 levels</div>
-        <div class="gauge"><i id="imb-i" style="left:50%"></i></div>
-        <div class="gauge-lab"><span>−1 all asks</span><span id="imb-v">0</span><span>all bids +1</span></div>
-      </div>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2>Mid price</h2><span class="label">last 24 hours</span></div>
+      <div class="card-head"><h2 id="chart-title">Price</h2>
+        <label class="label" for="pick">Instrument <select class="sel" id="pick"></select></label></div>
       <div class="chart" id="px-chart"></div>
     </section>
+    <section class="card">
+      <div class="card-head"><h2>Decision clock</h2><span class="label" id="clock-note"></span></div>
+      <div class="mkt" id="clock"></div>
+    </section>
   </div>
+
+  <section class="card">
+    <div class="card-head"><h2>State snapshot · <span id="snap-sym"></span></h2><span class="label" id="snap-note"></span></div>
+    <div class="snap" id="snap"></div>
+    <details><summary>Exactly what Jev will receive</summary><pre id="raw"></pre></details>
+  </section>
 
   <section class="card">
     <div class="card-head"><h2>Jev judgment battery</h2><span class="label" id="jev-note"></span></div>
@@ -180,7 +203,7 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   <div class="cols even">
     <section class="card">
       <div class="card-head"><h2>Policy &amp; fallback ladder</h2><span class="label" id="ladder-note"></span></div>
-      <div class="action"><span class="label">Action this block</span><span class="big" id="action">–</span></div>
+      <div class="action"><span class="label">Action</span><span class="big" id="action">–</span></div>
       <div class="ladder" id="ladder"></div>
     </section>
     <section class="card">
@@ -193,27 +216,16 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
     </section>
   </div>
 
-  <section class="card">
-    <div class="card-head"><h2>State snapshot</h2><span class="label" id="snap-note"></span></div>
-    <div class="snap" id="snap"></div>
-    <details><summary>Exactly what Jev receives</summary><pre id="raw"></pre></details>
-  </section>
-
-  <div class="cols">
+  <div class="cols even">
     <section class="card">
-      <div class="card-head"><h2>Equity</h2><span class="label">last 24 hours</span></div>
-      <div class="chart" id="eq-chart"></div>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2>System health</h2><span class="label">this session</span></div>
+      <div class="card-head"><h2>Bridge &amp; system</h2><span class="label">health</span></div>
       <div class="mkt" id="health"></div>
     </section>
+    <section class="card">
+      <div class="card-head"><h2>Activity</h2><span class="label">newest first</span></div>
+      <div class="log" id="log"></div>
+    </section>
   </div>
-
-  <section class="card">
-    <div class="card-head"><h2>Activity</h2><span class="label">newest first</span></div>
-    <div class="log" id="log"></div>
-  </section>
 
   <footer>
     <div class="label">Rules</div>
@@ -221,11 +233,11 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
       <li>Never ask Jev to trade. Ask it narrow judgments. Code makes the decision.</li>
       <li>Math in code, judgment in Jev, final say in the risk engine.</li>
       <li>Thresholds live in code, set by what being wrong costs.</li>
-      <li>Late answer means no trade. Never act on stale data.</li>
+      <li>Stale data or a late answer means no trade.</li>
       <li>Pin the model version and log it every time.</li>
-      <li>Paper trade two weeks minimum. Check calibration and fees before real money.</li>
+      <li>Paper trade two weeks minimum. Check calibration and costs before real money.</li>
     </ol>
-    <div>Paper only. No broker or wallet is connected, and no stage can place a real order. Not financial advice.</div>
+    <div>Paper only. Prices come from your MT5 terminal through a read-only bridge; nothing here can place an order. Not financial advice.</div>
   </footer>
 </div>
 
@@ -235,94 +247,111 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   var BOOT = JSON.parse($("desk-data").textContent);
-  var LIVE = !!BOOT.live, S = BOOT.state, FULL = BOOT.state, lastMid = null;
+  var LIVE = !!BOOT.live, S = BOOT.state, FULL = BOOT.state, lastPx = {};
+  var PICK = null;
+  try { PICK = localStorage.getItem("jev-pick"); } catch (e) {}
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function money(v, sign) { if (v == null) return "–"; var s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return (v < 0 ? "−$" : (sign && v > 0 ? "+$" : "$")) + s; }
   function n(v, d) { return v == null ? "–" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
   function sgn(v, d) { return v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + n(Math.abs(v), d); }
   function cls(v) { return v > 0 ? "pos" : v < 0 ? "neg" : ""; }
-  function ago(sec) { return sec < 2 ? "now" : sec < 90 ? Math.round(sec) + "s ago" : sec < 5400 ? Math.round(sec / 60) + " min ago" : Math.round(sec / 3600) + " h ago"; }
-  function since(sec) { return sec < 3600 ? Math.round(sec / 60) + " min" : sec < 172800 ? (sec / 3600).toFixed(1) + " h" : Math.round(sec / 86400) + " days"; }
+  function ago(sec) { return sec < 2 ? "now" : sec < 90 ? Math.round(sec) + "s ago" : sec < 5400 ? Math.round(sec / 60) + " min ago" : sec < 172800 ? Math.round(sec / 3600) + " h ago" : Math.round(sec / 86400) + " days ago"; }
+  function span(sec) { return sec < 90 ? Math.round(sec) + " s" : sec < 5400 ? Math.round(sec / 60) + " min" : sec < 172800 ? (sec / 3600).toFixed(1) + " h" : Math.round(sec / 86400) + " days"; }
   function hm(t) { return new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); }
-  function retBp(v) { return v == null ? '<span class="muted">warming up</span>' : "<span class='" + cls(v) + "'>" + sgn(v, 1) + "</span><span class='muted'> bp</span>"; }
+  function dh(t) { var d = new Date(t * 1000); return d.toLocaleDateString("en-GB", { weekday: "short" }) + " " + hm(t); }
   function tile(l, v, s) { return '<div class="stat"><span class="label">' + l + '</span><span class="v">' + v + '</span><span class="s">' + s + "</span></div>"; }
   function kv(l, v, c) { return '<div class="kv"><span class="label">' + l + '</span><span class="v ' + (c || "") + '">' + v + "</span></div>"; }
-  var PENDING = function (st) { return '<span class="chip next">Stage ' + st + "</span>"; };
+  function PENDING(st) { return '<span class="chip next">Stage ' + st + "</span>"; }
+  function pretty(sym) { return sym === "XAUUSD" ? "XAU/USD" : sym.slice(0, 3) + "/" + sym.slice(3); }
 
   function line(el, pts, fmt) {
-    if (!pts || pts.length < 2) { el.innerHTML = '<div class="empty">Collecting data · one point every 30 s</div>'; return; }
-    var W = 560, H = 190, L = 54, R = 8, T = 10, B = 22;
+    if (!pts || pts.length < 2) { el.innerHTML = '<div class="empty">No price history yet</div>'; return; }
+    var W = 560, H = 200, L = 62, R = 8, T = 10, B = 22;
     var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
     var x0 = xs[0], x1 = xs[xs.length - 1], y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-    var minSpan = Math.abs((y0 + y1) / 2) * 0.002 || 1;   // a flat line still gets a readable axis
+    var minSpan = Math.abs((y0 + y1) / 2) * 0.002 || 1;
     if (y1 - y0 < minSpan) { var c = (y0 + y1) / 2; y0 = c - minSpan / 2; y1 = c + minSpan / 2; }
     var X = function (x) { return L + (x - x0) / (x1 - x0 || 1) * (W - L - R); }, Y = function (y) { return T + (1 - (y - y0) / (y1 - y0)) * (H - T - B); };
     var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); }).join("");
     var g = "";
     for (var i = 0; i <= 3; i++) { var yv = y0 + (y1 - y0) * i / 3, yy = Y(yv).toFixed(1);
       g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/><text x="' + (L - 6) + '" y="' + yy + '" dy="3" text-anchor="end">' + fmt(yv) + "</text>"; }
-    g += '<text x="' + L + '" y="' + (H - 6) + '">' + hm(x0) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + hm(x1) + "</text>";
-    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="line chart">' + g + '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+    g += '<text x="' + L + '" y="' + (H - 6) + '">' + dh(x0) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + dh(x1) + "</text>";
+    el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="price chart">' + g + '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
   }
 
   var GROUPS = [
-    ["Price", [["mid", "Mid", 6], ["micro_bps", "Microprice vs mid", 2, "bp"], ["ret_1m_bps", "Return 1 min", 2, "bp"], ["ret_5m_bps", "Return 5 min", 2, "bp"], ["ret_30m_bps", "Return 30 min", 2, "bp"]]],
-    ["Order book", [["spread_bps", "Spread", 2, "bp"], ["bd1", "Bid depth L1", 1], ["bd2", "Bid depth L2", 1], ["bd3", "Bid depth L3", 1], ["ad1", "Ask depth L1", 1], ["ad2", "Ask depth L2", 1], ["ad3", "Ask depth L3", 1], ["imb", "Imbalance", 3], ["q_bid", "Queue ahead · bid", 3], ["q_ask", "Queue ahead · ask", 3]]],
-    ["Flow · 10 s", [["agg_buy", "Aggressive buys", 1], ["agg_sell", "Aggressive sells", 1], ["agg_buy_ratio", "Buy ratio", 3], ["trades_ps", "Trades / s", 2], ["cancels_ps", "Cancels / s", 2]]],
-    ["Volatility", [["vol_s_bps", "Short (1 min)", 2, "bp"], ["vol_m_bps", "Medium (15 min)", 2, "bp"], ["vol_vs_24h", "vs 24 h baseline", 2, "×"]]],
-    ["Cross-market", [["ref_gap_bps", "Gap vs reference", 2, "bp"], ["basis_bps", "Basis", 2, "bp"], ["funding", "Funding rate", 5]]],
-    ["Our book", [["inv", "Inventory", 2], ["upnl", "Unrealized P&L", 2, "$"], ["rpnl", "Realized P&L", 2, "$"], ["dd", "Drawdown", 2, "%"], ["held_s", "Held", 0, "s"]]],
-    ["System health", [["fill_ratio", "Fill ratio", 3], ["reject_ratio", "Reject ratio", 3], ["slip_bps", "Slippage", 2, "bp"]]]
+    ["Price", [["mid", "Mid", null], ["ret_15m_bps", "Return 15 min", 1, "bp"], ["ret_1h_bps", "Return 1 h", 1, "bp"], ["ret_4h_bps", "Return 4 h", 1, "bp"], ["ret_1d_bps", "Return 1 day", 1, "bp"]]],
+    ["Cost", [["spread_pips", "Spread", 1, "pips"], ["spread_vs_norm", "vs normal", 2, "×"]]],
+    ["Volatility", [["atr_pips", "ATR (5-min)", 1, "pips"], ["atr_vs_5d", "vs 5-day avg", 2, "×"], ["day_range_pips", "Today's range", 1, "pips"], ["range_pos", "Position in range", 2]]],
+    ["Trend & momentum", [["ema20_dist_atr", "vs EMA 20", 2, "ATR"], ["ema100_dist_atr", "vs EMA 100", 2, "ATR"], ["ema20_slope_atr", "EMA 20 slope", 3, "ATR"], ["rsi14", "RSI 14", 1]]],
+    ["Activity & clock", [["tickvol_ratio", "Ticks vs normal hour", 2, "×"], ["session", "Session code", 0], ["session_min", "Minutes into session", 0]]],
+    ["US dollar", [["usd_1h_bps", "USD index 1 h", 1, "bp"], ["usd_1d_bps", "USD index 1 day", 1, "bp"]]],
+    ["Our book", [["pos", "Position (lots)", 2], ["upnl_pips", "Unrealized", 1, "pips"], ["held_min", "Held", 0, "min"], ["dd", "Drawdown", 2, "%"]]],
+    ["Data health", [["quote_age_s", "Quote age", 1, "s"], ["bar_age_s", "Last bar closed", 0, "s ago"], ["bars_24h", "Bars in 24 h", 0]]]
   ];
-  function fv(v, d, u) {
+  function fv(v, d, u, digits) {
     if (v == null) return '<span class="muted">–</span>';
+    if (d == null) return n(v, digits);
     if (u === "%") return n(v * 100, d) + "%";
-    if (u === "$") return '<span class="' + cls(v) + '">' + money(v, true) + "</span>";
+    if (u === "bp") return '<span class="' + cls(v) + '">' + sgn(v, d) + '</span><span class="muted"> bp</span>';
     return n(v, d) + (u ? '<span class="muted"> ' + u + "</span>" : "");
   }
 
   function render() {
     if (!S) return;
-    var now = S.server_time || Date.now() / 1000, snap = S.snapshot || {}, acct = S.account || {}, eng = S.engine || {};
-    var age = S.last_block_ts ? now - S.last_block_ts : null, feedLive = S.feed && S.feed.status === "live" && age != null && age < 60;
-    var stageN = (S.desk || {}).stage || 1, stages = S.stages || [];
+    var now = S.server_time || Date.now() / 1000, br = S.bridge || {}, ins = S.instruments || {};
+    var syms = Object.keys(ins);
+    if (!PICK || !ins[PICK]) PICK = syms[0];
+    var stages = S.stages || [], stageN = (S.desk || {}).stage || 1;
     $("stage-tag").textContent = "STAGE " + stageN + " / " + stages.length;
 
+    // freshest quote across instruments = is the market open?
+    var newest = 0; syms.forEach(function (s) { var q = ins[s].quote; if (q && q.t > newest) newest = q.t; });
+    var qAge = newest ? now - newest : null, brLive = br.status === "live";
+    var marketOpen = qAge != null && qAge < 180;
+
     var meta = [];
-    meta.push('<span><span class="dot ' + (feedLive ? "live" : "down") + '"></span>' + esc((S.feed || {}).label || (S.feed || {}).name || "feed") + "</span>");
-    meta.push("<span>Last block " + (age == null ? "–" : ago(age)) + "</span>");
-    meta.push("<span>Jev model <span class='num'>" + esc((S.desk || {}).model || "") + "</span> pinned</span>");
+    meta.push('<span><span class="dot ' + (brLive ? "live" : "down") + '"></span>MT5 bridge: ' + esc(br.status || "waiting") +
+      (br.broker ? " · " + esc(br.broker) + (br.account ? " " + esc(br.account) : "") : "") + "</span>");
+    meta.push("<span>" + (marketOpen ? "Market open" : newest ? "No new prices " + span(qAge) : "No prices yet") + " · " + esc((S.session || {}).name || "") + " session</span>");
+    meta.push("<span>Decides every " + (S.cadence_min || 15) + " min</span>");
+    meta.push("<span>Jev <span class='num'>" + esc((S.desk || {}).model || "") + "</span> pinned</span>");
     meta.push("<span>Runner: " + esc(S.runner || "") + "</span>");
-    meta.push("<span>Running " + since(now - (S.created || now)) + "</span>");
     $("meta").innerHTML = meta.join("");
 
-    var b = $("banner"), msgs = [];
+    var msgs = [];
     if (!LIVE) msgs.push("Snapshot, updated about every 15 minutes. The live page on the server updates every second.");
-    if (age != null && age > (LIVE ? 30 : 2700)) msgs.push("No new blocks for " + since(age) + ". Check the server: journalctl -u jev-desk -n 50");
-    if ((S.feed || {}).name === "sim") msgs.push("Running on a simulated order book until a venue is connected. Stage " + stageN + " of " + stages.length + ": the bot observes only and places no orders.");
-    b.hidden = !msgs.length; b.textContent = msgs.join(" ");
+    if (S.runner === "waiting for server") msgs.push("Waiting for the server to start.");
+    else if (br.status === "waiting") msgs.push("Waiting for the MT5 bridge on the Windows PC. Nothing is decided without fresh prices.");
+    else if (!brLive) msgs.push("The MT5 bridge has been silent for " + span(br.age_s || 0) + ". Check that the PC is on and MetaTrader 5 is open. The desk holds until prices return.");
+    else if (!marketOpen && newest) msgs.push("Bridge connected but prices aren't moving: the forex market is closed (weekend) or MT5 is disconnected from the broker.");
+    if (/simulated/.test(S.runner || "")) msgs.push("Using simulated prices, not real market data.");
+    msgs.push("Stage " + stageN + " of " + stages.length + ": the desk observes only and places no orders.");
+    $("banner").hidden = false; $("banner").textContent = msgs.join(" ");
 
-    var tot = S.totals || {}, ret = acct.start ? acct.equity / acct.start - 1 : 0;
+    var acct = S.account || {}, tot = S.totals || {}, eng = S.engine || {};
+    var nextIn = S.next_round ? Math.max(0, S.next_round - now) : null;
     $("summary").innerHTML = [
-      tile("Paper equity", money(acct.equity), "<span class='" + cls(ret) + "'>" + sgn(ret * 100, 2) + "%</span> from " + money(acct.start)),
+      tile("Paper equity", money(acct.equity), "from " + money(acct.start)),
+      tile("Open positions", acct.open_positions || 0, "trading starts at Stage 3"),
       tile("Drawdown", n((acct.drawdown || 0) * 100, 2) + "%", "from peak equity"),
-      tile("Inventory", n(acct.position || 0, 2), "unrealized " + money(acct.unrealized || 0, true)),
-      tile("Blocks seen", (tot.blocks || 0).toLocaleString("en-US"), (tot.blocks_session || 0).toLocaleString("en-US") + " this session"),
-      tile("Snapshot size", "~" + (eng.tokens || 0) + " tok", "budget " + (eng.budget || 400) + " · max seen " + (eng.max_tokens || 0)),
-      tile("Engine time", eng.p50_ms == null ? "–" : n(eng.p50_ms, 2) + " ms", "p95 " + (eng.p95_ms == null ? "–" : n(eng.p95_ms, 2) + " ms") + " per block")
+      tile("Decision rounds", (tot.rounds || 0).toLocaleString("en-US"), "8 instruments each"),
+      tile("Snapshot size", "~" + (eng.tokens_max || 0) + " tok", "largest of 8 · budget " + (eng.budget || 400)),
+      tile("Next decision", nextIn == null ? "–" : span(nextIn), S.last_round ? "last at " + hm(S.last_round) : "none yet")
     ].join("");
 
     var st = function (k) { return (stages[k - 1] || {}).status === "live"; };
     var L = [
-      ["1 · Code", "computes the state", "Mid, spread, imbalance, vol, inventory, drawdown. All math.", st(1), st(1) ? "~" + (eng.tokens || 0) + " tokens · " + Object.keys(snap).length + " fields" : null, 1],
-      ["2 · Jev", "interprets the state", "Six narrow judgments in one call, each with a calibrated probability.", st(2), null, 2],
-      ["3 · Code", "applies the policy", "Thresholds in config turn answers into an action.", st(3), null, 3],
-      ["4 · Risk engine", "has the final word", "Hard limits checked before every order. Can veto anything.", st(4), null, 4]
+      ["1 · Code", "computes the state", "Returns, spread vs normal, ATR, RSI, trend, session, USD index, position. All math.", st(1), "~" + (eng.tokens_max || 0) + " tokens per instrument", 1],
+      ["2 · Jev", "interprets the state", "Six narrow judgments per instrument, each with a calibrated probability.", st(2), "", 2],
+      ["3 · Code", "applies the policy", "Long, short, exit or stand aside, by confidence thresholds in config.", st(3), "", 3],
+      ["4 · Risk engine", "has the final word", "Hard limits and a stop on every trade. Can veto anything.", st(4), "", 4]
     ];
     $("layers").innerHTML = L.map(function (l) {
       return '<div class="layer ' + (l[3] ? "on" : "off") + '"><span class="who">' + l[0] + ' <span class="muted" style="font-weight:500">' + l[1] + '</span></span><span class="what">' + l[2] +
-        '</span><span class="out">' + (l[3] ? '<span class="chip live">live</span> ' + esc(l[4] || "") : PENDING(l[5])) + "</span></div>";
+        '</span><span class="out">' + (l[3] ? '<span class="chip live">live</span> ' + esc(l[4]) : PENDING(l[5])) + "</span></div>";
     }).join("");
     var firstPending = (stages.filter(function (s) { return s.status !== "live"; })[0] || {}).n;
     $("stages").innerHTML = stages.map(function (s) {
@@ -330,74 +359,92 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
       return '<div class="stg"><span><span class="chip ' + c + '">' + (s.status === "live" ? "done" : s.n === firstPending ? "next" : "to do") + "</span> <b>" + s.n + ". " + esc(s.name) + '</b></span><span class="s">' + esc(s.what) + "</span></div>";
     }).join("");
 
-    // market
-    var mid = snap.mid;
-    $("mid").textContent = mid == null ? "–" : n(mid, 4);
-    if (mid != null && lastMid != null && mid !== lastMid) { $("mid").classList.remove("flash"); void $("mid").offsetWidth; $("mid").classList.add("flash"); }
-    lastMid = mid;
-    $("mid-sub").textContent = snap.blk != null ? "block " + snap.blk.toLocaleString("en-US") : "";
-    $("mkt-note").textContent = feedLive ? (LIVE ? "updates every block" : "at snapshot time") : "no fresh blocks";
-    $("mkt").innerHTML = [
-      kv("Spread", fv(snap.spread_bps, 2, "bp")), kv("Microprice", fv(snap.micro_bps, 2, "bp")),
-      kv("1 min", retBp(snap.ret_1m_bps)), kv("5 min", retBp(snap.ret_5m_bps)), kv("30 min", retBp(snap.ret_30m_bps)),
-      kv("Vol, 1 min", fv(snap.vol_s_bps, 1, "bp")), kv("Vol vs 24 h", fv(snap.vol_vs_24h, 2, "×")),
-      kv("Buy ratio", fv(snap.agg_buy_ratio, 2))
+    // board
+    $("board-note").textContent = LIVE ? "prices update every second" : "at snapshot time";
+    var rows = syms.map(function (sym) {
+      var r = ins[sym], q = r.quote, last = r.last || {}, sn = last.snap || {}, dg = r.digits;
+      var stale = !q || now - q.t > 180;
+      var fl = q && lastPx[sym] != null && lastPx[sym] !== q.bid ? " flash" : "";
+      if (q) lastPx[sym] = q.bid;
+      var spread = q ? (q.ask - q.bid) / r.pip : null;
+      var trend = sn.ema20_dist_atr == null ? "" : sn.ema20_dist_atr > 0.3 && sn.ema20_slope_atr > 0 ? "up" : sn.ema20_dist_atr < -0.3 && sn.ema20_slope_atr < 0 ? "down" : "flat";
+      var data = !last.t ? '<span class="chip">waiting</span>' : last.fresh ? '<span class="chip live">fresh</span>' : '<span class="chip bad" title="' + esc(last.reason) + '">stale</span>';
+      return '<tr tabindex="0" data-sym="' + sym + '" aria-selected="' + (sym === PICK) + '" class="' + (stale ? "stale" : "") + '">' +
+        '<td><span class="sym">' + pretty(sym) + '</span><span class="kind">' + (r.kind === "gold" ? "gold" : "fx") + "</span></td>" +
+        "<td class='n r" + fl + "'>" + (q ? n(q.bid, dg) : "–") + "</td><td class='n r" + fl + "'>" + (q ? n(q.ask, dg) : "–") + "</td>" +
+        "<td class='n r'>" + (spread == null ? "–" : n(spread, 1)) + (sn.spread_vs_norm != null ? ' <span class="' + (sn.spread_vs_norm > 1.5 ? "neg" : "muted") + '">' + n(sn.spread_vs_norm, 1) + "×</span>" : "") + "</td>" +
+        "<td class='n r " + cls(sn.ret_1h_bps) + "'>" + sgn(sn.ret_1h_bps, 0) + "</td><td class='n r " + cls(sn.ret_1d_bps) + "'>" + sgn(sn.ret_1d_bps, 0) + "</td>" +
+        "<td class='n r'>" + (sn.atr_pips == null ? "–" : n(sn.atr_pips, 1)) + "</td><td class='n r'>" + (sn.rsi14 == null ? "–" : n(sn.rsi14, 0)) + "</td>" +
+        "<td>" + (trend ? '<span class="chip ' + (trend === "flat" ? "" : trend) + '">' + trend + "</span>" : "") + "</td>" +
+        "<td>" + data + "</td><td>" + PENDING(2) + "</td></tr>";
+    });
+    $("board").innerHTML = rows.length ? rows.join("") : "<tr><td colspan='11' class='empty'>Waiting for prices from the MT5 bridge…</td></tr>";
+
+    // picker + chart
+    var pick = $("pick");
+    if (pick.options.length !== syms.length) pick.innerHTML = syms.map(function (s) { return '<option value="' + s + '">' + pretty(s) + "</option>"; }).join("");
+    pick.value = PICK;
+    var r0 = ins[PICK] || {}, fr = ((FULL || {}).instruments || {})[PICK] || {};
+    $("chart-title").textContent = pretty(PICK) + " · last 2 days";
+    line($("px-chart"), fr.series, function (v) { return n(v, r0.digits > 3 ? 4 : 2); });
+
+    // decision clock
+    var sess = S.session || {};
+    $("clock-note").textContent = "your local time";
+    $("clock").innerHTML = [
+      kv("Next decision", S.next_round ? hm(S.next_round) : "–"), kv("In", nextIn == null ? "–" : span(nextIn)),
+      kv("Last decision", S.last_round ? hm(S.last_round) : "–"), kv("Every", (S.cadence_min || 15) + " min"),
+      kv("Session", esc(sess.name || "–")), kv("For", sess.min != null ? span(sess.min * 60) : "–")
     ].join("");
-    var im = snap.imb == null ? 0 : snap.imb;
-    $("imb-i").style.left = ((im + 1) / 2 * 100).toFixed(1) + "%"; $("imb-v").textContent = sgn(im, 3);
+
+    // snapshot of picked instrument
+    var last = r0.last || {}, snap = last.snap || {};
+    $("snap-sym").textContent = pretty(PICK);
+    $("snap-note").textContent = last.t ? "taken " + hm(last.t) + " · ~" + (last.tokens || 0) + " of " + ((S.engine || {}).budget || 400) + " tokens · " + (last.fresh ? "fresh" : "stale: " + last.reason) : "no decision round yet";
+    $("snap").innerHTML = GROUPS.map(function (g) {
+      return "<div><h3>" + g[0] + "</h3><table>" + g[1].map(function (f) { return "<tr><td>" + f[1] + "</td><td class='n r'>" + fv(snap[f[0]], f[2], f[3], r0.digits) + "</td></tr>"; }).join("") + "</table></div>";
+    }).join("");
+    $("raw").textContent = last.snap ? JSON.stringify(snap) : "No snapshot yet.";
 
     // jev battery
-    var jev = S.jev || {}, ans = jev.answers || {};
-    $("jev-note").textContent = jev.status === "live" ? "one call · " + (jev.latency_ms != null ? jev.latency_ms + " ms" : "") : "wired in Stage 2";
+    var jev = S.jev || {};
+    $("jev-note").textContent = jev.status === "live" ? pretty(PICK) : "asked per instrument from Stage 2";
     $("jev").innerHTML = (jev.questions || []).map(function (q) {
-      var a = ans[q.key], val = '<span class="muted">–</span>', conf = "";
-      if (a) { val = "<b>" + esc(a.value) + "</b>"; conf = n(a.p * 100, 0) + "%"; }
       return "<tr><td class='q'>" + esc(q.ask) + "</td><td><span class='chip'>" + esc(q.type) + "</span></td><td class='why'>" + esc((q.options || ["yes / no, as a probability"]).join(" · ")) +
-        "</td><td>" + (a ? val : PENDING(2)) + "</td><td class='n r'>" + conf + "</td></tr>";
+        "</td><td>" + PENDING(2) + "</td><td class='n r'></td></tr>";
     }).join("");
 
-    // policy + ladder
-    var lad = S.ladder || {}, pol = S.policy || {};
-    $("action").innerHTML = pol.action ? esc(pol.action) : '<span class="muted">observe only</span>';
+    var lad = S.ladder || {};
+    $("action").innerHTML = '<span class="muted">observe only</span>';
     $("ladder-note").textContent = lad.status === "live" ? "current rung highlighted" : "wired in Stages 3 and 5";
     $("ladder").innerHTML = (lad.rungs || []).map(function (r, i) {
       return '<div class="rung' + (lad.current === r.key ? " here" : "") + '"><span class="k">' + (i + 1) + "</span><span><b>" + esc(r.name) + '</b><br><span class="s">' + esc(r.do) + "</span></span></div>";
     }).join("");
-
-    // risk
     var rk = S.risk || {};
     $("risk-note").textContent = rk.status === "live" ? "checked every order" : "wired in Stage 4";
     $("risk").innerHTML = (rk.limits || []).map(function (l) {
-      var used = l.value != null && l.limit ? Math.min(1, Math.abs(l.value) / l.limit) : null;
-      return "<tr><td>" + esc(l.name) + "</td><td class='n r'>" + (l.value == null ? "–" : esc(l.value)) + "</td><td class='n r'>" + (l.limit == null ? PENDING(4) : esc(l.limit)) +
-        "</td><td>" + (used == null ? "" : '<div class="bar' + (used > .8 ? " hot" : "") + '"><i style="width:' + (used * 100).toFixed(0) + '%"></i></div>') + "</td></tr>";
+      return "<tr><td>" + esc(l.name) + "</td><td class='n r'>" + (l.value == null ? "–" : esc(l.value)) + "</td><td class='n r'>" + (l.limit == null ? PENDING(4) : esc(l.limit)) + "</td><td></td></tr>";
     }).join("");
 
-    // snapshot
-    $("snap-note").textContent = "~" + (eng.tokens || 0) + " of " + (eng.budget || 400) + " tokens · numbers only · no future data";
-    $("snap").innerHTML = GROUPS.map(function (g) {
-      return "<div><h3>" + g[0] + "</h3><table>" + g[1].map(function (f) { return "<tr><td>" + f[1] + "</td><td class='n r'>" + fv(snap[f[0]], f[2], f[3]) + "</td></tr>"; }).join("") + "</table></div>";
-    }).join("");
-    $("raw").textContent = JSON.stringify(snap);
-
-    // charts (full state only)
-    if (FULL && FULL.series) line($("px-chart"), FULL.series.map(function (p) { return [p[0], p[1]]; }), function (v) { return n(v, 4); });
-    if (FULL && FULL.equity) line($("eq-chart"), FULL.equity, function (v) { return "$" + n(v, 0); });
-
-    // health
-    var lat = snap.lat_ms || [];
     $("health").innerHTML = [
-      kv("Block lag", eng.lag_p50_ms == null ? "–" : n(eng.lag_p50_ms, 0) + '<span class="muted"> ms</span>'),
-      kv("Engine p95", eng.p95_ms == null ? "–" : n(eng.p95_ms, 2) + '<span class="muted"> ms</span>'),
-      kv("Rejected blocks", (tot.rejected || 0).toLocaleString("en-US"), tot.rejected ? "neg" : ""),
-      kv("Errors", (tot.errors || 0).toLocaleString("en-US"), tot.errors ? "neg" : ""),
-      kv("Jev latency", lat.length ? n(lat[lat.length - 1], 0) + '<span class="muted"> ms</span>' : PENDING(2)),
-      kv("Fill ratio", fv(snap.fill_ratio, 2)), kv("Reject ratio", fv(snap.reject_ratio, 2)), kv("Slippage", fv(snap.slip_bps, 2, "bp"))
+      kv("Bridge", esc(br.status || "waiting"), brLive ? "pos" : br.status === "down" ? "neg" : ""),
+      kv("Last push", br.age_s == null ? "–" : ago(br.age_s)),
+      kv("Network lag", br.lag_s == null ? "–" : n(br.lag_s, 1) + '<span class="muted"> s</span>'),
+      kv("Broker", esc(br.broker || "–")), kv("Account", esc(br.account || "–")),
+      kv("Broker clock", br.utc_offset_h == null ? "–" : "UTC" + sgn(br.utc_offset_h, 1).replace("−", "-") + "h"),
+      kv("Rejected data", (br.rejected || 0).toLocaleString("en-US"), br.rejected ? "neg" : ""),
+      kv("Round time", eng.round_ms_p50 == null ? "–" : n(eng.round_ms_p50, 0) + '<span class="muted"> ms</span>'),
+      kv("Errors", (tot.errors || 0).toLocaleString("en-US"), tot.errors ? "neg" : "")
     ].join("");
 
     var log = (S.log || []).slice().reverse();
     $("log").innerHTML = log.length ? log.map(function (e) { return "<div><time>" + hm(e[0]) + "</time><span>" + esc(e[1]) + "</span></div>"; }).join("") : '<div class="empty">Nothing yet</div>';
   }
+
+  function choose(sym) { PICK = sym; try { localStorage.setItem("jev-pick", sym); } catch (e) {} render(); }
+  $("board").addEventListener("click", function (e) { var tr = e.target.closest("tr[data-sym]"); if (tr) choose(tr.getAttribute("data-sym")); });
+  $("board").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { var tr = e.target.closest("tr[data-sym]"); if (tr) { e.preventDefault(); choose(tr.getAttribute("data-sym")); } } });
+  $("pick").addEventListener("change", function () { choose(this.value); });
 
   render();
   if (LIVE) {
@@ -406,7 +453,7 @@ footer ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
         .then(function (d) { S = d; if (full) FULL = d; render(); }).catch(function () {});
     };
     setInterval(function () { poll(false); }, 1000);
-    setInterval(function () { poll(true); }, 30000);
+    setInterval(function () { poll(true); }, 60000);
   } else {
     setTimeout(function () { location.reload(); }, 5 * 60 * 1000);
   }

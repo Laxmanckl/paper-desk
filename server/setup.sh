@@ -7,8 +7,10 @@
 #   1. retires the old Paper Desk services (paper-desk, paper-scalper) if they exist
 #   2. reuses the GitHub token already stored on this server (asks for one if missing)
 #   3. updates ~/paper-desk to the Jev Desk code and runs the tests
-#   4. installs the jev-desk service: the 24/7 block loop, a live page on port 8080
-#      that updates every second, and a push to GitHub every 15 minutes
+#   4. creates the secret token the Windows MT5 bridge uses to send prices here
+#   5. installs the jev-desk service: decisions every 15 minutes on gold + the forex
+#      majors, a live page on port 8080, the bridge's price inbox, and a push to GitHub
+#      every 15 minutes
 #
 # Safe to run again: it updates the code and restarts the service.
 # Paper only: no broker or wallet code exists, so it cannot place a real order.
@@ -83,13 +85,24 @@ if ! git push -q origin HEAD:main; then
   exit 1
 fi
 
+say "Bridge token"
+if ! sudo grep -q '^JEV_BRIDGE_TOKEN=' /etc/jev-desk.env 2>/dev/null; then
+  TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')
+  echo "JEV_BRIDGE_TOKEN=$TOKEN" | sudo tee -a /etc/jev-desk.env >/dev/null
+  echo "created a new bridge token"
+else
+  echo "keeping the existing bridge token"
+fi
+sudo chmod 600 /etc/jev-desk.env
+BRIDGE_TOKEN=$(sudo sed -n 's/^JEV_BRIDGE_TOKEN=//p' /etc/jev-desk.env | head -1)
+
 say "Running tests"
 python3 -m pytest -q tests | tail -1
 
 say "Installing the jev-desk service"
 sudo tee /etc/systemd/system/$SERVICE.service >/dev/null <<UNIT
 [Unit]
-Description=Jev Desk (24/7 block loop, paper only)
+Description=Jev Desk (gold + forex, decisions every 15 min, paper only)
 After=network-online.target
 Wants=network-online.target
 
@@ -98,7 +111,7 @@ User=${USER:-$(id -un)}
 WorkingDirectory=$DIR
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/jev-desk.env
-ExecStart=/usr/bin/python3 -m jevsys run --runner server --port $PORT --publish-every 15 --state state/jev_desk.json --logs logs
+ExecStart=/usr/bin/python3 -m jevsys run --runner server --port $PORT --every 15 --publish-every 15 --state state/jev_desk.json --logs logs
 Restart=always
 RestartSec=10
 MemoryMax=400M
@@ -110,7 +123,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now "$SERVICE" >/dev/null 2>&1
 sleep 8
 sudo systemctl --no-pager --lines=0 status "$SERVICE" | sed -n 1,3p
-if curl -fsS "http://127.0.0.1:$PORT/api/state" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("blocks so far:", d["totals"]["blocks_session"], "| snapshot ~", d["engine"]["tokens"], "tokens")'; then :; else
+if curl -fsS "http://127.0.0.1:$PORT/api/state" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("desk running | MT5 bridge:", d["bridge"]["status"])'; then :; else
   echo "The live page isn't answering yet. Check:  journalctl -u $SERVICE -n 50"
 fi
 
@@ -118,13 +131,17 @@ IP=$(curl -fsS https://checkip.amazonaws.com 2>/dev/null || echo "<your-server-i
 OWNER=$(echo "${REPO%%/*}" | tr 'A-Z' 'a-z')
 say "Done"
 cat <<MSG
-The Jev Desk is running: one snapshot every 300 ms block, around the clock.
+The Jev Desk is running: gold + the forex majors, a decision round every 15 minutes.
+It waits for prices from the MT5 bridge on your Windows PC.
 
-  Live page:     http://$IP:$PORT   (updates every second; port $PORT is the one
-                 you already opened in Lightsail for the scalper)
+  For the Windows bridge setup (keep these private):
+     Server address:  $IP:$PORT
+     Bridge token:    $BRIDGE_TOKEN
+
+  Live page:     http://$IP:$PORT   (updates every second; port $PORT must be open in
+                 Lightsail -> Networking -> IPv4 Firewall, as it was for the scalper)
   Dashboard:     https://$OWNER.github.io/${REPO##*/}/   (updates every ~15 min)
   Live log:      journalctl -u $SERVICE -f
-  Status:        sudo systemctl status $SERVICE
   Update code:   run this setup command again
   Stop:          bash ~/paper-desk/server/stop.sh
 MSG

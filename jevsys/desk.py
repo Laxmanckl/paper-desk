@@ -1,8 +1,9 @@
-"""The desk: runs the block loop and keeps everything the dashboard shows.
+"""The desk: the decision loop for gold + forex and everything the dashboard shows.
 
-Stage 1 wires the state engine only. Stages 2-6 plug into `_decide()`; until
-then the Jev, policy, risk and fallback panels report "pending" and the desk
-never places an order (paper only, and not even paper orders yet).
+Every `decide_every_min` minutes (15 by default), just after a 5-minute bar
+closes, it builds a snapshot per instrument. Stage 1 stops there: snapshots are
+checked for freshness and logged. Stages 2-5 plug into `_decide()` (Jev battery
+-> policy -> risk veto). No orders exist yet, paper or otherwise.
 """
 from __future__ import annotations
 
@@ -14,77 +15,70 @@ import time
 from collections import deque
 
 from .config import StateConfig
-from .feeds.base import Feed
+from .fx_state import FxStateEngine, SnapshotTooLarge, estimate_tokens, session_at
+from .instruments import INSTRUMENTS
+from .market import MarketStore
 from .snapshot_log import SnapshotLog
-from .state_engine import LookaheadError, SnapshotTooLarge, StateEngine, estimate_tokens
 
-MODEL_VERSION = "jev-1.13.0"  # pinned (guide Step 2). Used from Stage 2.
+MODEL_VERSION = "jev-1.13.0"  # pinned (guide Step 2), used from Stage 2
 
 STAGES = [
-    {"n": 1, "name": "State engine", "what": "Numeric snapshot < 400 tokens, no future data", "status": "live"},
-    {"n": 2, "name": "Jev decision layer", "what": "6-question battery, direct API, pinned version", "status": "pending"},
-    {"n": 3, "name": "Policy engine", "what": "Confidence thresholds in config", "status": "pending"},
-    {"n": 4, "name": "Risk engine", "what": "Hard limits, veto on every order", "status": "pending"},
-    {"n": 5, "name": "Block loop + fallback ladder", "what": "Late = hold, Jev down = code rules, limit = kill", "status": "pending"},
-    {"n": 6, "name": "Paper mode + calibration log", "what": "Two weeks before real money", "status": "pending"},
+    {"n": 1, "name": "State engine", "what": "Snapshot per instrument, < 400 tokens, no future data", "status": "live"},
+    {"n": 2, "name": "Jev decision layer", "what": "6-question battery per instrument, pinned version", "status": "pending"},
+    {"n": 3, "name": "Policy engine", "what": "Long / short / exit / stand aside by confidence", "status": "pending"},
+    {"n": 4, "name": "Risk engine", "what": "Hard limits, stop per trade, veto on every order", "status": "pending"},
+    {"n": 5, "name": "Loop + fallback ladder", "what": "Stale = hold, Jev down = code rules, limit = kill", "status": "pending"},
+    {"n": 6, "name": "Paper trading + calibration", "what": "Two weeks before any real money", "status": "pending"},
 ]
 
 QUESTIONS = [
-    {"key": "regime", "type": "Choice", "ask": "What regime is the market in right now",
-     "options": ["trending", "mean_reverting", "high_vol", "crisis"]},
-    {"key": "direction", "type": "Choice", "ask": "Most likely price bias over the next 10 blocks",
+    {"key": "regime", "type": "Choice", "ask": "What regime is this market in right now",
+     "options": ["trending", "ranging", "volatile", "quiet"]},
+    {"key": "direction", "type": "Choice", "ask": "Most likely price bias over the next hour",
      "options": ["up", "down", "neutral"]},
-    {"key": "toxic_flow", "type": "Noul", "ask": "Aggressive flow is likely informed traders, not noise"},
-    {"key": "liquidity_stressed", "type": "Noul", "ask": "The order book is thinner than its normal level"},
-    {"key": "quote_environment", "type": "Score", "ask": "How favorable is this state for providing liquidity",
-     "options": ["No", "Marginal", "Standard", "Excellent"]},
-    {"key": "inventory_pressure", "type": "Score", "ask": "How urgently inventory should be reduced",
-     "options": ["None", "Mild", "Skew hard", "Reduce now"]},
+    {"key": "move_continues", "type": "Noul", "ask": "The latest move is likely to continue rather than reverse"},
+    {"key": "costs_abnormal", "type": "Noul", "ask": "Trading costs are abnormally high right now"},
+    {"key": "entry_quality", "type": "Score", "ask": "How good is this moment to open a new position",
+     "options": ["No", "Marginal", "Good", "Excellent"]},
+    {"key": "exit_urgency", "type": "Score", "ask": "How urgently an open position should be closed",
+     "options": ["None", "Mild", "Tighten stop", "Close now"]},
 ]
 
-RISK_LIMITS = ["Max position size", "Max daily loss", "Max drawdown", "Max order size",
-               "Max time holding inventory", "Max age of market data", "Max leverage",
-               "Max API errors in a row", "Max decision response time"]
+RISK_LIMITS = ["Max position size (lots)", "Max open positions", "Max risk per trade (stop)",
+               "Max daily loss", "Max drawdown", "Max spread to enter", "Max age of price data",
+               "Max Jev errors in a row", "Max decision response time", "No new trades around major news"]
 
 LADDER = [
     {"key": "normal", "name": "Healthy, high confidence", "do": "Normal operation"},
     {"key": "cautious", "name": "Healthy, low confidence", "do": "Trade smaller, or just watch"},
-    {"key": "late", "name": "Answer arrived late", "do": "Hold, no stale orders"},
+    {"key": "late", "name": "Data or answer late", "do": "Hold, no new orders"},
     {"key": "fallback", "name": "Jev unavailable", "do": "Simple code-only rules"},
-    {"key": "kill", "name": "Hard limit breached", "do": "Kill switch, flatten, alert"},
+    {"key": "kill", "name": "Hard limit breached", "do": "Kill switch, close positions, alert"},
 ]
 
-SERIES_EVERY_S = 30      # one chart point per 30 s
-SERIES_KEEP_S = 86_400   # 24 h of chart history
-LOG_KEEP = 150
+LOG_KEEP = 200
+SERIES_STEP_S = 900   # chart: one point per 15 min
+SERIES_KEEP_S = 2 * 86_400
 
 
 class Desk:
-    def __init__(self, feed: Feed, state_path: str = "state/jev_desk.json", runner: str = "local",
-                 log_dir: str = "logs", starting_equity: float = 10_000.0, cfg: StateConfig | None = None):
-        self.feed, self.state_path, self.runner = feed, state_path, runner
-        self.engine = StateEngine(cfg, starting_equity)
+    def __init__(self, market: MarketStore, state_path: str = "state/jev_desk.json", runner: str = "local",
+                 log_dir: str = "logs", cfg: StateConfig | None = None, starting_equity: float = 10_000.0):
+        self.cfg = cfg or StateConfig()
+        self.market, self.state_path, self.runner = market, state_path, runner
+        self.engine = FxStateEngine(market, self.cfg, starting_equity)
         self.snaplog = SnapshotLog(log_dir)
         self.lock = threading.Lock()
-        self.started = time.time()
-        self.blocks = 0
+        self.started = self.created = time.time()
+        self.rounds = self.rounds_before = 0
         self.errors = 0
-        self.rejected = 0
-        self.last_block_ts: float | None = None
-        self.last_snapshot: dict | None = None
-        self.last_tokens = 0
-        self.max_tokens = 0
-        self.engine_ms: deque[float] = deque(maxlen=2000)
-        self.lag_ms: deque[float] = deque(maxlen=2000)
-        self.series: deque[list] = deque()
-        self.equity: deque[list] = deque()
+        self.latest: dict[str, dict] = {}
+        self.round_ms: deque[float] = deque(maxlen=500)
         self.log: deque[list] = deque(maxlen=LOG_KEEP)
-        self.created = self.started
-        self.feed_status, self.feed_detail = "starting", ""
-        self._last_series_t = 0.0
+        self.last_round_ts: float | None = None
         self._restore()
-        self.event(f"Desk started ({runner}). Feed: {feed.label or feed.name}. "
-                   "Snapshots warm up for 30 min (returns) and 24 h (vol baseline).")
+        self.event(f"Desk started ({runner}). Decides every {self.cfg.decide_every_min} min on closed 5-min bars. "
+                   "Waiting for prices from the MT5 bridge.")
 
     # ---- persistence ----------------------------------------------------
     def _restore(self) -> None:
@@ -93,13 +87,11 @@ class Desk:
                 old = json.load(fh)
         except (OSError, ValueError):
             return
-        now = time.time()
+        if old.get("desk", {}).get("version") != 2:
+            return  # older order-book desk state: start fresh
         self.created = old.get("created", self.started)
-        self.series.extend(p for p in old.get("series", []) if now - p[0] <= SERIES_KEEP_S)
-        self.equity.extend(p for p in old.get("equity", []) if now - p[0] <= SERIES_KEEP_S)
+        self.rounds_before = old.get("totals", {}).get("rounds", 0)
         self.log.extend(old.get("log", [])[-LOG_KEEP:])
-        tot = old.get("totals", {})
-        self.blocks_before = tot.get("blocks", 0)
 
     def save(self) -> str:
         data = self.state(full=True)
@@ -110,114 +102,134 @@ class Desk:
         os.replace(tmp, self.state_path)
         return self.state_path
 
-    # ---- events ---------------------------------------------------------
     def event(self, text: str) -> None:
         with self.lock:
             self.log.append([round(time.time(), 1), text])
 
-    # ---- the loop -------------------------------------------------------
-    def step(self, blk) -> dict | None:
-        """Process one block. Returns the snapshot, or None if the block was rejected."""
-        t0 = time.perf_counter()
-        try:
-            snap = self.engine.on_block(blk)
-        except LookaheadError as e:
-            with self.lock:
-                self.rejected += 1
-            self.event(f"Block {blk.book.block} rejected: {e}")
-            return None
-        except (SnapshotTooLarge, ValueError) as e:
-            with self.lock:
-                self.errors += 1
-            self.event(f"Block {blk.book.block} skipped: {e}")
-            return None
-        ms = (time.perf_counter() - t0) * 1000
-        tokens = estimate_tokens(snap)
-        self.snaplog.write(blk.book.ts, {"snap": snap, "tokens": tokens, "model": None, "decision": None})
-        self._decide(snap)
-        acct = self.engine.account
-        with self.lock:
-            self.blocks += 1
-            self.last_block_ts = blk.book.ts
-            self.last_snapshot, self.last_tokens = snap, tokens
-            self.max_tokens = max(self.max_tokens, tokens)
-            self.engine_ms.append(ms)
-            self.lag_ms.append(max(0.0, (time.time() - blk.book.ts) * 1000))
-            self.feed_status = "live"
-            if blk.book.ts - self._last_series_t >= SERIES_EVERY_S:
-                self._last_series_t = blk.book.ts
-                self.series.append([round(blk.book.ts), snap["mid"], snap["spread_bps"], snap["imb"], snap["vol_s_bps"]])
-                self.equity.append([round(blk.book.ts), round(acct.equity(snap["mid"]), 2)])
-                cut = blk.book.ts - SERIES_KEEP_S
-                while self.series and self.series[0][0] < cut:
-                    self.series.popleft()
-                while self.equity and self.equity[0][0] < cut:
-                    self.equity.popleft()
-        return snap
+    # ---- schedule -------------------------------------------------------
+    def next_round(self, now: float) -> float:
+        step = self.cfg.decide_every_min * 60
+        return now - now % step + step + self.cfg.grace_s
 
-    def _decide(self, snap: dict) -> None:
-        """Stages 2-5 go here: Jev battery -> policy -> pricing -> risk veto.
+    # ---- one decision round ---------------------------------------------
+    def decide_round(self, t: float) -> dict[str, dict]:
+        t0 = time.perf_counter()
+        out, stale = {}, []
+        for sym in INSTRUMENTS:
+            try:
+                snap = self.engine.snapshot(sym, t)
+            except SnapshotTooLarge as e:
+                with self.lock:
+                    self.errors += 1
+                self.event(str(e))
+                continue
+            except ValueError:
+                out[sym] = {"t": t, "fresh": False, "reason": "no prices yet", "snap": None, "tokens": 0}
+                stale.append(sym)
+                continue
+            fresh, reason = FxStateEngine.is_fresh(snap, self.cfg)
+            rec = {"t": t, "fresh": fresh, "reason": reason, "snap": snap, "tokens": estimate_tokens(snap)}
+            rec["decision"] = self._decide(sym, snap) if fresh else None
+            if not fresh:
+                stale.append(sym)
+            self.snaplog.write(t, {"sym": sym, "snap": snap, "fresh": fresh, "model": None, "decision": rec["decision"]})
+            out[sym] = rec
+        self.snaplog.flush()
+        ms = (time.perf_counter() - t0) * 1000
+        with self.lock:
+            self.latest.update(out)
+            self.rounds += 1
+            self.last_round_ts = t
+            self.round_ms.append(ms)
+        if stale and len(stale) == len(INSTRUMENTS):
+            reason = next(iter(out.values()))["reason"] if out else "no data"
+            if self.rounds == 1 or self._last_stale_reason != reason:
+                self.event(f"No fresh prices ({reason}). Holding; nothing is decided on stale data.")
+            self._last_stale_reason = reason
+        else:
+            if getattr(self, "_last_stale_reason", None):
+                self.event("Fresh prices again.")
+            self._last_stale_reason = None
+            if stale:
+                self.event("Stale, skipped this round: " + ", ".join(stale))
+        return out
+
+    _last_stale_reason: str | None = None
+
+    def _decide(self, symbol: str, snap: dict):
+        """Stages 2-5 go here: Jev battery -> policy -> risk veto.
         Stage 1: observe only, no orders."""
         return None
 
-    def run(self, stop: threading.Event | None = None, realtime: bool = True) -> None:
-        stop = stop or threading.Event()
-        for blk in self.feed.blocks():
-            if stop.is_set():
+    def run(self, stop: threading.Event) -> None:
+        while not stop.is_set():
+            t = self.next_round(time.time())
+            if stop.wait(max(0.0, t - time.time())):
                 break
-            if realtime:
-                wait = blk.book.ts - time.time()
-                if wait > 0:
-                    if stop.wait(wait):
-                        break
-            self.step(blk)
+            self.decide_round(time.time())
         self.snaplog.close()
 
     # ---- what the dashboard reads ---------------------------------------
-    def state(self, full: bool = False) -> dict:
+    def bridge_state(self, now: float) -> dict:
+        m = self.market
+        with m.lock:
+            age = None if m.last_ingest is None else now - m.last_ingest
+            b = dict(m.bridge)
+            rej = m.rejected
+        status = "waiting" if age is None else "live" if age < 60 else "down"
+        return {"status": status, "age_s": None if age is None else round(age, 1), "rejected": rej, **b}
+
+    def instruments(self, now: float, full: bool) -> dict:
+        out = {}
+        with self.market.lock:
+            for sym, spec in INSTRUMENTS.items():
+                sd = self.market.data[sym]
+                q = sd.quotes[-1] if sd.quotes else None
+                row = {"kind": spec["kind"], "pip": spec["pip"], "digits": spec["digits"],
+                       "broker_symbol": sd.broker_symbol, "bars": len(sd.bars),
+                       "quote": {"bid": q.bid, "ask": q.ask, "t": q.ts} if q else None}
+                if full:
+                    pts, last = [], -1e18
+                    for b in sd.bars_closed_by(now):
+                        if b.close_ts >= now - SERIES_KEEP_S and b.close_ts - last >= SERIES_STEP_S:
+                            pts.append([b.close_ts, b.close])
+                            last = b.close_ts
+                    row["series"] = pts
+                out[sym] = row
         with self.lock:
-            snap = self.last_snapshot or {}
-            acct = self.engine.account
-            mid = snap.get("mid")
-            em = list(self.engine_ms)
-            lag = list(self.lag_ms)
+            for sym, rec in self.latest.items():
+                out[sym]["last"] = rec
+        return out
+
+    def state(self, full: bool = False) -> dict:
+        now = time.time()
+        rm = list(self.round_ms)
+        sess, sess_min, sess_name = session_at(now)
+        with self.lock:
+            toks = [r["tokens"] for r in self.latest.values() if r.get("tokens")]
             d = {
-                "desk": {"name": "Jev Desk", "stage": 1, "model": MODEL_VERSION},
+                "desk": {"name": "Jev Desk", "stage": 1, "model": MODEL_VERSION, "version": 2,
+                         "market": "Gold + forex majors · MT5"},
                 "runner": self.runner,
-                "server_time": time.time(),
+                "server_time": now,
                 "created": self.created,
                 "started": self.started,
-                "feed": {"name": self.feed.name, "label": self.feed.label, "status": self.feed_status,
-                         "detail": self.feed_detail},
-                "last_block_ts": self.last_block_ts,
-                "totals": {"blocks": self.blocks + getattr(self, "blocks_before", 0),
-                           "blocks_session": self.blocks, "rejected": self.rejected, "errors": self.errors},
-                "engine": {"p50_ms": _q(em, .5), "p95_ms": _q(em, .95), "max_ms": max(em) if em else None,
-                           "lag_p50_ms": _q(lag, .5), "tokens": self.last_tokens, "max_tokens": self.max_tokens,
-                           "budget": self.engine.cfg.max_snapshot_tokens},
-                "snapshot": snap,
-                "account": {"start": acct.starting_equity,
-                            "equity": round(acct.equity(mid), 2) if mid else acct.starting_equity,
-                            "realized": round(acct.realized_pnl, 2),
-                            "unrealized": round(acct.unrealized(mid), 2) if mid else 0.0,
-                            "position": acct.position, "drawdown": snap.get("dd", 0.0)},
+                "cadence_min": self.cfg.decide_every_min,
+                "next_round": self.next_round(now),
+                "last_round": self.last_round_ts,
+                "session": {"code": sess, "name": sess_name, "min": sess_min},
+                "totals": {"rounds": self.rounds + self.rounds_before, "rounds_session": self.rounds, "errors": self.errors},
+                "engine": {"round_ms_p50": round(statistics.median(rm), 1) if rm else None,
+                           "tokens_max": max(toks) if toks else 0, "budget": self.cfg.max_snapshot_tokens},
+                "account": {"start": self.engine.starting_equity, "equity": self.engine.starting_equity,
+                            "realized": 0.0, "unrealized": 0.0, "open_positions": 0, "drawdown": 0.0},
                 "stages": STAGES,
-                "jev": {"status": "pending", "model": MODEL_VERSION, "questions": QUESTIONS, "answers": None,
-                        "latency_ms": None},
-                "policy": {"status": "pending", "action": None},
+                "jev": {"status": "pending", "model": MODEL_VERSION, "questions": QUESTIONS},
+                "policy": {"status": "pending"},
                 "risk": {"status": "pending", "limits": [{"name": n, "value": None, "limit": None} for n in RISK_LIMITS]},
                 "ladder": {"status": "pending", "rungs": LADDER, "current": None},
-                "log": list(self.log)[-60:] if not full else list(self.log),
+                "log": list(self.log) if full else list(self.log)[-60:],
             }
-            if full:
-                d["series"] = list(self.series)
-                d["equity"] = list(self.equity)
-            return d
-
-
-def _q(xs: list[float], q: float) -> float | None:
-    if not xs:
-        return None
-    if len(xs) == 1:
-        return round(xs[0], 3)
-    return round(statistics.quantiles(xs, n=100, method="inclusive")[max(0, min(98, int(q * 100) - 1))], 3)
+        d["bridge"] = self.bridge_state(now)
+        d["instruments"] = self.instruments(now, full)
+        return d

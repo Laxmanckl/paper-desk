@@ -1,10 +1,11 @@
 # The Jev Desk's GitHub side. Same setup as the old Paper Desk:
-#   - the Lightsail server runs the 24/7 block loop and pushes state/jev_desk.json every 15 min
+#   - the Windows PC's MT5 bridge streams gold + forex prices to the Lightsail server
+#   - the server decides every 15 min and pushes state/jev_desk.json every 15 min
 #   - every push rebuilds the dashboard on GitHub Pages
 #   - every hour GitHub checks the server is alive; if it has gone quiet the run fails
 #     (red X) and GitHub emails you
-# Nothing here trades. The bot loop needs a decision every 300 ms block, which GitHub
-# Actions can't do (runs start at most every 5 min and stop after 6 h).
+# Nothing here trades. The loop runs on the server because GitHub Actions starts runs
+# late or skips them, and can't reach MT5 on your PC.
 
 name: jev-desk
 

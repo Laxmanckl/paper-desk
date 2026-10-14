@@ -6,13 +6,12 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class StateConfig:
-    max_snapshot_tokens: int = 400       # guide Step 3 budget
-    vol_short_s: float = 60.0            # short realized-vol window
-    vol_medium_s: float = 900.0          # medium realized-vol window
-    vol_baseline_s: float = 86_400.0     # 24h comparison window
-    flow_window_s: float = 10.0          # aggressive volume / intensity window
-    return_horizons_s: tuple[int, ...] = (60, 300, 1800)  # 1, 5, 30 min
-    depth_levels: int = 3
-    latency_samples: int = 10
-    health_window: int = 200             # recent orders for fill/reject ratios
-    max_ref_age_s: float = 5.0           # stale reference price is dropped
+    max_snapshot_tokens: int = 400   # guide Step 3 budget
+    decide_every_min: int = 15       # one decision per symbol every N minutes (5, 10, 15...)
+    grace_s: float = 20.0            # wait after the bar closes for the bridge to deliver it
+    max_quote_age_s: float = 120.0   # older quote = stale, no decision (guide: never act on stale data)
+    keep_bars: int = 2_100           # ~7 days of M5 bars per symbol
+    atr_period: int = 14
+    rsi_period: int = 14
+    ema_fast: int = 20
+    ema_slow: int = 100
