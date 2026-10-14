@@ -442,8 +442,9 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     }).join("");
     var firstPending = (stages.filter(function (s) { return s.status !== "live"; })[0] || {}).n;
     $("stages").innerHTML = stages.map(function (s) {
-      var c = s.status === "live" ? "live" : s.n === firstPending ? "next" : "";
-      var lab = s.status === "live" ? "done" : s.status === "needs key" ? "needs key" : s.n === firstPending ? "next" : "to do";
+      var c = s.status === "live" || s.status === "running" ? "live" : s.n === firstPending ? "next" : "";
+      var lab = s.status === "live" ? "done" : s.status === "running" ? "running" + (S.created ? " · day " + Math.floor(Math.max(0, now - S.created) / 86400 + 1) + " of 14" : "") :
+        s.status === "needs key" ? "needs key" : s.n === firstPending ? "next" : "to do";
       return '<div class="stg"><span><span class="chip ' + c + '">' + lab + "</span> <b>" + s.n + ". " + esc(s.name) + '</b></span><span class="s">' + esc(s.what) + "</span></div>";
     }).join("");
 
