@@ -24,7 +24,8 @@ import urllib.request
 
 import MetaTrader5 as mt5
 
-VERSION = "1.0"
+VERSION = "1.1"
+HISTORY_PER_PUSH = 2  # symbols backfilled per push, so no single upload is large
 HERE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS = os.path.join(HERE, "settings.json")
 OFFSET_FILE = os.path.join(HERE, "utc_offset.json")
@@ -112,7 +113,7 @@ def build_payload(symbols: dict[str, str], clock: Clock, need: set[str], history
     for want, broker in symbols.items():
         info = mt5.symbol_info(broker)
         t = ticks.get(want)
-        n = history if want in need else 3
+        n = history if want in need else 3  # need = only the few symbols chosen for this push
         rates = mt5.copy_rates_from_pos(broker, mt5.TIMEFRAME_M5, 1, n)  # position 1 = last CLOSED bar
         bars = [] if rates is None else [
             [clock.utc(float(r["time"])), float(r["open"]), float(r["high"]), float(r["low"]),
@@ -130,7 +131,7 @@ def push(settings: dict, payload: dict) -> dict:
     req = urllib.request.Request(settings["server"] + "/api/ingest", data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json", "X-Bridge-Token": settings["token"]},
                                  method="POST")
-    with urllib.request.urlopen(req, timeout=20) as r:
+    with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 
 
@@ -140,7 +141,7 @@ def main() -> None:
     connect(settings)
     symbols = resolve_symbols(settings)
     log(f"bridge {VERSION}: {len(symbols)} symbols -> {settings['server']}  ({', '.join(f'{k}={v}' for k, v in symbols.items())})")
-    clock, need, history, fails = Clock(), set(symbols), 1500, 0
+    clock, need, history, fails = Clock(), set(), 1500, 0  # the server says what history it needs
     while True:
         started = time.time()
         try:
@@ -148,7 +149,8 @@ def main() -> None:
                 log("MT5 connection lost; reconnecting")
                 connect(settings)
                 symbols = resolve_symbols(settings)
-            payload = build_payload(symbols, clock, need, history)
+            backfill = set(sorted(need)[:HISTORY_PER_PUSH])
+            payload = build_payload(symbols, clock, backfill, history)
             res = push(settings, payload)
             need = set(res.get("need_history") or []) & set(symbols)
             history = int(res.get("history_bars") or history)
@@ -156,8 +158,9 @@ def main() -> None:
                 log(f"server rejected: {r}")
             with open(ALIVE_FILE, "w", encoding="utf-8") as fh:
                 fh.write(str(time.time()))
-            if fails or once:
-                log(f"pushed {len(payload['symbols'])} symbols ok" + (" (connection back)" if fails else ""))
+            if fails or once or backfill:
+                log(f"pushed {len(payload['symbols'])} symbols ok" + (" (connection back)" if fails else "")
+                    + (f", history loaded for {', '.join(sorted(backfill))}" if backfill else ""))
             fails = 0
         except urllib.error.HTTPError as e:
             fails += 1
