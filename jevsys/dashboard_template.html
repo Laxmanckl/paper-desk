@@ -156,6 +156,13 @@ details.th summary { font-size: 12.5px; }
 details.th table td { padding: 3px 8px; font-size: 12px; }
 #trades td, #positions td { white-space: nowrap; }
 #trades td.why, #positions td.why { white-space: normal; min-width: 160px; }
+.s8 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; }
+@media (max-width: 860px) { .s8 { grid-template-columns: 1fr; } }
+.checklist { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.checklist li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: baseline; }
+.chip.pass { background: var(--good-bg); color: var(--good); } .chip.fail { background: var(--bad-bg); color: var(--bad); }
+.chip.wait { background: var(--hold-bg); color: var(--ink-3); }
+.src { font-family: var(--f-num); font-size: 10px; color: var(--warn-ink); background: var(--warn-bg); border-radius: 3px; padding: 1px 4px; margin-left: 4px; }
 .sel:focus-visible, #board tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 </style>
 
@@ -244,6 +251,21 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     <div class="table-wrap" id="trades"></div>
   </section>
 
+  <section class="card">
+    <div class="card-head"><h2>Step 8 · Test before you trust it</h2><span class="label" id="s8-note"></span></div>
+    <div class="s8">
+      <div style="display:grid;gap:12px;align-content:start">
+        <ul class="checklist" id="s8-checks"></ul>
+        <div class="table-wrap" id="s8-accounts"></div>
+      </div>
+      <div>
+        <div class="label" style="margin-bottom:4px">Is Jev calibrated? Direction calls vs the price 1 hour later</div>
+        <div class="chart" id="s8-cal"></div>
+        <div class="muted" style="font-size:12px" id="s8-cal-note"></div>
+      </div>
+    </div>
+  </section>
+
   <div class="cols even">
     <section class="card">
       <div class="card-head"><h2>Bridge &amp; system</h2><span class="label">health</span></div>
@@ -299,7 +321,7 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     var label = a.kind === "ENTER" ? "enter " + a.side : a.kind === "STAND_ASIDE" ? "stand aside" : a.kind.toLowerCase();
     var tip = a.vetoes ? a.vetoes.join("; ") : a.why || "";
     var c = a.kind === "ENTER" ? (a.side === "long" ? "up" : "down") : ACT[a.kind] || "";
-    return '<span class="chip ' + c + '" title="' + esc(tip) + '">' + esc(label) + "</span>";
+    return '<span class="chip ' + c + '" title="' + esc(tip) + '">' + esc(label) + "</span>" + (a.source === "rules" ? '<span class="src" title="decided by the code-only rules (Jev unavailable)">rules</span>' : "");
   }
   function posCell(sym, dg) {
     var p = ((S.book || {}).positions || []).filter(function (x) { return x.sym === sym; })[0];
@@ -474,6 +496,38 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     var ept = (FULL && FULL.book && FULL.book.equity_pts) || [];
     line($("eq-chart"), ept, function (v) { return "$" + n(v, 0); }, true);
 
+    // Step 8
+    var rpt = S.report, sh = S.shadows || {};
+    $("s8-note").textContent = rpt ? "updated " + hm(rpt.generated) + " · refreshed hourly" : "first report a minute after the desk starts";
+    $("s8-checks").innerHTML = rpt ? rpt.checks.map(function (c) {
+      var name = { beats_rules: "Beats plain rules", gate_helps: "Confidence gate helps", calibrated: "Jev calibrated", fees: "Fees covered", two_weeks: "Two weeks paper" }[c.key] || c.key;
+      return '<li><span class="chip ' + c.status + '">' + c.status + "</span><span><b>" + esc(name) + '</b> <span class="muted">' + esc(c.text) + "</span></span></li>";
+    }).join("") + '<li><span class="chip ' + (rpt.ready_for_real_money ? "pass" : "wait") + '">' + (rpt.ready_for_real_money ? "ready" : "not yet") + "</span><span><b>Real money</b> " +
+      '<span class="muted">' + (rpt.ready_for_real_money ? "all checks pass: a small real-money test is reasonable" : "only after every check above passes (guide Step 8)") + "</span></span></li>" : "";
+    var accts = [["Jev + confidence gate", "live account", bk]].concat(["rules", "nogate"].filter(function (k) { return sh[k]; }).map(function (k) { return [sh[k].label.replace(" (shadow)", ""), "shadow", sh[k]]; }));
+    $("s8-accounts").innerHTML = "<table><thead><tr><th>Same data, same costs, same limits</th><th class='r'>Equity</th><th class='r'>Trades</th><th class='r'>Win</th><th class='r'>PF</th><th class='r'>Open</th></tr></thead><tbody>" +
+      accts.map(function (a) {
+        var x = a[2], st2 = x.stats || {}, e = x.equity, r = x.start ? e / x.start - 1 : (e / 10000 - 1);
+        return "<tr><td><b>" + esc(a[0]) + '</b> <span class="muted" style="font-size:11.5px">' + a[1] + "</span>" + (x.halted ? ' <span class="chip bad">kill</span>' : "") +
+          "</td><td class='n r'>" + money(e) + " <span class='" + cls(r) + "'>" + sgn(r * 100, 2) + "%</span></td><td class='n r'>" + (st2.n || 0) +
+          "</td><td class='n r'>" + (st2.n ? Math.round(st2.win_rate * 100) + "%" : "–") + "</td><td class='n r'>" + (st2.n && st2.profit_factor != null && st2.profit_factor !== Infinity ? n(st2.profit_factor, 2) : "–") +
+          "</td><td class='n r'>" + (x.positions ? x.positions.length : x.open || 0) + "</td></tr>";
+      }).join("") + "</tbody></table>";
+    var cal = rpt && rpt.calibration && rpt.calibration.direction;
+    (function (el) {
+      var W = 300, H = 220, L = 34, B = 26, T = 8, R = 8, X = function (v) { return L + v * (W - L - R); }, Y = function (v) { return T + (1 - v) * (H - T - B); };
+      var g = '<line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(1) + '" y2="' + Y(1) + '" stroke="var(--ink-3)" stroke-dasharray="3 3"/>';
+      [0, 0.5, 1].forEach(function (v) { g += '<text x="' + X(v) + '" y="' + (H - 8) + '" text-anchor="middle">' + v * 100 + '%</text><text x="' + (L - 4) + '" y="' + Y(v) + '" dy="3" text-anchor="end">' + v * 100 + "%</text>"; });
+      g += '<text x="' + X(0.5) + '" y="' + (H) + '" text-anchor="middle" dy="-0">Jev said</text>';
+      var max = cal ? Math.max.apply(null, cal.bins.map(function (b) { return b.n; }).concat([1])) : 1;
+      (cal ? cal.bins : []).forEach(function (b) {
+        g += '<circle cx="' + X(b.predicted) + '" cy="' + Y(b.actual) + '" r="' + (3 + 7 * Math.sqrt(b.n / max)) + '" fill="var(--accent)" fill-opacity=".75"><title>said ~' + Math.round(b.predicted * 100) + "%, happened " + Math.round(b.actual * 100) + "% (n=" + b.n + ")</title></circle>";
+      });
+      el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="calibration chart" style="max-width:340px">' + g + "</svg>";
+    })($("s8-cal"));
+    $("s8-cal-note").textContent = cal && cal.n ? cal.n + " calls with a known outcome. On the dashed line = calibrated; below it = Jev was over-confident." +
+      (cal.error != null ? " Average gap " + Math.round(cal.error * 100) + "%." : "") : "Points appear once Jev's calls are an hour old.";
+
     // picker + chart
     var pick = $("pick");
     if (pick.options.length !== syms.length) pick.innerHTML = syms.map(function (s) { return '<option value="' + s + '">' + pretty(s) + "</option>"; }).join("");
@@ -527,7 +581,7 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     var rowsT = function (o) { return Object.keys(o).map(function (k) { return "<tr><td>" + esc(k) + "</td><td class='n r'>" + esc(Array.isArray(o[k]) ? o[k].join(", ") : o[k]) + "</td></tr>"; }).join(""); };
     $("thresholds").innerHTML = '<p class="muted" style="font-size:12px;margin:6px 0">Version ' + esc(pol.settings_version || "–") +
       (pol.settings_error ? ' · <span class="neg">last edit rejected: ' + esc(pol.settings_error) + "</span>" : "") + "</p><table>" + rowsT(th) + rowsT(rs) + "</table>";
-    $("ladder-note").textContent = lad.current ? "desk is on rung " + (["normal", "cautious", "late", "fallback", "kill"].indexOf(lad.current) + 1) : "after the first round";
+    $("ladder-note").textContent = lad.current ? "desk is on rung " + (["normal", "cautious", "late", "fallback", "kill"].indexOf(lad.current) + 1) + (lad.fallback_on ? " · code-only rules active" : "") : "after the first round";
     $("ladder").innerHTML = (lad.rungs || []).map(function (r, i) {
       return '<div class="rung' + (lad.current === r.key ? " here" : "") + '"><span class="k">' + (i + 1) + "</span><span><b>" + esc(r.name) + '</b><br><span class="s">' + esc(r.do) + "</span></span></div>";
     }).join("");
@@ -549,6 +603,7 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
       kv("Jev", esc(jevSt.status || "off"), jevSt.status === "live" ? "pos" : jevSt.status === "errors" ? "neg" : ""),
       kv("Jev answers", (jevSt.calls || 0).toLocaleString("en-US") + (jevSt.errors ? ' <span class="neg">· ' + jevSt.errors + " failed</span>" : "")),
       kv("Jev tokens", (jevSt.tokens_in || 0).toLocaleString("en-US")),
+      kv("Phone alerts", (S.alerts || {}).enabled ? "on · " + ((S.alerts || {}).sent || 0) + " sent" : "off", (S.alerts || {}).enabled ? "pos" : ""),
       kv("Round time", eng.round_ms_p50 == null ? "–" : n(eng.round_ms_p50, 0) + '<span class="muted"> ms</span>'),
       kv("Errors", (tot.errors || 0).toLocaleString("en-US"), tot.errors ? "neg" : "")
     ].join("");

@@ -6,3 +6,4 @@ state/*.tmp
 .venv/
 state/paper_book.json
 state/RESET_KILL
+state/shadow_*.json

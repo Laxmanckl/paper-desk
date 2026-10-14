@@ -25,6 +25,17 @@ DEFAULTS = {
         "max_drawdown_pct": 6.0, "max_spread_vs_normal": 2.0, "max_quote_age_s": 60,
         "max_jev_errors_in_a_row": 3, "max_decision_ms": 5000, "max_hold_hours": 6,
         "friday_no_entries_utc": "19:00", "friday_flat_utc": "20:30", "commission_per_lot_usd": 0.0,
+        "max_leverage": 10.0,
+    },
+    "fallback": {
+        "enabled": True, "after_failed_rounds": 2, "risk_mult": 0.5,
+        "min_ema20_dist_atr": 0.5, "min_ema20_slope_atr": 0.08,
+        "rsi_long_min": 50, "rsi_long_max": 70, "rsi_short_min": 30, "rsi_short_max": 50,
+        "exit_rsi_long": 78, "exit_rsi_short": 22, "max_spread_vs_normal": 1.5,
+    },
+    "alerts": {
+        "trades": True, "kill_switch": True, "jev_down": True, "bridge_down_min": 5,
+        "daily_summary_utc": "21:05",
     },
 }
 
@@ -38,7 +49,10 @@ BOUNDS = {
     "max_open_positions": (0, 8), "max_same_usd_direction": (0, 8), "max_daily_loss_pct": (0.1, 20),
     "max_drawdown_pct": (0.5, 50), "max_spread_vs_normal": (1, 10), "max_quote_age_s": (5, 600),
     "max_jev_errors_in_a_row": (1, 100), "max_decision_ms": (100, 20_000), "max_hold_hours": (0.25, 120),
-    "commission_per_lot_usd": (0, 50),
+    "commission_per_lot_usd": (0, 50), "max_leverage": (0.5, 100),
+    "after_failed_rounds": (1, 50), "risk_mult": (0.05, 1), "min_ema20_dist_atr": (0, 10), "min_ema20_slope_atr": (0, 5),
+    "rsi_long_min": (0, 100), "rsi_long_max": (0, 100), "rsi_short_min": (0, 100), "rsi_short_max": (0, 100),
+    "exit_rsi_long": (50, 100), "exit_rsi_short": (0, 50), "max_spread_vs_normal": (1, 10), "bridge_down_min": (1, 600),
 }
 
 
@@ -73,6 +87,11 @@ def validate(raw: dict) -> dict:
         if section == "risk":
             _hhmm(merged["friday_no_entries_utc"])
             _hhmm(merged["friday_flat_utc"])
+        if section == "alerts":
+            _hhmm(merged["daily_summary_utc"])
+        for k in ("enabled", "trades", "kill_switch", "jev_down"):
+            if k in merged and not isinstance(merged[k], bool):
+                raise ValueError(f"{section}.{k} must be true or false")
         out[section] = merged
     return out
 
@@ -116,5 +135,13 @@ class Settings:
     def risk(self) -> dict:
         return self.data["risk"]
 
-    def minutes(self, key: str) -> int:
-        return _hhmm(self.risk[key])
+    @property
+    def fallback(self) -> dict:
+        return self.data["fallback"]
+
+    @property
+    def alerts(self) -> dict:
+        return self.data["alerts"]
+
+    def minutes(self, key: str, section: str = "risk") -> int:
+        return _hhmm(self.data[section][key])

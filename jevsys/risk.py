@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 import time
 
-from .instruments import INSTRUMENTS, pip_value_usd
+from .instruments import CONTRACT, INSTRUMENTS, pip_value_usd
 from .paper import PaperBook, Position, exit_price
 from .settings import Settings
 from .types import Quote
@@ -24,6 +24,12 @@ def size_lots(equity: float, risk_pct: float, stop_pips: float, pip_value: float
         return 0.0
     raw = equity * risk_pct / 100 / (stop_pips * pip_value)
     return round(min(max_lots, math.floor(raw * 100) / 100), 2)
+
+
+def notional_usd(sym: str, lots: float, price: float) -> float:
+    """Position size in US dollars: XXX/USD and gold are priced in USD; USD/XXX is already USD."""
+    units = CONTRACT[INSTRUMENTS[sym]["kind"]] * lots
+    return units * price if sym.endswith("USD") else units
 
 
 def usd_bet(sym: str, side: str) -> int:
@@ -45,8 +51,11 @@ class RiskEngine:
         return self.s.risk
 
     # ---- sizing ------------------------------------------------------------
-    def plan(self, sym: str, side: str, q: Quote, atr_pips: float | None, equity: float) -> dict | None:
-        """Stop, target and size for a new position. None if volatility is unknown."""
+    def plan(self, sym: str, side: str, q: Quote, atr_pips: float | None, equity: float,
+             notional_open: float = 0.0, risk_mult: float = 1.0) -> dict | None:
+        """Stop, target and size for a new position. None if volatility is unknown.
+        Size: the stop costs risk_per_trade_pct x risk_mult of equity, then cut down if needed
+        so total open size stays within max_leverage x equity."""
         if not atr_pips or atr_pips <= 0:
             return None
         pip = INSTRUMENTS[sym]["pip"]
@@ -56,12 +65,18 @@ class RiskEngine:
         d = 1 if side == "long" else -1
         stop = round(entry - d * stop_pips * pip, digits)
         target = round(entry + d * stop_pips * self.r["target_r_multiple"] * pip, digits)
-        lots = size_lots(equity, self.r["risk_per_trade_pct"], stop_pips, pip_value_usd(sym, entry), self.r["max_lots"])
-        return {"entry": entry, "stop": stop, "target": target, "stop_pips": round(stop_pips, 1), "lots": lots}
+        lots = size_lots(equity, self.r["risk_per_trade_pct"] * risk_mult, stop_pips, pip_value_usd(sym, entry), self.r["max_lots"])
+        room = max(0.0, self.r["max_leverage"] * equity - notional_open)
+        per_lot = notional_usd(sym, 1.0, entry)
+        capped = math.floor(room / per_lot * 100) / 100 if per_lot > 0 else 0.0
+        lev_cut = capped < lots
+        lots = round(min(lots, capped), 2)
+        return {"entry": entry, "stop": stop, "target": target, "stop_pips": round(stop_pips, 1), "lots": lots,
+                "leverage_cut": lev_cut, "leverage_after": round((notional_open + per_lot * lots) / equity, 2) if equity else None}
 
     # ---- before every new position -----------------------------------------
     def entry_vetoes(self, sym: str, side: str, snap: dict, q: Quote | None, now: float, book: PaperBook,
-                     jev_rec: dict | None, jev_consec_errors: int, plan: dict | None) -> list[str]:
+                     jev_rec: dict | None, jev_consec_errors: int, plan: dict | None, source: str = "jev") -> list[str]:
         r, v = self.r, []
         if book.halted:
             v.append(f"kill switch on ({book.halted['reason']})")
@@ -77,7 +92,7 @@ class RiskEngine:
         svn = snap.get("spread_vs_norm")
         if svn is not None and svn > r["max_spread_vs_normal"]:
             v.append(f"spread {svn:.1f}x normal (max {r['max_spread_vs_normal']}x)")
-        if jev_consec_errors >= r["max_jev_errors_in_a_row"]:
+        if source == "jev" and jev_consec_errors >= r["max_jev_errors_in_a_row"]:
             v.append(f"Jev failed {jev_consec_errors} rounds in a row")
         if jev_rec and (jev_rec.get("ms") or 0) > r["max_decision_ms"]:
             v.append(f"Jev answer took {jev_rec['ms']} ms (max {r['max_decision_ms']})")
@@ -87,7 +102,8 @@ class RiskEngine:
         if plan is None:
             v.append("volatility unknown, can't place a stop")
         elif plan["lots"] < 0.01:
-            v.append(f"stop of {plan['stop_pips']} pips is too wide for the risk budget at 0.01 lots")
+            v.append(f"max leverage {r['max_leverage']:g}x reached" if plan.get("leverage_cut")
+                     else f"stop of {plan['stop_pips']} pips is too wide for the risk budget at 0.01 lots")
         return v
 
     # ---- every few seconds on live quotes ----------------------------------
@@ -121,7 +137,9 @@ class RiskEngine:
         max_lots_now = max((p.lots for p in book.positions.values()), default=0)
         risk_now = max((p.risk_usd for p in book.positions.values()), default=0)
         eq = m.get("equity") or book.start_equity
+        lev = sum(notional_usd(s, p.lots, p.entry) for s, p in book.positions.items()) / eq if eq else 0
         rows = [
+            ("Max leverage (open size ÷ equity)", round(lev, 2), r["max_leverage"], "×"),
             ("Max position size", max_lots_now, r["max_lots"], "lots"),
             ("Max open positions", len(book.positions), r["max_open_positions"], ""),
             ("Max same-way US dollar bets", max(same.values(), default=0), r["max_same_usd_direction"], ""),

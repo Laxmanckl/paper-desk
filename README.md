@@ -113,6 +113,50 @@ higher bar than exiting, because a wrong entry costs more than leaving early.
 Edit it on GitHub; the server picks it up within ~15 minutes. A bad edit is rejected and the
 old values stay. Every decision and trade records the settings version it used.
 
+## Stage 5: the fallback ladder (guide Step 6)
+
+| Rung | When | What the desk does |
+|---|---|---|
+| 1 Normal | Jev healthy and confident | Trades on Jev + policy + risk |
+| 2 Cautious | Jev healthy but unsure | Stands aside |
+| 3 Late | Prices stale, or Jev answers too slowly | Holds; open positions stay on their stops |
+| 4 Fallback | Jev unreachable 2 rounds in a row, or no key | **Code-only rules** (`jevsys/rules.py`) trade at half size; alert sent |
+| 5 Kill | Daily loss or drawdown limit hit | Closes everything, stops trading, **alert sent** |
+
+The code-only rules are plain trend-following: enter with the 20- and 100-bar EMAs when RSI
+isn't stretched, exit when price crosses back over the 20 EMA. A **max leverage** check (10×)
+sizes positions down so total open size stays within 10× equity.
+
+**Phone alerts (Telegram):** kill switch, Jev down/back, MT5 bridge silent for 5+ minutes
+while the market is open, each paper trade, and a daily summary after the New York close.
+Set up with `bash ~/paper-desk/server/telegram.sh` (it can reuse your old Paper Desk bot).
+
+**Drill:** `bash ~/paper-desk/server/drill.sh` breaks a simulated copy of the desk on purpose:
+- Jev late;
+- Jev unreachable;
+- prices stopped;
+- loss limit hit.
+
+It checks each rung reacts as the guide says, then sends one test alert. The live account is
+never touched.
+
+## Step 8: built in, so two weeks of paper trading answer it
+
+Two **shadow paper accounts** trade the same live data, with the same costs and limits:
+- **code-only rules**: the guide's "plain hand-written rules" baseline;
+- **Jev without the confidence gate**: acts on Jev's top answer at any confidence.
+
+Every hour the desk rebuilds the Step 8 report, shown on the dashboard and printed with
+`cd ~/paper-desk && .venv/bin/python -m jevsys report`:
+
+1. **Beats simpler versions?** Live account vs both shadows (needs 20+ trades each).
+2. **Calibrated on your market?** Jev's direction calls against the price one hour later,
+   bucketed by confidence (needs 100+ calls; passes at 10% average gap or less).
+3. **Fees covered?** Average trade before costs vs spread and commission paid.
+4. **Two weeks** of paper trading.
+
+The report says **ready for a small real-money test** only when all of them pass.
+
 ## Everyday use
 
 | You want to… | Do this |
@@ -122,6 +166,9 @@ old values stay. Every decision and trade records the settings version it used.
 | Test Jev by hand | `cd ~/paper-desk && sudo env $(sudo cat /etc/jev-desk.env) .venv/bin/python -m jevsys jev-test` |
 | Replace the key | `bash ~/paper-desk/server/jev-key.sh` |
 | Change thresholds / limits | Edit `config/desk.json` on GitHub |
+| Phone alerts | `bash ~/paper-desk/server/telegram.sh` |
+| Test every ladder rung | `bash ~/paper-desk/server/drill.sh` |
+| Step 8 report | `cd ~/paper-desk && .venv/bin/python -m jevsys report` |
 | Turn trading back on after the drawdown kill switch | `bash ~/paper-desk/server/reset-kill.sh` |
 | Start the paper account over | `sudo systemctl stop jev-desk && rm ~/paper-desk/state/paper_book.json && sudo systemctl start jev-desk` |
 | Bridge log (PC) | `Get-Content C:\jev-bridge\bridge.log -Tail 20 -Wait` |
@@ -137,8 +184,8 @@ old values stay. Every decision and trade records the settings version it used.
 | 2 | Jev decision layer: 6 questions per instrument in one call, `jev-1.13.0` pinned and logged | **done** |
 | 3 | Policy engine: long / short / exit / tighten / stand aside by confidence thresholds | **done** |
 | 4 | Risk engine: sizing, a stop on every trade, vetoes, kill switches, paper fills | **done** |
-| 5 | Fallback ladder: code-only rules when Jev is down, each rung tested on purpose | next |
-| 6 | Paper trading + calibration log, two weeks before any real money | |
+| 5 | Fallback ladder: code-only rules when Jev is down, phone alerts, leverage limit, drill | **done** |
+| 6 | Paper trading for two weeks + the Step 8 checks (shadow accounts and report built in) | **running** |
 
 ### Snapshot fields (Step 3, adapted)
 
@@ -171,13 +218,18 @@ jevsys/
   risk.py          Stage 4: sizing, stops, vetoes, exits, kill switches
   paper.py         paper book: fills at bid/ask, P&L, equity curve, saved on every change
   settings.py      loads and validates config/desk.json, hot reload
+  rules.py         Stage 5: code-only fallback rules; the no-gate policy for the Step 8 shadow
+  trader.py        one paper account + its trading code (live account and both shadows)
+  alerts.py        Telegram alerts on a background thread
+  drill.py         breaks a simulated desk on purpose to test every ladder rung
+  report.py        Step 8: baselines, calibration, fees
   desk.py          15-min decision loop + everything the dashboard shows; stages 2-5 plug into _decide()
   web.py           live page, /api/state, /api/ingest (token)
   publish.py       pushes state to GitHub
   sim_fx.py        price simulator for tests and `run --sim`
 bridge/            mt5_bridge.py + Windows setup and watchdog
 server/            Lightsail setup / stop
-tests/             69 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
+tests/             92 tests: python3 -m pytest -q (Jev tests use the real SDK against a simulated API)
 ```
 
 Try it anywhere without MT5: `python3 -m jevsys run --sim --every 5`, then open http://localhost:8080

@@ -5,6 +5,9 @@
   python -m jevsys dashboard  build docs/index.html from state/jev_desk.json (GitHub Actions)
   python -m jevsys heartbeat  fail if the server hasn't published recently (GitHub Actions)
   python -m jevsys jev-test   the guide's "fire your first decision": one live Jev call, answers printed
+  python -m jevsys drill      test every rung of the fallback ladder on purpose (simulated, never touches the live account)
+  python -m jevsys report     the Step 8 report: baselines, calibration, fees
+  python -m jevsys alert-test send one Telegram test message
 """
 from __future__ import annotations
 
@@ -129,6 +132,44 @@ def cmd_jev_test(a) -> None:
     print("  If those printed, you are talking to Jev.")
 
 
+def cmd_drill(a) -> None:
+    from .drill import run_drill
+    print("  Fallback ladder drill (simulated market, separate from the live account):")
+    res = run_drill(verbose=True, send=a.send)
+    bad = [n for n, ok, _ in res if not ok]
+    print(f"\n  {len(res) - len(bad)}/{len(res)} passed." + (" FAILED: " + ", ".join(bad) if bad else " Every rung behaves as the guide says."))
+    if bad:
+        sys.exit(1)
+
+
+def cmd_report(a) -> None:
+    """Prints the Step 8 report the running desk keeps (refreshed hourly) from its local API."""
+    import urllib.request
+    from . import report as step8
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{a.port}/api/state?full=1", timeout=10) as r:
+            rep = json.load(r).get("report")
+    except OSError:
+        rep = None
+    if not rep:
+        try:
+            rep = json.load(open(a.state, encoding="utf-8")).get("report")
+        except (OSError, ValueError):
+            rep = None
+    if not rep:
+        sys.exit("  No report yet: the desk builds the first one about a minute after it starts, then hourly.")
+    print(step8.to_text(rep))
+
+
+def cmd_alert_test(a) -> None:
+    from .alerts import Alerter
+    al = Alerter()
+    if not al.enabled:
+        sys.exit("  Alerts are off: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set. Run: bash ~/paper-desk/server/telegram.sh")
+    al.send_now("✅ Jev Desk alerts are on. You'll get kill-switch, Jev-down, bridge-down, trade and daily-summary messages here.")
+    print("  Test message sent. Check Telegram.")
+
+
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(prog="jevsys")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -152,6 +193,15 @@ def main(argv=None) -> None:
     jt = sub.add_parser("jev-test", help="one live Jev call with the 6-question battery")
     jt.add_argument("--port", type=int, default=8080)
     jt.set_defaults(func=cmd_jev_test)
+    dr = sub.add_parser("drill", help="test every rung of the fallback ladder on purpose")
+    dr.add_argument("--send", action="store_true", help="also send one real Telegram test message")
+    dr.set_defaults(func=cmd_drill)
+    rp = sub.add_parser("report", help="the Step 8 report")
+    rp.add_argument("--port", type=int, default=8080)
+    rp.add_argument("--state", default="state/jev_desk.json")
+    rp.set_defaults(func=cmd_report)
+    at = sub.add_parser("alert-test", help="send one Telegram test message")
+    at.set_defaults(func=cmd_alert_test)
     a = p.parse_args(argv)
     a.func(a)
 

@@ -177,6 +177,9 @@ class PaperBook:
                      "opened": pos.opened, "closed": t, "held_min": round((t - pos.opened) / 60, 1),
                      "pips": round(pnl_pips(pos, px), 1), "pnl": round(net, 2),
                      "r": round(gross / pos.risk_usd, 2) if pos.risk_usd else None,
+                     "spread_pips": pos.entry_spread_pips,
+                     "spread_cost": round(pos.entry_spread_pips * pip_value_usd(sym, px) * pos.lots, 2),
+                     "fees": round(2 * self.commission_per_lot * pos.lots, 2),
                      "why": why, "reason": pos.reason, "initial_stop": pos.initial_stop, "stop": pos.stop,
                      "target": pos.target, "jev": pos.jev, "settings": pos.settings}
             self.trades.append(trade)

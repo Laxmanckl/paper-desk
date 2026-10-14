@@ -60,6 +60,38 @@
     "_friday": "No new positions late on Friday, and everything is closed before the weekend gap.",
 
     "commission_per_lot_usd": 0.0,
-    "_commission": "Per lot, per side. The spread is already paid through the real bid/ask."
+    "_commission": "Per lot, per side. The spread is already paid through the real bid/ask.",
+
+    "max_leverage": 10.0,
+    "_max_leverage": "Open positions' total size may not exceed this multiple of equity. A tight stop would otherwise mean a very large position; new positions are sized down to fit."
+  },
+
+  "fallback": {
+    "_read_me": "Guide Step 6, rung 4: when Jev is unavailable, simple rules written in code only. Plain trend-following with strict filters, at reduced size.",
+    "enabled": true,
+    "after_failed_rounds": 2,
+    "_after_failed_rounds": "Switch to the code-only rules after Jev has failed this many rounds in a row (one blip just holds).",
+    "risk_mult": 0.5,
+    "_risk_mult": "Fallback trades risk this fraction of the normal risk per trade.",
+    "min_ema20_dist_atr": 0.5,
+    "min_ema20_slope_atr": 0.08,
+    "_trend": "Enter only when price is at least this many ATRs beyond the 20-bar EMA, the EMA is sloping that way, and price is on the same side of the 100-bar EMA.",
+    "rsi_long_min": 50, "rsi_long_max": 70,
+    "rsi_short_min": 30, "rsi_short_max": 50,
+    "_rsi": "...and RSI is in this band: with the trend, but not stretched.",
+    "exit_rsi_long": 78, "exit_rsi_short": 22,
+    "_exit": "Close when price crosses back over the 20-bar EMA, or RSI reaches these extremes.",
+    "max_spread_vs_normal": 1.5
+  },
+
+  "alerts": {
+    "_read_me": "Telegram messages to your phone (set up with: bash ~/paper-desk/server/telegram.sh). Rung 5 of the ladder: kill switch -> send yourself an alert.",
+    "trades": true,
+    "kill_switch": true,
+    "jev_down": true,
+    "bridge_down_min": 5,
+    "_bridge_down_min": "Alert when the MT5 bridge has sent nothing for this many minutes while the market is open.",
+    "daily_summary_utc": "21:05",
+    "_daily_summary_utc": "A short daily report after the New York close."
   }
 }
