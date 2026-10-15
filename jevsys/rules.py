@@ -19,11 +19,14 @@ from __future__ import annotations
 
 from .policy import Action
 
-# "Jev without the confidence gate": act on Jev's top answer whatever its
-# confidence. Step 8 compares this with the gated policy, to see whether
-# standing aside when Jev is unsure actually helps.
+# "Jev without the confidence gate": the live entry rule with every confidence
+# requirement removed. Enter on Jev's top direction (up or down) whatever its
+# confidence and whatever the chance of a Good entry; stand aside only when the
+# top regime answer is volatile or quiet. Step 8 compares this with the gated
+# policy, to see whether standing aside when Jev is unsure actually helps.
 NO_GATE = {
     "enter_direction_conf": 0.0, "enter_quality_min_level": 2, "enter_quality_conf": 0.0,
+    "enter_quality_p_good_min": 0.0, "use_move_continues": False,
     "enter_move_continues_min": 0.5, "use_jev_costs": False, "stand_aside_costs_abnormal": 0.5,
     "stand_aside_regimes": ["volatile", "quiet"], "stand_aside_regime_conf": 0.0,
     "exit_urgency_close_level": 3, "exit_urgency_tighten_level": 2, "exit_urgency_conf": 0.0,

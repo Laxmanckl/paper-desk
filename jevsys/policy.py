@@ -13,8 +13,9 @@ For an instrument WITHOUT a position:
   1. costs abnormal (only if use_jev_costs; normally code checks the spread) -> STAND ASIDE
   2. regime volatile or quiet (confident)          -> STAND ASIDE
   3. direction neutral, or not confident enough    -> STAND ASIDE
-  4. entry quality below Good, or not confident    -> STAND ASIDE
-  5. move unlikely to continue                     -> STAND ASIDE
+  4. Jev's chance of entry quality "Good or better" below enter_quality_p_good_min -> STAND ASIDE
+     (when that key is null: the older rule, top answer at least Good with enter_quality_conf)
+  5. move unlikely to continue (only if use_move_continues) -> STAND ASIDE
   6. all clear                                     -> ENTER LONG / ENTER SHORT (then the risk engine decides)
 """
 from __future__ import annotations
@@ -68,15 +69,29 @@ def decide(ans: dict, position_side: str | None, p: dict) -> Action:
     if not gate(confident, f"direction clear ({dr.get('value')} {dir_conf:.0%} vs {p['enter_direction_conf']:.0%})"):
         why = "no clear direction" if dr.get("value") == "neutral" else f"direction {dr.get('value')} only {dir_conf:.0%}"
         return Action("STAND_ASIDE", why=why, checks=checks)
-    good_entry = eq.get("level", 0) >= p["enter_quality_min_level"] and eq.get("p", 0) >= p["enter_quality_conf"]
-    if not gate(good_entry, f"entry quality ({eq.get('label')} {eq.get('p', 0):.0%})"):
-        return Action("STAND_ASIDE", why=f"entry quality '{eq.get('label')}' ({eq.get('p', 0):.0%})", confident=True, checks=checks)
-    if not gate(mc.get("p", 0) >= p["enter_move_continues_min"],
+    pg_min = p.get("enter_quality_p_good_min")
+    if pg_min is not None:
+        p_good = p_at_least(eq, p["enter_quality_min_level"])
+        if not gate(p_good >= pg_min, f"entry quality (Good or better {p_good:.0%} vs {pg_min:.0%})"):
+            return Action("STAND_ASIDE", why=f"entry quality: Good or better only {p_good:.0%}", confident=True, checks=checks)
+    else:
+        good_entry = eq.get("level", 0) >= p["enter_quality_min_level"] and eq.get("p", 0) >= p["enter_quality_conf"]
+        if not gate(good_entry, f"entry quality ({eq.get('label')} {eq.get('p', 0):.0%})"):
+            return Action("STAND_ASIDE", why=f"entry quality '{eq.get('label')}' ({eq.get('p', 0):.0%})", confident=True, checks=checks)
+    if p.get("use_move_continues", True) and not gate(mc.get("p", 0) >= p["enter_move_continues_min"],
                 f"move continues ({mc.get('p', 0):.0%} vs {p['enter_move_continues_min']:.0%})"):
         return Action("STAND_ASIDE", why=f"move may reverse (continues {mc.get('p', 0):.0%})", confident=True, checks=checks)
     side = "long" if dr["value"] == "up" else "short"
-    return Action("ENTER", side=side, why=f"{dr['value']} {dir_conf:.0%}, entry '{eq.get('label')}' {eq.get('p', 0):.0%}, "
+    return Action("ENTER", side=side, why=f"{dr['value']} {dir_conf:.0%}, entry Good+ {p_at_least(eq, p['enter_quality_min_level']):.0%}, "
                   f"{rg.get('value')} regime", confident=True, checks=checks)
+
+
+def p_at_least(eq: dict, level: int) -> float:
+    """Jev's probability that entry quality is at this level or better (from the Score answer's level probabilities)."""
+    probs = eq.get("probs") or {}
+    if not probs:
+        return eq.get("p", 0.0) if eq.get("level", 0) >= level else 0.0
+    return round(sum(v for k, v in probs.items() if int(k) >= level), 4)
 
 
 def tightened_stop(side: str, entry: float, stop: float, price: float, digits: int) -> float:

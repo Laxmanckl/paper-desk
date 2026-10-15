@@ -20,12 +20,13 @@ WED = 1_760_544_000.0  # Wednesday 2025-10-15 16:00 UTC (not Friday, market open
 
 
 def answers(direction="up", dconf=0.8, regime="trending", rconf=0.7, quality=2, qconf=0.6,
-            cont=0.7, costs=0.2, urgency=0, uconf=0.6):
+            cont=0.7, costs=0.2, urgency=0, uconf=0.6, probs=None):
     labels = ["Do not enter", "Marginal", "Good", "Excellent"]
     ulabels = ["No urgency", "Mild", "Tighten the stop", "Close now"]
     return {"regime": {"value": regime, "p": rconf}, "direction": {"value": direction, "p": dconf},
             "move_continues": {"p": cont}, "costs_abnormal": {"p": costs},
-            "entry_quality": {"level": quality, "label": labels[quality], "p": qconf, "score": quality},
+            "entry_quality": {"level": quality, "label": labels[quality], "p": qconf, "score": quality,
+                               **({"probs": probs} if probs else {})},
             "exit_urgency": {"level": urgency, "label": ulabels[urgency], "p": uconf, "score": urgency}}
 
 
@@ -52,9 +53,12 @@ def test_usd_direction():
     ({"regime": "quiet"}, "STAND_ASIDE", None),
     ({"direction": "neutral"}, "STAND_ASIDE", None),
     ({"dconf": 0.6}, "STAND_ASIDE", None),                             # below the 0.65 entry bar
-    ({"quality": 1}, "STAND_ASIDE", None),
-    ({"qconf": 0.3}, "STAND_ASIDE", None),
-    ({"cont": 0.4}, "STAND_ASIDE", None),
+    ({"quality": 1}, "STAND_ASIDE", None),                             # no level probabilities: Marginal counts as 0% Good+
+    ({"qconf": 0.25}, "STAND_ASIDE", None),                            # Good, but only 25% sure: below 0.30
+    # the usual real shape: Marginal is the top answer, but there is a 31% chance of Good or better
+    ({"quality": 1, "qconf": 0.6, "probs": {"0": 0.09, "1": 0.6, "2": 0.25, "3": 0.06}}, "ENTER", "long"),
+    ({"quality": 1, "qconf": 0.6, "probs": {"0": 0.12, "1": 0.6, "2": 0.25, "3": 0.03}}, "STAND_ASIDE", None),
+    ({"cont": 0.4}, "ENTER", "long"),                                  # move-continues no longer gates (it read backwards)
 ])
 def test_policy_flat(kw, kind, side):
     a = decide(answers(**kw), None, P)
@@ -71,6 +75,27 @@ def test_policy_flat(kw, kind, side):
 ])
 def test_policy_in_position(pos, kw, kind):
     assert decide(answers(**kw), pos, P).kind == kind
+
+
+def test_move_continues_gate_only_when_enabled():
+    assert decide(answers(cont=0.4), None, {**P, "use_move_continues": True}).kind == "STAND_ASIDE"
+
+
+def test_old_entry_rule_when_p_good_unset():
+    old = {**P, "enter_quality_p_good_min": None}
+    assert decide(answers(quality=1, qconf=0.6, probs={"0": 0, "1": 0.6, "2": 0.4, "3": 0}), None, old).kind == "STAND_ASIDE"
+    assert decide(answers(quality=2, qconf=0.5), None, old).kind == "ENTER"
+
+
+def test_nogate_trades_on_top_direction_alone():
+    from jevsys.rules import NO_GATE
+    weak = answers(dconf=0.4, quality=1, qconf=0.7, cont=0.2, rconf=0.3,
+                   probs={"0": 0.25, "1": 0.7, "2": 0.05, "3": 0})
+    assert decide(weak, None, P).kind == "STAND_ASIDE"
+    a = decide(weak, None, NO_GATE)
+    assert (a.kind, a.side) == ("ENTER", "long")
+    assert decide(answers(regime="quiet", rconf=0.4), None, NO_GATE).kind == "STAND_ASIDE"   # top regime answer still respected
+    assert decide(answers(direction="neutral", dconf=0.4), None, NO_GATE).kind == "STAND_ASIDE"
 
 
 def test_jev_costs_gate_only_when_enabled():

@@ -92,7 +92,7 @@ higher bar than exiting, because a wrong entry costs more than leaving early.
 
 | Flat | In a position |
 |---|---|
-| Stand aside if costs look abnormal, the regime is confidently volatile or quiet, the direction is neutral or under 65%, entry quality is below Good, or the move looks likely to reverse | Exit on "Close now", or if Jev points the other way at 60%+ |
+| Stand aside if the regime is confidently volatile or quiet, the direction is neutral or under 65%, or Jev gives less than a 30% chance that entry quality is Good or better (since 15 Oct; Jev's "move continues" read proved backwards, so it is tracked but no longer gates) | Exit on "Close now", or if Jev points the other way at 60%+ |
 | Otherwise enter long or short | Tighten the stop on "Tighten the stop"; otherwise hold |
 
 **Risk engine** (`jevsys/risk.py`). It has the final word:

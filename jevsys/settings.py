@@ -14,6 +14,7 @@ import os
 DEFAULTS = {
     "policy": {
         "enter_direction_conf": 0.65, "enter_quality_min_level": 2, "enter_quality_conf": 0.45,
+        "enter_quality_p_good_min": 0.30, "use_move_continues": False,
         "enter_move_continues_min": 0.55, "use_jev_costs": False, "stand_aside_costs_abnormal": 0.6,
         "stand_aside_regimes": ["volatile", "quiet"], "stand_aside_regime_conf": 0.6,
         "exit_urgency_close_level": 3, "exit_urgency_tighten_level": 2, "exit_urgency_conf": 0.5,
@@ -41,7 +42,7 @@ DEFAULTS = {
 
 # (min, max) sanity bounds; a value outside them rejects the whole edit
 BOUNDS = {
-    "enter_direction_conf": (0.34, 1), "enter_quality_min_level": (0, 3), "enter_quality_conf": (0, 1),
+    "enter_direction_conf": (0.34, 1), "enter_quality_min_level": (0, 3), "enter_quality_conf": (0, 1), "enter_quality_p_good_min": (0, 1),
     "enter_move_continues_min": (0, 1), "stand_aside_costs_abnormal": (0, 1), "stand_aside_regime_conf": (0, 1),
     "exit_urgency_close_level": (1, 3), "exit_urgency_tighten_level": (1, 3), "exit_urgency_conf": (0, 1),
     "exit_on_opposite_direction_conf": (0.34, 1),
@@ -89,7 +90,7 @@ def validate(raw: dict) -> dict:
             _hhmm(merged["friday_flat_utc"])
         if section == "alerts":
             _hhmm(merged["daily_summary_utc"])
-        for k in ("enabled", "trades", "kill_switch", "jev_down", "use_jev_costs"):
+        for k in ("enabled", "trades", "kill_switch", "jev_down", "use_jev_costs", "use_move_continues"):
             if k in merged and not isinstance(merged[k], bool):
                 raise ValueError(f"{section}.{k} must be true or false")
         out[section] = merged

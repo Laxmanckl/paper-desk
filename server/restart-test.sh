@@ -7,6 +7,10 @@ cd "$HOME/paper-desk"
 read -rp "Reset all paper accounts to \$10,000 and restart the two-week test? [y/N] " ANS </dev/tty
 [[ "$ANS" =~ ^[Yy] ]] || { echo "Nothing changed."; exit 0; }
 sudo systemctl stop jev-desk
+# take the latest code and settings from GitHub first, so the new test runs on them
+git add state/jev_desk.json 2>/dev/null || true
+git diff --cached --quiet 2>/dev/null || git commit -q -m "jev desk save before update" || true
+git pull -q --rebase -X theirs --autostash origin main && echo "Code updated to $(git log -1 --format='%h %s')"
 .venv/bin/python -m jevsys restart-test --state state/jev_desk.json
 sudo systemctl start jev-desk
 sleep 5

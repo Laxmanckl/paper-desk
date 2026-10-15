@@ -6,12 +6,15 @@
     "_enter_direction_conf": "Jev must pick up or down with at least this confidence to open a position.",
 
     "enter_quality_min_level": 2,
-    "_enter_quality_min_level": "Entry quality must be at least this level: 0 Do not enter, 1 Marginal, 2 Good, 3 Excellent.",
+    "_enter_quality_min_level": "What counts as a good entry: 0 Do not enter, 1 Marginal, 2 Good, 3 Excellent. 2 = 'Good or better'.",
+    "enter_quality_p_good_min": 0.30,
+    "_enter_quality_p_good_min": "Open a position only when Jev gives at least this chance that entry quality is Good or better. Changed 15 Oct from 'Good must be the top answer': in 312 decisions Jev's top answer was Good once, so nothing could trade. Replaying that day, 0.30 gave 14 signals (0.25 gave 39, 0.35 gave 6).",
     "enter_quality_conf": 0.45,
-    "_enter_quality_conf": "...and Jev must be at least this confident about that level.",
+    "_enter_quality_conf": "Not used while enter_quality_p_good_min is set.",
 
+    "use_move_continues": false,
     "enter_move_continues_min": 0.55,
-    "_enter_move_continues_min": "Probability that the latest move continues must be at least this.",
+    "_use_move_continues": "Off since 15 Oct: Jev's 'move continues' read was backwards on our data (477 calls: when it said ~36%, moves continued 62% of the time; at ~53%, 46%). Still asked and tracked in the calibration report. If true, a new position needs at least enter_move_continues_min.",
 
     "use_jev_costs": false,
     "stand_aside_costs_abnormal": 0.6,
