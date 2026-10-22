@@ -215,15 +215,15 @@ def test_desk_runs_the_account_and_shows_it(tmp_path):
     d = Desk(market, state_path=str(tmp_path / "s.json"), log_dir=str(tmp_path / "logs"),
              jev=JevLayer())
     assert d.vbo_trader in d.traders
-    bars, *_ = history()
-    now = time.time()
-    shift = (now - now % H) - (DAY + 8 * H)       # move the test day so its 07:00 bar just closed
+    bars, close, _ = history()
+    now = DAY + 8 * H + 20                          # a fixed clock: 20 s after the 07:00 bar closed
     sd = market.data["EURUSD"]
     for b in bars:
-        sd.h1.add(Bar(b.ts + shift, b.open, b.high, b.low, b.close, b.tick_volume, b.spread_pts))
-    sd.quotes.append(Quote("EURUSD", now, 1.1049, 1.1050))   # the shifted day is in the past: plumbing only
+        sd.h1.add(b)
+    sd.quotes.append(Quote("EURUSD", now - 1, close - 0.00005, close + 0.00005))
     d.monitor_tick(now)
     st = d.state()
-    assert st["vbo"]["instruments"]["EURUSD"]["status"] in ("entered", "skipped", "stand aside")
-    assert st["vbo"]["book"]["equity"] == pytest.approx(10_000, abs=50)
+    assert st["vbo"]["instruments"]["EURUSD"]["status"] == "entered"
+    assert len(st["vbo"]["book"]["positions"]) == 1
+    assert any("[Volume breakout] OPEN EURUSD long" in e[1] for e in st["log"])
     assert "vbo" in json.loads(json.dumps(st, default=str))
