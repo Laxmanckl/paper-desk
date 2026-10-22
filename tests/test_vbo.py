@@ -227,3 +227,20 @@ def test_desk_runs_the_account_and_shows_it(tmp_path):
     assert len(st["vbo"]["book"]["positions"]) == 1
     assert any("[Volume breakout] OPEN EURUSD long" in e[1] for e in st["log"])
     assert "vbo" in json.loads(json.dumps(st, default=str))
+
+
+def test_status_refreshes_when_history_arrives_for_the_same_bar(setup):
+    market, tr, vb, *_ = setup
+    bars, close, _ = history()
+    now = DAY + 8 * H + 20
+    sd = market.data["EURUSD"]
+    for b in bars[-3:]:                              # the bridge's normal push: last 3 bars
+        sd.h1.add(b)
+    sd.quotes.append(Quote("EURUSD", now - 1, close - 0.00005, close + 0.00005))
+    vb.tick(now, {"EURUSD": sd.quotes[-1]})
+    assert vb.latest["EURUSD"]["status"] == "waiting" and vb.latest["EURUSD"]["bars"] == 3
+    for b in bars:                                   # then the history backfill
+        sd.h1.add(b)
+    vb.tick(now + 30, {"EURUSD": sd.quotes[-1]})
+    assert vb.latest["EURUSD"]["bars"] == len(bars)
+    assert vb.latest["EURUSD"]["status"] == "entered"

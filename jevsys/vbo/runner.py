@@ -99,7 +99,7 @@ class VolumeBreakout:
     def __init__(self, market, trader, settings, news_file: str = NEWS_FILE):
         self.market, self.trader, self.settings = market, trader, settings
         self.news = load_news_filter(news_file, int(settings.vbo["news_window_min"]))
-        self.done: dict[str, float] = {}       # newest hourly bar (open time) already evaluated, per symbol
+        self.done: dict[str, tuple] = {}       # (newest bar open time, bar count) last looked at, per symbol
         self.latest: dict[str, dict] = {}      # what the dashboard shows per instrument
         self.evaluations = 0
 
@@ -117,11 +117,11 @@ class VolumeBreakout:
                 if n == 0:
                     self.latest.setdefault(s, {"status": "waiting", "bars": 0,
                                                "why": "no hourly bars yet (needs MT5 bridge 1.2)"})
-                elif self.done.get(s) != sd.h1.bars[n - 1].ts:
+                elif self.done.get(s) != (sd.h1.bars[n - 1].ts, n):  # a new bar, or history arrived
                     series[s] = sd.h1.bars[:n]
         for sym, bars in series.items():
             last = bars[-1]
-            self.done[sym] = last.ts
+            self.done[sym] = (last.ts, len(bars))
             if len(bars) < MIN_H1_BARS:
                 self.latest[sym] = {"status": "waiting", "bars": len(bars), "t": last.ts + 3600,
                                     "why": f"loading hourly history ({len(bars)} of {MIN_H1_BARS} bars)"}
