@@ -99,7 +99,7 @@ BRIDGE_TOKEN=$(sudo sed -n 's/^JEV_BRIDGE_TOKEN=//p' /etc/jev-desk.env | head -1
 say "Installing the TypeSafe SDK (pinned) in a private Python environment"
 [ -x .venv/bin/python ] || python3 -m venv .venv
 .venv/bin/python -m pip install -q --upgrade pip
-.venv/bin/python -m pip install -q "typesafe-sdk==0.7.4" pytest
+.venv/bin/python -m pip install -q "typesafe-sdk==0.7.4" pytest "pandas>=2.2" "numpy>=1.26"
 .venv/bin/python -c 'import typesafe_sdk; print("typesafe-sdk", typesafe_sdk.__version__)'
 
 say "Running tests"

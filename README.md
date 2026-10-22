@@ -14,6 +14,50 @@ crypto market maker; here it's adapted to directional trading on MT5.
 > The previous Paper Desk (daily bot + scalper) is saved on the
 > [`archive/paper-desk`](https://github.com/Laxmanckl/paper-desk/tree/archive/paper-desk) branch.
 
+## Volume breakout: the main paper account (since 23 Oct 2026)
+
+The Jev account lost money in its first week of paper trading (spread ate its 5-minute
+trades) and hit its 6% drawdown kill switch. The desk's main account is now the
+`volume_breakout` strategy. It was validated in the
+[Trading-Bot](https://github.com/Laxmanckl/Trading-Bot) repo on 16 years of Octa MT5
+hourly data with real spreads:
+
+- untouched TEST period: +0.13R per trade, profit factor 1.22
+- random entries beat it 0.4% of the time
+- 3 of 4 walk-forward windows positive
+
+It failed the training-strength and sample-size criteria, so it is paper only.
+
+**Rules (hourly bars).** The setup is the first hourly close outside the Asian range
+(00:00-07:00 UTC) between 07:00 and 11:00. It trades only if all four hold:
+
+1. **Volume:** the breakout bar's tick volume is at least 1.5x that hour's 20-day average.
+2. **VWAP:** price is on the right side of the VWAP anchored at yesterday's open.
+3. **Volatility:** ATR is at least its 20-day average.
+4. **Trend:** the daily trend agrees.
+
+**Exits.** The stop is the far side of the range, capped at 2 ATR. The target is 2R.
+Everything closes at 20:00 UTC.
+
+**Limits, the same as the validation:**
+- 0.5% risk per trade
+- 3 open positions
+- one trade per instrument per day
+- no entries ±30 min around listed news
+- no new trades for the rest of the day after a 2% loss or 4 losses in a row
+- its own drawdown kill switch at 10%
+
+**Expect about one trade a month.** Judge it over months, not days.
+
+**Where things live:**
+
+| What | Where |
+|---|---|
+| Strategy code | `jevsys/vbo/lib/`: a verbatim, hash-checked copy of the tested modules. Change it in Trading-Bot, re-validate, then copy it again. |
+| Engine rules | `jevsys/vbo/runner.py` |
+| Settings | `config/desk.json` → `vbo` |
+| Prices | MT5 bridge 1.2+, which sends hourly bars with tick volume. It loads ~8000 bars of history per instrument on first contact. |
+
 ## How it runs
 
 ```

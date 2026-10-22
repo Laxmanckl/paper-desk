@@ -6,6 +6,7 @@ decisions come from differs:
   jev     Jev + confidence gate (falls back to the code-only rules when Jev is down)   - live, alerts
   rules   code-only rules on every round                                                - shadow
   nogate  Jev without the confidence gate (acts on Jev's top answer at any confidence)  - shadow
+  vbo     volume breakout on hourly bars (jevsys/vbo), the main account since 23 Oct     - live, alerts
 """
 from __future__ import annotations
 
@@ -17,8 +18,9 @@ from .risk import RiskEngine, notional_usd
 
 class Trader:
     def __init__(self, name: str, label: str, book: PaperBook, risk: RiskEngine, live: bool = False,
-                 event=None, alert=None):
+                 event=None, alert=None, prefix: str = ""):
         self.name, self.label, self.book, self.risk, self.live = name, label, book, risk, live
+        self.prefix = prefix  # put in front of this account's log lines and alerts
         self._event = event or (lambda text: None)
         self._alert = alert or (lambda text, key=None, cooldown_s=0: None)
         self.last_mark: dict = {"equity": book.start_equity, "drawdown_pct": 0.0, "daily_loss_pct": 0.0}
@@ -26,11 +28,11 @@ class Trader:
 
     def event(self, text: str) -> None:
         if self.live:
-            self._event(text)
+            self._event(self.prefix + text)
 
     def alert(self, text: str, key: str | None = None, cooldown_s: float = 0) -> None:
         if self.live:
-            self._alert(text, key, cooldown_s)
+            self._alert(self.prefix + text, key, cooldown_s)
 
     def notional_open(self) -> float:
         return sum(notional_usd(s, p.lots, p.entry) for s, p in self.book.positions.items())
@@ -108,5 +110,5 @@ class Trader:
                     + ("No new trades until 00:00 UTC." if kind == "daily" else "Trading stays off until reset by hand."))
             self.event(text)
             if (alerts or {}).get("kill_switch", True):
-                self.alert(f"🛑 Jev Desk {text}" + ("" if kind == "daily" else " Reset: bash ~/paper-desk/server/reset-kill.sh"))
+                self.alert(f"🛑 {'' if self.prefix else 'Jev Desk '}{text}" + ("" if kind == "daily" else " Reset: bash ~/paper-desk/server/reset-kill.sh"))
         return m

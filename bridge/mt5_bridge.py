@@ -1,6 +1,7 @@
 """MT5 bridge (runs on the Windows PC next to MetaTrader 5).
 
-Every 10 seconds it reads the latest quote and the last closed 5-minute bars
+Every 10 seconds it reads the latest quote, the last closed 5-minute bars and
+the last closed 1-hour bars (with tick volume, for the volume breakout account)
 for gold + the forex majors from your MT5 terminal, converts the broker's
 clock to UTC, and sends them to the Jev Desk on your Lightsail server.
 
@@ -24,8 +25,9 @@ import urllib.request
 
 import MetaTrader5 as mt5
 
-VERSION = "1.1"
+VERSION = "1.2"
 HISTORY_PER_PUSH = 2  # symbols backfilled per push, so no single upload is large
+H1_HISTORY_PER_PUSH = 1  # hourly history is ~8000 bars per symbol: one symbol per push
 HERE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS = os.path.join(HERE, "settings.json")
 OFFSET_FILE = os.path.join(HERE, "utc_offset.json")
@@ -100,7 +102,14 @@ class Clock:
         return broker_ts - self.offset_s
 
 
-def build_payload(symbols: dict[str, str], clock: Clock, need: set[str], history: int) -> dict:
+def _rows(rates, clock: Clock) -> list:
+    return [] if rates is None else [
+        [clock.utc(float(r["time"])), float(r["open"]), float(r["high"]), float(r["low"]),
+         float(r["close"]), float(r["tick_volume"]), float(r["spread"])] for r in rates]
+
+
+def build_payload(symbols: dict[str, str], clock: Clock, need: set[str], history: int,
+                  need_h1: set[str] = frozenset(), h1_history: int = 8000) -> dict:
     ticks = {w: mt5.symbol_info_tick(b) for w, b in symbols.items()}
     newest = max((t.time_msc / 1000 for t in ticks.values() if t), default=None)
     if newest:
@@ -114,15 +123,15 @@ def build_payload(symbols: dict[str, str], clock: Clock, need: set[str], history
         info = mt5.symbol_info(broker)
         t = ticks.get(want)
         n = history if want in need else 3  # need = only the few symbols chosen for this push
-        rates = mt5.copy_rates_from_pos(broker, mt5.TIMEFRAME_M5, 1, n)  # position 1 = last CLOSED bar
-        bars = [] if rates is None else [
-            [clock.utc(float(r["time"])), float(r["open"]), float(r["high"]), float(r["low"]),
-             float(r["close"]), float(r["tick_volume"]), float(r["spread"])] for r in rates]
+        bars = _rows(mt5.copy_rates_from_pos(broker, mt5.TIMEFRAME_M5, 1, n), clock)  # position 1 = last CLOSED bar
+        n1 = h1_history if want in need_h1 else 3
+        bars_h1 = _rows(mt5.copy_rates_from_pos(broker, mt5.TIMEFRAME_H1, 1, n1), clock)
         out["symbols"][want] = {
             "broker_symbol": broker,
             "point": info.point if info else None,
             "quote": {"t": clock.utc(t.time_msc / 1000), "bid": t.bid, "ask": t.ask} if t and t.bid > 0 else None,
             "bars": bars,
+            "bars_h1": bars_h1,
         }
     return out
 
@@ -142,6 +151,7 @@ def main() -> None:
     symbols = resolve_symbols(settings)
     log(f"bridge {VERSION}: {len(symbols)} symbols -> {settings['server']}  ({', '.join(f'{k}={v}' for k, v in symbols.items())})")
     clock, need, history, fails = Clock(), set(), 1500, 0  # the server says what history it needs
+    need_h1, h1_history, h1_sent = set(), 8000, {}  # h1_sent: when each symbol's hourly history last went up
     while True:
         started = time.time()
         try:
@@ -150,17 +160,24 @@ def main() -> None:
                 connect(settings)
                 symbols = resolve_symbols(settings)
             backfill = set(sorted(need)[:HISTORY_PER_PUSH])
-            payload = build_payload(symbols, clock, backfill, history)
+            due = sorted(s for s in need_h1 if started - h1_sent.get(s, 0) > 600)  # a short history is not re-sent every push
+            backfill_h1 = set() if backfill else set(due[:H1_HISTORY_PER_PUSH])
+            for s in backfill_h1:
+                h1_sent[s] = started
+            payload = build_payload(symbols, clock, backfill, history, backfill_h1, h1_history)
             res = push(settings, payload)
             need = set(res.get("need_history") or []) & set(symbols)
             history = int(res.get("history_bars") or history)
+            need_h1 = set(res.get("need_h1") or []) & set(symbols)
+            h1_history = int(res.get("h1_history_bars") or h1_history)
             for r in res.get("rejected") or []:
                 log(f"server rejected: {r}")
             with open(ALIVE_FILE, "w", encoding="utf-8") as fh:
                 fh.write(str(time.time()))
-            if fails or once or backfill:
+            if fails or once or backfill or backfill_h1:
                 log(f"pushed {len(payload['symbols'])} symbols ok" + (" (connection back)" if fails else "")
-                    + (f", history loaded for {', '.join(sorted(backfill))}" if backfill else ""))
+                    + (f", history loaded for {', '.join(sorted(backfill))}" if backfill else "")
+                    + (f", hourly history loaded for {', '.join(sorted(backfill_h1))}" if backfill_h1 else ""))
             fails = 0
         except urllib.error.HTTPError as e:
             fails += 1

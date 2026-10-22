@@ -89,6 +89,31 @@
     "max_spread_vs_normal": 1.5
   },
 
+  "vbo": {
+    "_read_me": "Volume breakout: the main paper account since 23 Oct 2026. London breakout of the Asian range (00:00-07:00 UTC), first hourly close outside it between 07:00 and 11:00, only on high volume (RVOL), on the right side of VWAP, in a volatile market and with the daily trend. Validated in the Trading-Bot repo on 16 years of Octa hourly data. The values below are the selected (tested) variant: change them and the test no longer describes what is trading.",
+    "enabled": true,
+    "tp_r": 2.0,
+    "_tp_r": "Target = stop distance x this.",
+    "min_rvol": 1.5,
+    "_min_rvol": "The breakout bar's tick volume must be at least this multiple of that hour's 20-day average.",
+    "sl_cap_atr": 2.0,
+    "_sl_cap_atr": "Stop = far side of the Asian range, but never more than this many hourly ATRs away.",
+    "risk_per_trade_pct": 0.5,
+    "max_open_positions": 3,
+    "max_daily_loss_pct": 2.0,
+    "max_consecutive_losses": 4,
+    "_limits": "Same limits as the validation: 0.5% risk per trade, 3 open positions, stop for the day after a 2% loss or 4 losses in a row, one trade per instrument per day.",
+    "max_drawdown_pct": 10.0,
+    "_max_drawdown_pct": "Kill switch: this account stops (until reset-kill.sh) if it falls this far below its peak. The test's worst drawdown was 3.5%.",
+    "max_lots": 2.0,
+    "max_leverage": 30.0,
+    "exit_utc_hour": 20,
+    "_exit_utc_hour": "Every position is closed at this UTC hour (as in the test).",
+    "news_window_min": 30,
+    "_news_window_min": "No new position this many minutes either side of a listed high-impact release (config/news_blackout.csv).",
+    "max_quote_age_s": 60
+  },
+
   "alerts": {
     "_read_me": "Telegram messages to your phone (set up with: bash ~/paper-desk/server/telegram.sh). Rung 5 of the ladder: kill switch -> send yourself an alert.",
     "trades": true,

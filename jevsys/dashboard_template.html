@@ -50,6 +50,7 @@ header { display: grid; gap: 6px; }
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
 .stat { padding: 14px 16px; display: grid; gap: 4px; border-left: 1px solid var(--rule); min-width: 0; }
 .stat:first-child { border-left: 0; }
+h3.sub { font-size: 13px; font-weight: 600; margin: 18px 0 6px; }
 .stat .v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; }
 .stat .s { font-size: 12px; color: var(--ink-3); }
 
@@ -174,6 +175,20 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
   <div class="banner" id="banner" hidden></div>
 
   <div class="halt" id="halt" hidden></div>
+  <section class="card" id="vbo-card">
+    <div class="card-head"><h2>Volume breakout · main paper account</h2><span class="label" id="vbo-note"></span></div>
+    <div class="halt" id="vbo-halt" hidden></div>
+    <section class="summary" id="vbo-summary" aria-label="Volume breakout summary"></section>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 4px">London breakout of the Asian range on hourly bars: the first close outside 00:00–07:00 UTC between 07:00 and 11:00 trades only on high volume (RVOL), on the right side of VWAP, in a volatile market and with the daily trend. Stop at the far side of the range (max 2 ATR), target 2R, everything closed at 20:00 UTC. Expect about one trade a month, not one a day.</p>
+    <div class="table-wrap" id="vbo-board"></div>
+    <h3 class="sub">Open positions</h3>
+    <div class="table-wrap" id="vbo-positions"></div>
+    <h3 class="sub">Closed trades</h3>
+    <div class="table-wrap" id="vbo-trades"></div>
+    <div class="chart" id="vbo-chart"></div>
+  </section>
+
+  <div class="label" style="margin:22px 0 8px">Jev account (5-minute decisions)</div>
   <section class="summary" id="summary" aria-label="Summary"></section>
 
   <section class="card">
@@ -426,6 +441,52 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
       tile("Drawdown", n(bk.drawdown_pct || 0, 2) + "%", "kill at " + (((S.risk || {}).settings || {}).max_drawdown_pct || "–") + "% · peak " + money(bk.peak)),
       tile("Next decision", nextIn == null ? "–" : span(nextIn), S.last_round ? "last at " + hm(S.last_round) : "none yet")
     ].join("");
+
+    // volume breakout (main account)
+    var V = S.vbo || null;
+    $("vbo-card").hidden = !V;
+    if (V) {
+      var vb = V.book || {}, vst = vb.stats || {}, vh = vb.halted, vs = V.settings || {};
+      $("vbo-note").textContent = (V.enabled ? "on" : "OFF") + " · risk " + (vs.risk_per_trade_pct || "–") + "% per trade · " + (V.evaluations || 0) + " hourly checks since restart";
+      $("vbo-halt").hidden = !vh;
+      if (vh) $("vbo-halt").textContent = "Kill switch ON (" + (vh.kind === "daily" ? "daily loss" : "drawdown") + "): " + vh.reason + ". " +
+        (vh.kind === "daily" ? "Trading resumes at 00:00 UTC." : "Trading stays off until reset: bash ~/paper-desk/server/reset-kill.sh");
+      $("vbo-summary").innerHTML = [
+        tile("Paper equity", money(vb.equity), "<span class='" + cls(vb.equity - vb.start) + "'>" + sgn((vb.equity / (vb.start || 10000) - 1) * 100, 2) + "%</span> from " + money(vb.start)),
+        tile("Today", "<span class='" + cls(vb.today_pnl) + "'>" + money(vb.today_pnl, true) + "</span>", (vb.today_trades || 0) + " closed today"),
+        tile("Open positions", (vb.positions || []).length, "max " + (vs.max_open_positions || "–")),
+        tile("Win rate", vst.n ? Math.round(vst.win_rate * 100) + "%" : "–", vst.n ? vst.n + " trades · PF " + (vst.profit_factor == null ? "–" : vst.profit_factor === Infinity ? "∞" : n(vst.profit_factor, 2)) : "no closed trades yet"),
+        tile("Avg trade", vst.n && vst.avg_r != null ? sgn(vst.avg_r, 2) + "R" : "–", "backtest: +0.13R"),
+        tile("Drawdown", n(vb.drawdown_pct || 0, 2) + "%", "kill at " + (vs.max_drawdown_pct || "–") + "% · peak " + money(vb.peak))
+      ].join("");
+      var VI = V.instruments || {}, ST = { entered: "live", skipped: "bad", "stand aside": "", waiting: "next", idle: "", off: "bad" };
+      var vrows = syms.map(function (sym) {
+        var r = VI[sym] || { status: "waiting", why: "no hourly bars yet" };
+        return "<tr><td><span class='sym'>" + pretty(sym) + "</span></td><td class='n r'>" + (r.bars || 0) + "</td>" +
+          "<td class='n'>" + (r.t ? dh(r.t) : "–") + "</td><td class='n r " + (r.rvol >= (vs.min_rvol || 1.5) ? "pos" : "") + "'>" + (r.rvol == null ? "–" : n(r.rvol, 2) + "×") + "</td>" +
+          "<td><span class='chip " + (ST[r.status] || "") + "'>" + esc(r.status + (r.side ? " " + r.side : "")) + "</span></td><td class='why'>" + esc(r.why || "") + "</td></tr>";
+      });
+      $("vbo-board").innerHTML = "<table><thead><tr><th>Instrument</th><th class='r'>Hourly bars</th><th>Last bar closed</th><th class='r'>Volume vs normal</th><th>Decision</th><th>Why</th></tr></thead><tbody>" + vrows.join("") + "</tbody></table>";
+      var vps = vb.positions || [];
+      $("vbo-positions").innerHTML = vps.length ? "<table><thead><tr><th>Instrument</th><th>Side</th><th class='r'>Lots</th><th class='r'>Entry</th><th class='r'>Now</th><th class='r'>Stop</th><th class='r'>Target</th><th class='r'>P&amp;L</th><th class='r'>Held</th><th>Why</th></tr></thead><tbody>" +
+        vps.map(function (p) {
+          var dg = (ins[p.sym] || {}).digits || 5;
+          return "<tr><td><span class='sym'>" + pretty(p.sym) + "</span></td><td><span class='chip " + (p.side === "long" ? "up" : "down") + "'>" + p.side + "</span></td>" +
+            "<td class='n r'>" + n(p.lots, 2) + "</td><td class='n r'>" + n(p.entry, dg) + "</td><td class='n r'>" + (p.price == null ? "–" : n(p.price, dg)) + "</td>" +
+            "<td class='n r'>" + n(p.stop, dg) + "</td><td class='n r'>" + n(p.target, dg) + "</td><td class='n r " + cls(p.pnl) + "'>" + money(p.pnl, true) + "</td>" +
+            "<td class='n r'>" + span(now - p.opened) + "</td><td class='why'>" + esc(p.reason) + "</td></tr>";
+        }).join("") + "</tbody></table>" : '<div class="empty">No open positions. Breakouts are checked as each hourly bar closes, 07:00–11:00 UTC.</div>';
+      var vtr = vb.trades || [];
+      $("vbo-trades").innerHTML = vtr.length ? "<table><thead><tr><th>Closed</th><th>Instrument</th><th>Side</th><th class='r'>Entry</th><th class='r'>Exit</th><th class='r'>P&amp;L</th><th class='r'>R</th><th class='r'>Held</th><th>Exit</th></tr></thead><tbody>" +
+        vtr.slice(0, 30).map(function (t) {
+          var dg = (ins[t.sym] || {}).digits || 5;
+          return "<tr><td class='n'>" + dh(t.closed) + "</td><td><span class='sym'>" + pretty(t.sym) + "</span></td><td><span class='chip " + (t.side === "long" ? "up" : "down") + "'>" + t.side + "</span></td>" +
+            "<td class='n r'>" + n(t.entry, dg) + "</td><td class='n r'>" + n(t.exit, dg) + "</td><td class='n r " + cls(t.pnl) + "'>" + money(t.pnl, true) + "</td>" +
+            "<td class='n r " + cls(t.r) + "'>" + (t.r == null ? "–" : sgn(t.r, 2)) + "</td><td class='n r'>" + span(t.held_min * 60) + "</td><td class='why'>" + esc(t.why) + "</td></tr>";
+        }).join("") + "</tbody></table>" : '<div class="empty">No closed trades yet.</div>';
+      var vpts = (FULL && FULL.vbo && FULL.vbo.book && FULL.vbo.book.equity_pts) || [];
+      line($("vbo-chart"), vpts, function (v) { return "$" + n(v, 0); }, true);
+    }
 
     var st = function (k) { return (stages[k - 1] || {}).status === "live"; };
     var L = [

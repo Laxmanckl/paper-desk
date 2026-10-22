@@ -8,13 +8,13 @@ version = "0.1.0"
 description = "Jev Desk: gold + forex trading system built from 'How to Build a 24/7 AI Trading System With Jev'. Paper only."
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = []
+dependencies = ["pandas>=2.2", "numpy>=1.26"]  # the volume breakout account (jevsys/vbo)
 
 [project.optional-dependencies]
 test = ["pytest"]
 
 [tool.setuptools]
-packages = ["jevsys"]
+packages = ["jevsys", "jevsys.vbo", "jevsys.vbo.lib"]
 
 [tool.setuptools.package-data]
 "*" = ["*.html"]

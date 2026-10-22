@@ -37,6 +37,7 @@ from .settings import Settings
 from .snapshot_log import SnapshotLog
 from .trader import Trader
 from .types import Quote
+from .vbo.runner import VboRisk, VolumeBreakout
 
 STAGES = [
     {"n": 1, "name": "State engine", "what": "Snapshot per instrument, < 400 tokens, no future data", "status": "live"},
@@ -92,6 +93,11 @@ class Desk:
             "nogate": Trader("nogate", "Jev without confidence gate (shadow)",
                              PaperBook(os.path.join(sdir, "shadow_nogate.json"), starting_equity, commission), self.risk),
         }
+        self.vbo_trader = Trader("vbo", "Volume breakout (main account)",
+                                 PaperBook(os.path.join(sdir, "vbo_book.json"), starting_equity, commission),
+                                 VboRisk(self.settings), live=True, event=self.event, alert=self._alert,
+                                 prefix="[Volume breakout] ")
+        self.vbo = VolumeBreakout(market, self.vbo_trader, self.settings)
         self.book = self.trader.book
         self.engine = FxStateEngine(market, self.cfg, starting_equity)
         self.engine.book = self.book
@@ -122,10 +128,15 @@ class Desk:
                    f"{len(self.book.positions)} open position(s). Alerts: "
                    + ("Telegram on." if self.alerter.enabled else "off (run server/telegram.sh to turn them on).")
                    + (f" Kill switch ON: {self.book.halted['reason']}." if self.book.halted else ""))
+        vb = self.vbo_trader.book
+        self.event(f"Volume breakout account (main): equity ${vb.equity({}):,.2f}, {len(vb.positions)} open position(s), "
+                   + ("on" if self.settings.vbo["enabled"] else "OFF (vbo.enabled is false)")
+                   + f". Trades hourly London breakouts with volume confirmation; {len(self.vbo.news)} news blackouts loaded."
+                   + (f" Kill switch ON: {vb.halted['reason']}." if vb.halted else ""))
 
     @property
     def traders(self) -> list[Trader]:
-        return [self.trader, *self.shadows.values()]
+        return [self.trader, self.vbo_trader, *self.shadows.values()]
 
     # ---- persistence ----------------------------------------------------
     def _restore(self) -> None:
@@ -309,6 +320,10 @@ class Desk:
             for tr in self.traders:
                 tr.check_exits(q, now, alerts if tr.live else None)
                 tr.mark(q, now, q_any, alerts if tr.live else None)
+            try:
+                self.vbo.tick(now, q)
+            except Exception as e:  # the breakout account must never take the desk down
+                self.event(f"[Volume breakout] error: {e}")
             if now - self._last_book_save >= 60:
                 for tr in self.traders:
                     tr.book.save()
@@ -352,6 +367,9 @@ class Desk:
         lines = [f"📊 Jev Desk daily · {day}",
                  f"Paper equity ${bv['equity']:,.2f} ({bv['today_pnl']:+,.2f} today, {bv['today_trades']} trades closed)",
                  f"Open positions: {len(bv['positions'])} · drawdown {bv['drawdown_pct']:.2f}%"]
+        vb = self.book_view(now, False, self.vbo_trader)
+        lines.insert(1, f"Volume breakout (main): ${vb['equity']:,.2f} ({vb['today_pnl']:+,.2f} today, "
+                        f"{vb['today_trades']} closed, {len(vb['positions'])} open)")
         for tr in self.shadows.values():
             lines.append(f"{tr.label}: ${tr.book.equity(self.quotes(now, 3600)):,.2f}")
         js = self.jev.status()
@@ -530,6 +548,9 @@ class Desk:
                        "tokens_max": max(toks) if toks else 0, "budget": self.cfg.max_snapshot_tokens},
             "book": book,
             "shadows": shadows,
+            "vbo": {**self.vbo.view(), "label": self.vbo_trader.label,
+                    "book": self.book_view(now, full, self.vbo_trader),
+                    "settings": self.settings.vbo},
             "account": {"start": book["start"], "equity": book["equity"], "realized": book["realized"],
                         "unrealized": book["unrealized"], "open_positions": len(book["positions"]),
                         "drawdown": book["drawdown_pct"] / 100},

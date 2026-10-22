@@ -34,6 +34,12 @@ DEFAULTS = {
         "rsi_long_min": 50, "rsi_long_max": 70, "rsi_short_min": 30, "rsi_short_max": 50,
         "exit_rsi_long": 78, "exit_rsi_short": 22, "max_spread_vs_normal": 1.5,
     },
+    "vbo": {
+        "enabled": True, "tp_r": 2.0, "min_rvol": 1.5, "sl_cap_atr": 2.0,
+        "risk_per_trade_pct": 0.5, "max_open_positions": 3, "max_daily_loss_pct": 2.0,
+        "max_consecutive_losses": 4, "max_drawdown_pct": 10.0, "max_lots": 2.0, "max_leverage": 30.0,
+        "exit_utc_hour": 20, "news_window_min": 30, "max_quote_age_s": 60,
+    },
     "alerts": {
         "trades": True, "kill_switch": True, "jev_down": True, "bridge_down_min": 5,
         "daily_summary_utc": "21:05",
@@ -53,6 +59,8 @@ BOUNDS = {
     "commission_per_lot_usd": (0, 50), "max_leverage": (0.5, 100),
     "after_failed_rounds": (1, 50), "risk_mult": (0.05, 1), "min_ema20_dist_atr": (0, 10), "min_ema20_slope_atr": (0, 5),
     "rsi_long_min": (0, 100), "rsi_long_max": (0, 100), "rsi_short_min": (0, 100), "rsi_short_max": (0, 100),
+    "tp_r": (0.5, 5), "min_rvol": (1, 5), "sl_cap_atr": (0.5, 10), "max_consecutive_losses": (1, 20),
+    "exit_utc_hour": (12, 23), "news_window_min": (0, 240),
     "exit_rsi_long": (50, 100), "exit_rsi_short": (0, 50), "max_spread_vs_normal": (1, 10), "bridge_down_min": (1, 600),
 }
 
@@ -139,6 +147,10 @@ class Settings:
     @property
     def fallback(self) -> dict:
         return self.data["fallback"]
+
+    @property
+    def vbo(self) -> dict:
+        return self.data["vbo"]
 
     @property
     def alerts(self) -> dict:
