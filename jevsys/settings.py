@@ -34,11 +34,34 @@ DEFAULTS = {
         "rsi_long_min": 50, "rsi_long_max": 70, "rsi_short_min": 30, "rsi_short_max": 50,
         "exit_rsi_long": 78, "exit_rsi_short": 22, "max_spread_vs_normal": 1.5,
     },
+    # London breakout: Asian range (00:00-07:00 UTC) → entry 07:00-11:00 UTC.
+    # The only session validated on real MT5 data (16 years, TEST +0.13R, PF 1.22).
     "vbo": {
         "enabled": True, "tp_r": 2.0, "min_rvol": 1.5, "sl_cap_atr": 2.0,
         "risk_per_trade_pct": 0.5, "max_open_positions": 3, "max_daily_loss_pct": 2.0,
         "max_consecutive_losses": 4, "max_drawdown_pct": 10.0, "max_lots": 2.0, "max_leverage": 30.0,
+        "range_start_utc": 0, "range_end_utc": 7, "entry_start_utc": 7, "entry_end_utc": 11,
         "exit_utc_hour": 20, "news_window_min": 30, "max_quote_age_s": 60,
+    },
+    # NY breakout: London range (07:00-13:00 UTC) → entry 13:00-18:00 UTC.
+    # Same recipe, different window. Not individually validated on real MT5 data;
+    # judge after a few months and turn off if it's losing.
+    "vbo_ny": {
+        "enabled": True, "tp_r": 2.0, "min_rvol": 1.5, "sl_cap_atr": 2.0,
+        "risk_per_trade_pct": 0.5, "max_open_positions": 3, "max_daily_loss_pct": 2.0,
+        "max_consecutive_losses": 4, "max_drawdown_pct": 10.0, "max_lots": 2.0, "max_leverage": 30.0,
+        "range_start_utc": 7, "range_end_utc": 13, "entry_start_utc": 13, "entry_end_utc": 18,
+        "exit_utc_hour": 21, "news_window_min": 30, "max_quote_age_s": 60,
+    },
+    # Overnight breakout (fed into the Asia session): NY range (13:00-20:00 UTC)
+    # → entry 20:00-23:00 UTC = 01:30-04:30 Dubai. Same recipe, different window.
+    # Not validated on real data; experimental.
+    "vbo_asia": {
+        "enabled": True, "tp_r": 2.0, "min_rvol": 1.5, "sl_cap_atr": 2.0,
+        "risk_per_trade_pct": 0.5, "max_open_positions": 3, "max_daily_loss_pct": 2.0,
+        "max_consecutive_losses": 4, "max_drawdown_pct": 10.0, "max_lots": 2.0, "max_leverage": 30.0,
+        "range_start_utc": 13, "range_end_utc": 20, "entry_start_utc": 20, "entry_end_utc": 23,
+        "exit_utc_hour": 23, "news_window_min": 30, "max_quote_age_s": 60,
     },
     "alerts": {
         "trades": True, "kill_switch": True, "jev_down": True, "bridge_down_min": 5,
@@ -60,7 +83,9 @@ BOUNDS = {
     "after_failed_rounds": (1, 50), "risk_mult": (0.05, 1), "min_ema20_dist_atr": (0, 10), "min_ema20_slope_atr": (0, 5),
     "rsi_long_min": (0, 100), "rsi_long_max": (0, 100), "rsi_short_min": (0, 100), "rsi_short_max": (0, 100),
     "tp_r": (0.5, 5), "min_rvol": (1, 5), "sl_cap_atr": (0.5, 10), "max_consecutive_losses": (1, 20),
-    "exit_utc_hour": (12, 23), "news_window_min": (0, 240),
+    "exit_utc_hour": (3, 23), "news_window_min": (0, 240),
+    "range_start_utc": (0, 23), "range_end_utc": (1, 24),
+    "entry_start_utc": (0, 23), "entry_end_utc": (1, 24),
     "exit_rsi_long": (50, 100), "exit_rsi_short": (0, 50), "max_spread_vs_normal": (1, 10), "bridge_down_min": (1, 600),
 }
 
@@ -151,6 +176,19 @@ class Settings:
     @property
     def vbo(self) -> dict:
         return self.data["vbo"]
+
+    @property
+    def vbo_ny(self) -> dict:
+        return self.data["vbo_ny"]
+
+    @property
+    def vbo_asia(self) -> dict:
+        return self.data["vbo_asia"]
+
+    def vbo_session(self, name: str) -> dict:
+        """Settings for a VBO session: 'london' (the 'vbo' section), 'ny' or 'asia'."""
+        key = "vbo" if name == "london" else f"vbo_{name}"
+        return self.data[key]
 
     @property
     def alerts(self) -> dict:

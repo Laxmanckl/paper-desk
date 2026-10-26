@@ -6,5 +6,7 @@ state/*.tmp
 .venv/
 state/paper_book.json
 state/vbo_book.json
+state/vbo_ny_book.json
+state/vbo_asia_book.json
 state/RESET_KILL
 state/shadow_*.json

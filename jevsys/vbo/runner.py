@@ -1,4 +1,4 @@
-"""Runs the volume breakout on live hourly bars and trades its paper account.
+"""Runs volume breakouts on live hourly bars and trades their paper accounts.
 
 Each time the MT5 bridge delivers a newly closed hourly bar for an instrument,
 the validated strategy code (``lib/strategy_volume_breakout.py``) is run on that
@@ -6,9 +6,16 @@ instrument's hourly history. If it publishes an entry plan on the bar that just
 closed, the position is opened at the live bid/ask, which is the next bar's open,
 exactly as in the backtest.
 
-The engine rules are those of the Trading-Bot backtester that validated it:
-  * entries only when the fill hour is inside 07:00-12:00 UTC (session filter)
-  * one trade per instrument per UTC day
+Three sessions, each with its own paper account and kill switch:
+  * london  (settings.vbo)      - Asian range (00:00-07:00 UTC) → entry 07:00-11:00 UTC.
+                                  The only session validated on real MT5 data.
+  * ny      (settings.vbo_ny)   - London range (07:00-13:00 UTC) → entry 13:00-18:00 UTC.
+  * asia    (settings.vbo_asia) - NY range (13:00-20:00 UTC) → entry 20:00-23:00 UTC.
+                                  (Fills into the Sydney / Tokyo open overnight.)
+
+The engine rules are the same as the Trading-Bot backtester:
+  * entries only when the fill hour is inside this session's entry window
+  * one trade per instrument per UTC day per session
   * no entry within ``news_window_min`` of a listed release for either currency
   * at most ``max_open_positions`` open; risk ``risk_per_trade_pct`` of equity to the stop
   * stop at least max(min stop distance, spread) from the fill, otherwise skip
@@ -37,16 +44,19 @@ MIN_H1_BARS = 2_000          # ~4 months: daily EMA50, 20-day volume and ATR ave
 FRESH_S = 15 * 60            # a bar older than this when it arrives is history, not a signal
 MIN_SL = {"XAUUSD": 0.50}    # Trading-Bot config.yaml min_sl_distance_price
 MIN_SL_DEFAULT = 0.00020
-SESSION = (7, 12)            # Trading-Bot StrategyParams.volume_breakout session_start/end_utc
 NEWS_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "config", "news_blackout.csv")
+
+SESSION_LABELS = {"london": "London breakout", "ny": "NY breakout", "asia": "Asia breakout"}
 
 
 def strategy_params(v: dict) -> SimpleNamespace:
-    """StrategyParams.volume_breakout() defaults, with the tuned values from settings."""
+    """StrategyParams.volume_breakout() with this session's windows and tuned values."""
     return SimpleNamespace(
         name=STRATEGY, timeframe="1h", atr_period=14,
-        range_start_utc=0, range_end_utc=7, entry_start_utc=7, entry_end_utc=11,
-        daily_ema_period=50, require_daily_trend=True, range_atr_horizon=7,
+        range_start_utc=int(v["range_start_utc"]), range_end_utc=int(v["range_end_utc"]),
+        entry_start_utc=int(v["entry_start_utc"]), entry_end_utc=int(v["entry_end_utc"]),
+        daily_ema_period=50, require_daily_trend=True,
+        range_atr_horizon=int(v["range_end_utc"]) - int(v["range_start_utc"]),
         range_atr_min=1.0, range_atr_max=2.5, sl_cap_atr=float(v["sl_cap_atr"]), tp_r=float(v["tp_r"]),
         min_rvol=float(v["min_rvol"]), rvol_lookback_days=20, require_vwap_side=True,
         vwap_anchor="previous_day", atr_regime_min=1.0, atr_regime_days=20,
@@ -68,11 +78,15 @@ def _utc_day(t: float) -> str:
 
 
 class VboRisk(RiskEngine):
-    """The volume breakout's own limits (settings section ``vbo``) and exit rules."""
+    """A VBO session's own limits and exit rules. Reads its settings section at every call."""
+
+    def __init__(self, settings, session_name: str = "london"):
+        super().__init__(settings)
+        self.session_name = session_name
 
     @property
     def r(self) -> dict:
-        return self.s.vbo
+        return self.s.vbo_session(self.session_name)
 
     def exit_reason(self, pos, q, now: float) -> str | None:
         px = exit_price(pos.side, q)
@@ -96,20 +110,33 @@ class VboRisk(RiskEngine):
 
 
 class VolumeBreakout:
-    def __init__(self, market, trader, settings, news_file: str = NEWS_FILE):
+    def __init__(self, market, trader, settings, session_name: str = "london",
+                 news_file: str = NEWS_FILE):
         self.market, self.trader, self.settings = market, trader, settings
-        self.news = load_news_filter(news_file, int(settings.vbo["news_window_min"]))
+        self.session_name = session_name
+        self.label = SESSION_LABELS.get(session_name, session_name)
+        self.news = load_news_filter(news_file, int(self.cfg["news_window_min"]))
         self.done: dict[str, tuple] = {}       # (newest bar open time, bar count) last looked at, per symbol
         self.latest: dict[str, dict] = {}      # what the dashboard shows per instrument
         self.evaluations = 0
 
     @property
+    def cfg(self) -> dict:
+        return self.settings.vbo_session(self.session_name)
+
+    @property
     def book(self):
         return self.trader.book
 
+    @property
+    def fill_window(self) -> tuple[int, int]:
+        """UTC hour window during which an entry fill is allowed."""
+        v = self.cfg
+        return int(v["entry_start_utc"]), int(v["entry_end_utc"]) + 1  # +1 so a signal on bar [end-1] can fill
+
     # ---- called every 2 s by the desk monitor (under the trade lock) ------------
     def tick(self, now: float, quotes: dict) -> None:
-        v = self.settings.vbo
+        v = self.cfg
         series = {}
         with self.market.lock:   # copy a symbol's history only when it has a new closed bar
             for s, sd in self.market.data.items():
@@ -132,14 +159,14 @@ class VolumeBreakout:
                 continue
             if not v["enabled"]:
                 self.latest[sym] = {"status": "off", "bars": len(bars), "t": last.ts + 3600,
-                                    "why": "volume breakout switched off in config/desk.json (vbo.enabled)"}
+                                    "why": f"{self.label} switched off in config/desk.json"}
                 continue
             self.latest[sym] = self.evaluate(sym, bars, now, quotes.get(sym))
 
     # ---- one closed bar ----------------------------------------------------------
     def evaluate(self, sym: str, bars, now: float, q) -> dict:
         self.evaluations += 1
-        v = self.settings.vbo
+        v = self.cfg
         df = bars_frame(bars)
         plans, meta = build_plans(df, strategy_params(v), None, explain=True)
         plan = plans[-1]
@@ -147,7 +174,13 @@ class VolumeBreakout:
         rec = {"bars": len(bars), "t": bars[-1].ts + 3600,
                "rvol": None if rvol is None or not np.isfinite(rvol[-1]) else round(float(rvol[-1]), 2)}
         if plan is None:
-            return {**rec, "status": "stand aside", "why": str(meta["reasons"][-1]).replace("no entry - ", "")}
+            why = str(meta["reasons"][-1]).replace("no entry - ", "")
+            # The strategy library hard-codes "London entry window" for every session;
+            # substitute this session's label so the dashboard reads correctly.
+            if self.session_name != "london":
+                why = why.replace("London entry window", f"{self.label} entry window")
+                why = why.replace("Asian range", f"{self.label} range")
+            return {**rec, "status": "stand aside", "why": why}
         side = "long" if plan.direction > 0 else "short"
         vetoes = self.vetoes(sym, side, plan, now, q)
         if vetoes:
@@ -160,13 +193,14 @@ class VolumeBreakout:
         return {**rec, "status": "entered", "side": side, "why": pos.reason, "position_id": pos.id}
 
     def vetoes(self, sym: str, side: str, plan, now: float, q) -> list[str]:
-        v, book, out = self.settings.vbo, self.book, []
+        v, book, out = self.cfg, self.book, []
         today = _utc_day(now)
         hour = time.gmtime(now).tm_hour
+        w0, w1 = self.fill_window
         if book.halted:
             out.append(f"kill switch on ({book.halted['reason']})")
-        if not SESSION[0] <= hour < SESSION[1]:
-            out.append(f"fill hour {hour:02d}:00 outside {SESSION[0]:02d}:00-{SESSION[1]:02d}:00 UTC")
+        if not w0 <= hour < w1:
+            out.append(f"fill hour {hour:02d}:00 outside {w0:02d}:00-{w1:02d}:00 UTC")
         if sym in book.positions:
             out.append("already in a position")
         elif any(t["sym"] == sym and _utc_day(t["opened"]) == today for t in book.trades):
@@ -196,7 +230,7 @@ class VolumeBreakout:
         return out
 
     def open(self, sym: str, side: str, plan, now: float, q):
-        v, spec = self.settings.vbo, INSTRUMENTS[sym]
+        v, spec = self.cfg, INSTRUMENTS[sym]
         d = 1 if side == "long" else -1
         entry = q.ask if d == 1 else q.bid
         stop = round(entry - d * plan.sl_dist, spec["digits"])
@@ -212,7 +246,8 @@ class VolumeBreakout:
             self.trader.event(f"{sym} {side} breakout skipped: position size below 0.01 lots")
             return None
         rv = plan.note.split("rvol=")[-1] if "rvol=" in plan.note else "?"
-        why = f"London breakout {side} · volume {float(rv):.1f}x normal" if rv != "?" else f"London breakout {side}"
+        why = (f"{self.label} {side} · volume {float(rv):.1f}x normal" if rv != "?"
+               else f"{self.label} {side}")
         p = self.book.open(sym, side, lots, q, stop, target, now, why, settings=self.settings.version)
         msg = (f"OPEN {sym} {side} {p.lots:.2f} lots @ {p.entry} · stop {p.stop} · target {p.target} "
                f"· risk ${p.risk_usd:,.2f} · {why}")
@@ -223,8 +258,11 @@ class VolumeBreakout:
 
     # ---- dashboard ----------------------------------------------------------------
     def view(self) -> dict:
-        v = self.settings.vbo
-        return {"strategy": STRATEGY, "enabled": v["enabled"], "evaluations": self.evaluations,
+        v = self.cfg
+        return {"strategy": STRATEGY, "session": self.session_name, "label": self.label,
+                "enabled": v["enabled"], "evaluations": self.evaluations,
                 "params": {k: v[k] for k in ("tp_r", "min_rvol", "sl_cap_atr", "risk_per_trade_pct",
-                                             "max_open_positions", "exit_utc_hour")},
+                                             "max_open_positions", "exit_utc_hour",
+                                             "range_start_utc", "range_end_utc",
+                                             "entry_start_utc", "entry_end_utc")},
                 "news_events": len(self.news), "instruments": dict(self.latest)}

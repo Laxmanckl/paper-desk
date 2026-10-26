@@ -230,7 +230,7 @@ def test_report_waits_for_enough_data(tmp_path):
     d.decide_round(now)
     r = d.refresh_report(now)
     assert not r["ready_for_real_money"] and {c["status"] for c in r["checks"]} == {"wait"}
-    assert set(r["accounts"]) == {"jev", "vbo", "rules", "nogate"}
+    assert set(r["accounts"]) == {"jev", "vbo_london", "vbo_ny", "vbo_asia", "rules", "nogate"}
     text = step8.to_text(r)
     assert "NOT ready for real money" in text and "Code-only rules" in text
 

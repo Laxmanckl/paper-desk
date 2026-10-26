@@ -225,7 +225,7 @@ def test_desk_runs_the_account_and_shows_it(tmp_path):
     st = d.state()
     assert st["vbo"]["instruments"]["EURUSD"]["status"] == "entered"
     assert len(st["vbo"]["book"]["positions"]) == 1
-    assert any("[Volume breakout] OPEN EURUSD long" in e[1] for e in st["log"])
+    assert any("[London breakout] OPEN EURUSD long" in e[1] for e in st["log"])
     assert "vbo" in json.loads(json.dumps(st, default=str))
 
 
@@ -244,3 +244,48 @@ def test_status_refreshes_when_history_arrives_for_the_same_bar(setup):
     vb.tick(now + 30, {"EURUSD": sd.quotes[-1]})
     assert vb.latest["EURUSD"]["bars"] == len(bars)
     assert vb.latest["EURUSD"]["status"] == "entered"
+
+
+def test_three_sessions_are_set_up_on_the_desk(tmp_path):
+    """London, NY and Asia each have their own Trader, PaperBook and VolumeBreakout."""
+    from jevsys.desk import Desk
+    from jevsys.jev import JevLayer
+    market = MarketStore()
+    d = Desk(market, state_path=str(tmp_path / "s.json"), log_dir=str(tmp_path / "logs"),
+             jev=JevLayer())
+    assert set(d.vbos) == {"london", "ny", "asia"}
+    assert set(d.vbo_traders) == {"london", "ny", "asia"}
+    assert d.vbos["london"].cfg["entry_start_utc"] == 7
+    assert d.vbos["ny"].cfg["entry_start_utc"] == 13
+    assert d.vbos["asia"].cfg["entry_start_utc"] == 20
+    # three separate paper books
+    books = {d.vbo_traders[n].book.path for n in ("london", "ny", "asia")}
+    assert len(books) == 3
+    # all three show up in state
+    st = d.state()
+    assert set(st["vbo_sessions"]) == {"london", "ny", "asia"}
+
+
+def test_fill_window_veto_matches_the_session(tmp_path):
+    """Each session only fills during its own entry window."""
+    from jevsys.vbo.runner import VolumeBreakout
+    from jevsys.trader import Trader
+    from jevsys.vbo.runner import VboRisk
+    settings = Settings(os.path.join(os.path.dirname(__file__), "..", "config", "desk.json"))
+    market = MarketStore()
+    plan = type("P", (), {"sl_dist": 0.002, "tp_dist": 0.004, "note": "x", "direction": 1})()
+    q = Quote("EURUSD", 0, 1.1, 1.1001)
+
+    for session, hour_in_window, hour_out in (("london", 9, 15), ("ny", 15, 9), ("asia", 21, 10)):
+        tr = Trader(f"vbo_{session}", session, PaperBook(str(tmp_path / f"{session}.json")),
+                    VboRisk(settings, session), live=True, event=lambda t: None,
+                    alert=lambda t, k=None, c=0: None)
+        vb = VolumeBreakout(market, tr, settings, session_name=session)
+        # a time inside the window
+        t_in = DAY + hour_in_window * H + 20
+        v_in = vb.vetoes("EURUSD", "long", plan, t_in, Quote("EURUSD", t_in, 1.1, 1.1001))
+        assert not any("outside" in x for x in v_in), f"{session} should allow entries at {hour_in_window}:00 UTC: {v_in}"
+        # a time outside the window
+        t_out = DAY + hour_out * H + 20
+        v_out = vb.vetoes("EURUSD", "long", plan, t_out, Quote("EURUSD", t_out, 1.1, 1.1001))
+        assert any("outside" in x for x in v_out), f"{session} should block entries at {hour_out}:00 UTC: {v_out}"
