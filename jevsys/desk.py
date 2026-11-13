@@ -37,6 +37,7 @@ from .settings import Settings
 from .snapshot_log import SnapshotLog
 from .trader import Trader
 from .types import Quote
+from .lz.runner import LorentzianAccount, LzRisk
 from .vbo.runner import VboRisk, VolumeBreakout
 
 STAGES = [
@@ -111,6 +112,13 @@ class Desk:
         # Keep the old attribute names so the rest of the code (and the dashboard) still works.
         self.vbo_trader = self.vbo_traders["london"]
         self.vbo = self.vbos["london"]
+        # Lorentzian ML (the TradingView "SmartAIML" model) on hourly bars: experimental,
+        # with its own paper account and kill switch. Off with lz.enabled: false.
+        self.lz_trader = Trader("lz", "Lorentzian ML (hourly)",
+                                PaperBook(os.path.join(sdir, "lz_book.json"), starting_equity, commission),
+                                LzRisk(self.settings), live=True, event=self.event, alert=self._alert,
+                                prefix="[Lorentzian ML] ")
+        self.lz = LorentzianAccount(market, self.lz_trader, self.settings)
         self.book = self.trader.book
         self.engine = FxStateEngine(market, self.cfg, starting_equity)
         self.engine.book = self.book
@@ -148,10 +156,14 @@ class Desk:
                        + ("on" if vbo.cfg["enabled"] else "OFF")
                        + f". Entry window {win}."
                        + (f" Kill switch ON: {tb.halted['reason']}." if tb.halted else ""))
+        lb = self.lz_trader.book
+        self.event(f"{self.lz.label}: equity ${lb.equity({}):,.2f}, {len(lb.positions)} open position(s), "
+                   + ("on" if self.lz.cfg["enabled"] else "OFF") + ". Trades its model's signals on hourly bars."
+                   + (f" Kill switch ON: {lb.halted['reason']}." if lb.halted else ""))
 
     @property
     def traders(self) -> list[Trader]:
-        return [self.trader, *self.vbo_traders.values(), *self.shadows.values()]
+        return [self.trader, *self.vbo_traders.values(), self.lz_trader, *self.shadows.values()]
 
     # ---- persistence ----------------------------------------------------
     def _restore(self) -> None:
@@ -340,6 +352,10 @@ class Desk:
                     vbo.tick(now, q)
                 except Exception as e:  # a breakout account's error must never take the desk down
                     self.event(f"[{vbo.label}] error: {e}")
+            try:
+                self.lz.tick(now, q)
+            except Exception as e:
+                self.event(f"[{self.lz.label}] error: {e}")
             if now - self._last_book_save >= 60:
                 for tr in self.traders:
                     tr.book.save()
@@ -387,6 +403,9 @@ class Desk:
             vb = self.book_view(now, False, self.vbo_traders[name])
             lines.insert(1 + i, f"{vbo.label}: ${vb['equity']:,.2f} ({vb['today_pnl']:+,.2f} today, "
                                 f"{vb['today_trades']} closed, {len(vb['positions'])} open)")
+        lv = self.book_view(now, False, self.lz_trader)
+        lines.insert(1 + len(self.vbos), f"{self.lz.label}: ${lv['equity']:,.2f} ({lv['today_pnl']:+,.2f} today, "
+                                         f"{lv['today_trades']} closed, {len(lv['positions'])} open)")
         for tr in self.shadows.values():
             lines.append(f"{tr.label}: ${tr.book.equity(self.quotes(now, 3600)):,.2f}")
         js = self.jev.status()
@@ -574,6 +593,8 @@ class Desk:
                                     "book": self.book_view(now, full, self.vbo_traders[name]),
                                     "settings": self.settings.vbo_session(name)}
                              for name, vbo in self.vbos.items()},
+            "lz": {**self.lz.view(), "book": self.book_view(now, full, self.lz_trader),
+                   "settings": self.settings.lz},
             "account": {"start": book["start"], "equity": book["equity"], "realized": book["realized"],
                         "unrealized": book["unrealized"], "open_positions": len(book["positions"]),
                         "drawdown": book["drawdown_pct"] / 100},

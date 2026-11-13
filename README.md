@@ -58,6 +58,30 @@ Everything closes at 20:00 UTC.
 | Settings | `config/desk.json` → `vbo` |
 | Prices | MT5 bridge 1.2+, which sends hourly bars with tick volume. It loads ~8000 bars of history per instrument on first contact. |
 
+## Lorentzian ML: an experimental paper account (since 13 Nov 2026)
+
+The TradingView "SmartAIML" script is jdehorty's open-source *Machine Learning: Lorentzian
+Classification* (MPL-2.0). `jevsys/lz/lorentzian.py` is a Python port of it with the script's
+default settings; `jevsys/lz/runner.py` runs it on the bridge's hourly bars.
+
+**How it decides.** Each closed hourly bar is described by five indicator readings (RSI 14,
+WaveTrend, CCI, ADX, RSI 9) and compared with similar past bars. The eight nearest vote on
+whether price rose or fell over the next four bars, giving a score from -8 to +8. A trade
+starts when the filtered signal flips direction and the script's kernel trend line agrees.
+
+**Rules around it** (ours: the script has no stops or sizing):
+- close after 4 hourly bars, or earlier if the model signals the other way (then reverse)
+- stop 2 hourly ATRs away, target 4 ATRs; 0.5% risk per trade; 3 open positions
+- no entries around listed news; stop for the day after a 2% loss or 4 losses in a row
+- its own $10,000 paper account and 10% drawdown kill switch
+
+**Not validated.** On the previous desk the same model lost 36% in six weeks on 15-minute
+bars and showed no edge on daily bars (2015-2023). Hourly bars are untested. The script's
+own win-rate table ignores costs and is not a backtest. Settings: `config/desk.json` → `lz`
+(`"enabled": false` switches it off).
+
+**After a code change, update the server:** `bash ~/paper-desk/server/update.sh`
+
 ## How it runs
 
 ```

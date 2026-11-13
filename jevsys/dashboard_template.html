@@ -181,6 +181,12 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
     <div id="vbo-sessions"></div>
   </section>
 
+  <section class="card" id="lz-card" hidden>
+    <div class="card-head"><h2>Lorentzian ML · experimental paper account</h2><span class="label" id="lz-note"></span></div>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 4px">The TradingView "SmartAIML" model (jdehorty's Lorentzian Classification) on hourly bars. It compares the latest bar with similar past bars and scores it from −8 (short) to +8 (long). A trade starts when its signal flips and its trend line agrees, and closes 4 hours later or when the signal flips back. Its own $10,000 paper account and kill switch. Not validated: it failed tests on 15-minute and daily bars, and hourly is untested.</p>
+    <div id="lz-body"></div>
+  </section>
+
   <div class="label" style="margin:22px 0 8px">Jev account (5-minute decisions)</div>
   <section class="summary" id="summary" aria-label="Summary"></section>
 
@@ -493,6 +499,48 @@ details.th table td { padding: 3px 8px; font-size: 12px; }
       });
       $("vbo-note").textContent = money(totalEq) + " total · " + totalOpen + " open · " + totalTrades + " closed · " + totalChecks + " checks";
       $("vbo-sessions").innerHTML = html;
+    }
+
+    // Lorentzian ML — one experimental account
+    var LZ = S.lz || null;
+    $("lz-card").hidden = !LZ;
+    if (LZ) {
+      var lb = LZ.book || {}, lst = lb.stats || {}, lh = lb.halted, ls = LZ.settings || {};
+      var LST = { entered: "live", "in position": "live", skipped: "bad", "stand aside": "", waiting: "next", idle: "", off: "bad" };
+      var lhalt = lh ? '<div class="halt">Kill switch ON (' + (lh.kind === "daily" ? "daily loss" : "drawdown") + '): ' + esc(lh.reason) + '. ' +
+        (lh.kind === "daily" ? "Trading resumes at 00:00 UTC." : "Trading stays off until reset by hand.") + '</div>' : "";
+      var lsum = [
+        tile("Paper equity", money(lb.equity), "<span class='" + cls(lb.equity - lb.start) + "'>" + sgn((lb.equity / (lb.start || 10000) - 1) * 100, 2) + "%</span>"),
+        tile("Today", "<span class='" + cls(lb.today_pnl) + "'>" + money(lb.today_pnl, true) + "</span>", (lb.today_trades || 0) + " closed"),
+        tile("Open", (lb.positions || []).length, "max " + (ls.max_open_positions || "–")),
+        tile("Win rate", lst.n ? Math.round(lst.win_rate * 100) + "%" : "–", lst.n ? lst.n + " trades" : "no trades"),
+        tile("Avg R", lst.n && lst.avg_r != null ? sgn(lst.avg_r, 2) + "R" : "–", "experimental"),
+        tile("Drawdown", n(lb.drawdown_pct || 0, 2) + "%", "kill at " + (ls.max_drawdown_pct || "–") + "%")
+      ].join("");
+      var LI = LZ.instruments || {};
+      var lrows = syms.map(function (sym) {
+        var r = LI[sym] || { status: "waiting", why: "no hourly bars yet" };
+        var sc = r.prediction == null ? "–" : (r.prediction > 0 ? "+" : "") + r.prediction;
+        return "<tr><td><span class='sym'>" + pretty(sym) + "</span></td><td class='n r " + cls(r.prediction || 0) + "'>" + sc + "</td>" +
+          "<td><span class='chip " + (LST[r.status] || "") + "'>" + esc(r.status + (r.side ? " " + r.side : "")) + "</span></td><td class='why'>" + esc(r.why || "") + "</td></tr>";
+      });
+      var lboard = "<div class='table-wrap' style='margin-top:10px'><table><thead><tr><th>Instrument</th><th class='r'>Model score</th><th>Decision</th><th>Why</th></tr></thead><tbody>" + lrows.join("") + "</tbody></table></div>";
+      var lps = lb.positions || [];
+      var lpos = lps.length ? "<h4 class='sub'>Open positions</h4><div class='table-wrap'><table><thead><tr><th>Instrument</th><th>Side</th><th class='r'>Lots</th><th class='r'>Entry</th><th class='r'>Now</th><th class='r'>P&amp;L</th><th class='r'>Held</th></tr></thead><tbody>" +
+        lps.map(function (p) {
+          var dg = (ins[p.sym] || {}).digits || 5;
+          return "<tr><td><span class='sym'>" + pretty(p.sym) + "</span></td><td><span class='chip " + (p.side === "long" ? "up" : "down") + "'>" + p.side + "</span></td>" +
+            "<td class='n r'>" + n(p.lots, 2) + "</td><td class='n r'>" + n(p.entry, dg) + "</td><td class='n r'>" + (p.price == null ? "–" : n(p.price, dg)) + "</td>" +
+            "<td class='n r " + cls(p.pnl) + "'>" + money(p.pnl, true) + "</td><td class='n r'>" + span(now - p.opened) + "</td></tr>";
+        }).join("") + "</tbody></table></div>" : "";
+      var ltr = lb.trades || [];
+      var ltrades = ltr.length ? "<h4 class='sub'>Closed trades</h4><div class='table-wrap'><table><thead><tr><th>Closed</th><th>Instrument</th><th>Side</th><th class='r'>P&amp;L</th><th class='r'>R</th><th>Why closed</th></tr></thead><tbody>" +
+        ltr.slice(0, 15).map(function (t) {
+          return "<tr><td class='n'>" + dh(t.closed) + "</td><td><span class='sym'>" + pretty(t.sym) + "</span></td><td><span class='chip " + (t.side === "long" ? "up" : "down") + "'>" + t.side + "</span></td>" +
+            "<td class='n r " + cls(t.pnl) + "'>" + money(t.pnl, true) + "</td><td class='n r " + cls(t.r) + "'>" + (t.r == null ? "–" : sgn(t.r, 2)) + "</td><td class='why'>" + esc(t.why || "") + "</td></tr>";
+        }).join("") + "</tbody></table></div>" : "";
+      $("lz-note").textContent = (LZ.enabled ? "on" : "OFF") + " · " + money(lb.equity) + " · " + lps.length + " open · " + (lst.n || 0) + " closed · " + (LZ.evaluations || 0) + " hourly checks";
+      $("lz-body").innerHTML = lhalt + '<section class="summary">' + lsum + '</section>' + lboard + lpos + ltrades;
     }
 
     var st = function (k) { return (stages[k - 1] || {}).status === "live"; };

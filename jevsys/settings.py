@@ -63,6 +63,15 @@ DEFAULTS = {
         "range_start_utc": 13, "range_end_utc": 20, "entry_start_utc": 20, "entry_end_utc": 23,
         "exit_utc_hour": 23, "news_window_min": 30, "max_quote_age_s": 60,
     },
+    # Lorentzian ML (jevsys/lz): the TradingView "SmartAIML" / Lorentzian Classification
+    # model on hourly bars. Experimental: it failed the old desk's tests on 15-minute
+    # and daily bars; hourly is untested. Its own paper account and kill switch.
+    "lz": {
+        "enabled": True, "hold_bars": 4, "stop_atr_mult": 2.0, "target_atr_mult": 4.0,
+        "risk_per_trade_pct": 0.5, "max_open_positions": 3, "max_daily_loss_pct": 2.0,
+        "max_consecutive_losses": 4, "max_drawdown_pct": 10.0, "max_lots": 2.0, "max_leverage": 30.0,
+        "news_window_min": 30, "max_quote_age_s": 60,
+    },
     "alerts": {
         "trades": True, "kill_switch": True, "jev_down": True, "bridge_down_min": 5,
         "daily_summary_utc": "21:05",
@@ -84,6 +93,7 @@ BOUNDS = {
     "rsi_long_min": (0, 100), "rsi_long_max": (0, 100), "rsi_short_min": (0, 100), "rsi_short_max": (0, 100),
     "tp_r": (0.5, 5), "min_rvol": (1, 5), "sl_cap_atr": (0.5, 10), "max_consecutive_losses": (1, 20),
     "exit_utc_hour": (3, 23), "news_window_min": (0, 240),
+    "hold_bars": (1, 48), "target_atr_mult": (0.5, 20),
     "range_start_utc": (0, 23), "range_end_utc": (1, 24),
     "entry_start_utc": (0, 23), "entry_end_utc": (1, 24),
     "exit_rsi_long": (50, 100), "exit_rsi_short": (0, 50), "max_spread_vs_normal": (1, 10), "bridge_down_min": (1, 600),
@@ -189,6 +199,10 @@ class Settings:
         """Settings for a VBO session: 'london' (the 'vbo' section), 'ny' or 'asia'."""
         key = "vbo" if name == "london" else f"vbo_{name}"
         return self.data[key]
+
+    @property
+    def lz(self) -> dict:
+        return self.data["lz"]
 
     @property
     def alerts(self) -> dict:

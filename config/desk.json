@@ -163,6 +163,27 @@
     "max_quote_age_s": 60
   },
 
+  "lz": {
+    "_read_me": "Lorentzian ML: the TradingView 'SmartAIML' model (jdehorty's Lorentzian Classification) on hourly bars, added 13 Nov 2026 as its own $10,000 paper account. Each closed hourly bar is compared with similar past bars and scored from -8 (short) to +8 (long); a trade starts when the model's signal flips and its trend line agrees. NOT validated: the same model failed the old desk's tests on 15-minute bars (-36% in 6 weeks) and on daily bars (no edge, 2015-2023); hourly bars are untested. Judge it over a few months and set enabled=false if it loses.",
+    "enabled": true,
+    "hold_bars": 4,
+    "_hold_bars": "A position closes this many hourly bars after it opened (the model predicts 4 bars ahead), or earlier when the model signals the other way.",
+    "stop_atr_mult": 2.0,
+    "target_atr_mult": 4.0,
+    "_stop_and_target": "Protective stop and target, in hourly ATRs from the entry. The TradingView script has neither; the stop is what the position size is based on.",
+    "risk_per_trade_pct": 0.5,
+    "max_open_positions": 3,
+    "max_daily_loss_pct": 2.0,
+    "max_consecutive_losses": 4,
+    "_limits": "0.5% risk per trade, 3 open positions, stop for the day after a 2% loss or 4 losses in a row.",
+    "max_drawdown_pct": 10.0,
+    "_max_drawdown_pct": "Kill switch: this account stops (until reset-kill.sh) if it falls this far below its peak.",
+    "max_lots": 2.0,
+    "max_leverage": 30.0,
+    "news_window_min": 30,
+    "max_quote_age_s": 60
+  },
+
   "alerts": {
     "_read_me": "Telegram messages to your phone (set up with: bash ~/paper-desk/server/telegram.sh). Rung 5 of the ladder: kill switch -> send yourself an alert.",
     "trades": true,
